@@ -20,7 +20,7 @@ const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('.
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live }) {
+function createApi({ network, live, analytics = null }) {
     const r = express.Router();
 
     r.use((req, res, next) => {
@@ -42,8 +42,9 @@ function createApi({ network, live }) {
     }
 
     r.get('/stats', async (req, res) => {
-        const stats = await network.stats(normaliseDays(req.query.days));
-        if (!stats) return notFound(req, res, 'report.stats_not_found', 'OpenVibe.Network did not answer with the open numbers.');
+        const days = normaliseDays(req.query.days);
+        const stats = analytics ? await analytics.stats(days) : await network.stats(days);
+        if (!stats) return notFound(req, res, 'report.stats_not_found', 'The open numbers did not answer for this window.');
         return res.json(stats);
     });
 

@@ -6,15 +6,19 @@ process.env.RELEASE_COMMIT = process.env.RELEASE_COMMIT || '0000000';
 
 /**
  * Boots OpenVibe.Report on an ephemeral port with a stub fetch (no network, no running site) and returns a small
- * HTTP client. Each test file gets its own app, clients and captured log lines.
+ * HTTP client. Each test file gets its own app, clients and captured log lines. `boot({ db: true })` adds a migrated
+ * PGlite and `store` (the analytics tests); without it the app runs with `store: null`, as a network-only front.
  *
  *   const t = await boot();
  *   t.get('/api/v1/stats?days=30') → { status, headers, text, json() }
+ *   t.get('/internal/events', { method: 'POST', headers, body }) → a raw-body request
  *   t.logs()
  */
 const http = require('http');
 const configLib = require('../../server/config');
 const { createApp } = require('../../server/app');
+const { createStore } = require('../../server/db');
+const { testDb } = require('./db');
 
 const NETWORK = 'http://127.0.0.1:4000';
 const LIVE = 'http://127.0.0.1:3000';
@@ -152,11 +156,18 @@ async function boot(opts = {}) {
         ...(opts.env || {}),
     };
     const config = configLib.load(env);
+    // Most tests never touch the database; `boot({ db: true })` gives them a migrated PGlite of their own.
+    const testdatabase = (opts.db === true || opts.store) ? await testDb({ store: opts.dbStore }) : null;
+    const store = opts.store || (testdatabase ? createStore(testdatabase.db, { now: opts.now }) : null);
     const built = await createApp({
         config,
+        store,
         fetchImpl,
         log,
         now: opts.now,
+        billing: opts.billing,
+        analytics: opts.analytics,
+        shadow: opts.shadow,
         releaseEnv: { ...process.env, RELEASE_COMMIT: '0000000' },
     });
     const server = await new Promise((resolve) => {
@@ -166,11 +177,11 @@ async function boot(opts = {}) {
     const base = `http://127.0.0.1:${server.address().port}`;
 
     async function get(pathname, o = {}) {
-        const res = await fetch(base + pathname, {
-            method: o.method || 'GET',
-            headers: o.headers || {},
-            redirect: 'manual',
-        });
+        const headers = { ...(o.headers || {}) };
+        let body = o.body;
+        if (o.json !== undefined) { body = JSON.stringify(o.json); headers['content-type'] = 'application/json'; }
+        const method = o.method || (body ? 'POST' : 'GET');
+        const res = await fetch(base + pathname, { method, headers, body, redirect: 'manual' });
         const text = await res.text();
         return {
             status: res.status,
@@ -181,11 +192,12 @@ async function boot(opts = {}) {
     }
 
     return {
-        base, config, ctx: built.ctx, fetchImpl, get,
+        base, config, ctx: built.ctx, fetchImpl, get, testdatabase,
         logs: () => captured.join('\n'),
         async close() {
             built.ctx.metricsStop();
             await new Promise((resolve) => server.close(resolve));
+            if (testdatabase) await testdatabase.close().catch(() => {});
         },
     };
 }

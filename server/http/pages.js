@@ -21,7 +21,7 @@ const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('.
 
 const CACHE = 'public, max-age=120';
 
-function createPageRoutes({ network, live }) {
+function createPageRoutes({ network, live, analytics = null }) {
     const r = express.Router();
 
     function send(res, html, status = 200) {
@@ -33,7 +33,7 @@ function createPageRoutes({ network, live }) {
 
     r.get('/', async (_req, res) => {
         const [stats, rundown, topics] = await Promise.all([
-            network.stats(7),
+            analytics ? analytics.stats(7) : network.stats(7),
             live.rundown(),
             live.topics(),
         ]);
@@ -45,7 +45,7 @@ function createPageRoutes({ network, live }) {
 
     r.get('/stats', async (req, res) => {
         const days = normaliseDays(req.query.days);
-        const stats = await network.stats(days);
+        const stats = analytics ? await analytics.stats(days) : await network.stats(days);
         if (!stats) return notFound(res);
         return send(res, views.stats({ stats, days }));
     });
