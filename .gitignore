@@ -8,5 +8,5 @@ node_modules/
 *.pem
 *.key
 coverage/
-data/
+/data/
 .DS_Store
