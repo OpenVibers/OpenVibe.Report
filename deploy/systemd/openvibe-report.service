@@ -1,7 +1,7 @@
 [Unit]
 Description=OpenVibe.Report — Every number on OpenVibe, honest.
-# Network and Live should be up first, but Report degrades honestly without either: the pages and the API answer
-# what they can and /api/ready says degraded (never 503), because neither source is required to serve a page.
+# Network, Live and Billing should be up first, but Report degrades honestly without either read API. The database
+# is required after REPORT_SOURCE=report; before that it is the shadow store.
 After=network.target openvibe-network.service openvibe-live.service
 Wants=openvibe-network.service openvibe-live.service
 

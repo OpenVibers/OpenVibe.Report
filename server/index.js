@@ -5,14 +5,16 @@
  * Listens on PORT (5080) behind nginx (deploy/).
  */
 const { createApp } = require('./app');
+const { createAnalyticsJobs } = require('./jobs/analytics');
 const { gracefulStop } = require('openvibe-sdk/service');
 
 /**
- * The process stop (openvibe-sdk/service): the HTTP drain runs, then anything the product added closes. Report
- * has no database, no key refresher and no subscriptions, so there is nothing else to close. Exported so a test can
- * inject `exit` and `signals: false`.
+ * The process stop (openvibe-sdk/service): the HTTP drain runs, then the jobs stop and the database closes.
+ * Exported so a test can inject `exit` and `signals: false`.
  */
-function createLifecycle({ server, exit, signals } = {}) {
+function createLifecycle({ server, exit, signals, ctx } = {}) {
+    const jobs = ctx && ctx.jobs;
+    const store = ctx && ctx.store;
     return gracefulStop({
         name: 'OpenVibe.Report',
         server,
@@ -20,6 +22,8 @@ function createLifecycle({ server, exit, signals } = {}) {
         exit,
         signals,
         deadlineMs: 10_000,
+        stop: [() => (jobs ? jobs.stop() : undefined)],
+        close: [() => (store ? store.close() : undefined)],
     });
 }
 
@@ -27,8 +31,12 @@ async function start() {
     const { app, ctx } = await createApp();
     const { config } = ctx;
 
+    const jobs = createAnalyticsJobs({ config, analytics: ctx.analytics, shadow: ctx.shadow, log: ctx.log });
+    ctx.jobs = jobs;
+    jobs.start();
+
     const server = app.listen(config.port, config.host, () => {
-        console.log(`[OpenVibe.Report] ${config.nodeEnv} on http://${config.host}:${config.port} → ${config.baseUrl} (network ${config.networkUrl}, live ${config.liveUrl})`);
+        console.log(`[OpenVibe.Report] ${config.nodeEnv} on http://${config.host}:${config.port} → ${config.baseUrl} (source ${config.source}; network ${config.networkUrl}, live ${config.liveUrl}, billing ${config.billing.url})`);
     });
     server.keepAliveTimeout = 65_000;
     createLifecycle({ server, ctx });

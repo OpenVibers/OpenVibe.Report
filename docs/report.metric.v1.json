@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openvibe.network/contracts/report/metric.v1.json",
+  "title": "ReportMetric",
+  "description": "report.metric@1: one number OpenVibe.Report computed or ingested, with its scope and either its UTC day (a day series) or its window. Counts only. Money values are Billing's, read through Billing's API; Report never derives them.",
+  "type": "object",
+  "required": ["metric", "scope", "scope_id", "value", "unit", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "metric": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,60}$",
+      "description": "The number's name: pageviews, accounts_new, coins_earned, live_now, streams, stream_seconds, messages, watch_minutes, traffic_p95_ms, revenue_bits, refund_bits, ..."
+    },
+    "scope": { "enum": ["network", "site", "channel", "stream"] },
+    "scope_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "network for the network scope; a site id (network, live, ...), a channel username, or a stream id."
+    },
+    "day": {
+      "type": "string",
+      "format": "date",
+      "description": "The UTC day this number belongs to. Present on a day row."
+    },
+    "window_days": {
+      "type": "integer",
+      "enum": [7, 30, 90],
+      "description": "The window this number is for. Present on a window row."
+    },
+    "value": { "type": "number" },
+    "unit": { "enum": ["count", "seconds", "minutes", "bits", "cents", "milliseconds", "percent"] },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "network-stats, live, billing, report, or the job that wrote it."
+    }
+  },
+  "oneOf": [
+    { "required": ["day"], "not": { "required": ["window_days"] } },
+    { "required": ["window_days"], "not": { "required": ["day"] } }
+  ]
+}

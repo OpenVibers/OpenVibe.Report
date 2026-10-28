@@ -10,8 +10,9 @@
  *   /robots.txt, /sitemap.xml, /llms.txt                       crawl artifacts (http/discovery.js)
  *   /api/health, /api/ready, /release.json, /release-metrics   the plumbing (loopback scrape for /metrics)
  *
- * The service is stateless: no database, no sessions and no events. The two source clients are the only state
- * (their in-process caches). The plumbing is the skeleton's, modelled on OpenVibe.Help.
+ * Report has its own database (server/db.js, migrations/) for the analytics it ingests, and reads Billing's money
+ * through Billing's read API. The pages and GET /api/v1/stats answer from REPORT_SOURCE (network by default,
+ * report after cutover); Report's tables are written by the ingest job and by OpenVibe.Events. No sessions.
  */
 const path = require('path');
 const express = require('express');
@@ -21,11 +22,16 @@ const contracts = require('openvibe-contracts');
 const cache = require('openvibe-shared/cache-policy');
 
 const configLib = require('./config');
+const { openStore } = require('./db');
 const { createNetworkClient } = require('./data/network');
 const { createLiveClient } = require('./data/live');
+const { createBillingClient } = require('./data/billing');
+const { createAnalytics } = require('./analytics');
+const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
 const { createPageRoutes } = require('./http/pages');
 const { createDiscoveryRoutes } = require('./http/discovery');
+const { createInternalRoutes } = require('./http/internal');
 const { createServiceReadiness } = require('./observability');
 const views = require('./views');
 const { PUBLIC_DIR, assetVersion } = require('./assets');
@@ -33,18 +39,23 @@ const { PUBLIC_DIR, assetVersion } = require('./assets');
 const VERSION = require('../package.json').version;
 const PAGE_CACHE = 'public, max-age=120';
 
-/** opts: config, fetchImpl, log, now, network, live, releaseEnv */
+/** opts: config, store, fetchImpl, log, now, network, live, billing, analytics, shadow, releaseEnv */
 async function createApp(opts = {}) {
     const config = opts.config || configLib.load();
     const log = opts.log || console;
     const fetchImpl = opts.fetchImpl || globalThis.fetch;
     const now = opts.now || (() => Date.now());
 
+    // `store: null` is a deliberate no-database process (most unit tests); undefined opens the configured one.
+    const store = opts.store !== undefined ? opts.store : await openStore(config, { now, log });
     const network = opts.network || createNetworkClient({ config, fetchImpl, log, now });
     const live = opts.live || createLiveClient({ config, fetchImpl, log, now });
+    const billing = opts.billing || createBillingClient({ config, fetchImpl, log, now });
+    const analytics = opts.analytics || createAnalytics({ config, store, network, billing, now, log });
+    const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     views.configure({ baseUrl: config.baseUrl });
 
-    const ctx = { config, log, fetchImpl, now, network, live };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, analytics, shadow };
     const app = express();
     app.disable('x-powered-by');
     app.set('trust proxy', config.trustProxy);
@@ -91,7 +102,7 @@ async function createApp(opts = {}) {
     // ── Machine endpoints ───────────────────────────────────
     app.get('/api/health', (_req, res) => res.set('Cache-Control', 'no-store').json({ status: 'ok', service: 'openvibe-report', version: VERSION }));
     release.mount(app, { registry: metrics.registry });
-    const readiness = createServiceReadiness({ config, fetchImpl, release: release.release });
+    const readiness = createServiceReadiness({ config, fetchImpl, release: release.release, store });
     ctx.readiness = readiness;
     app.get('/api/ready', readiness.handler);
 
@@ -108,6 +119,9 @@ async function createApp(opts = {}) {
         },
     }));
 
+    // ── Loopback-only operator and Events routes ────────────
+    app.use('/internal', createInternalRoutes({ analytics, shadow, config, now, log }));
+
     // ── API: CORS-open, public for two minutes, 120 requests a minute per address ──
     app.use('/api/v1', (_req, res, next) => {
         res.set('Access-Control-Allow-Origin', '*');
@@ -121,7 +135,7 @@ async function createApp(opts = {}) {
         legacyHeaders: false,
         handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
     }));
-    app.use('/api/v1', createApi({ network, live }));
+    app.use('/api/v1', createApi({ network, live, analytics }));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 
     // ── Crawl artifacts, then the pages ─────────────────────
