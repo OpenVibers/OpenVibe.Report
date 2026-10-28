@@ -32,7 +32,7 @@ function siteUpdated() {
     }
 }
 
-function createDiscoveryRoutes({ config, live }) {
+function createDiscoveryRoutes({ config, live, bench }) {
     const r = express.Router();
     const site = String(config.baseUrl || 'https://openvibe.report').replace(/\/+$/, '');
     const abs = (p) => `${site}${p}`;
@@ -45,13 +45,18 @@ function createDiscoveryRoutes({ config, live }) {
     });
 
     r.get('/sitemap.xml', async (_req, res) => {
-        const data = await live.topics();
+        const [data, ai] = await Promise.all([live.topics(), bench.kinds()]);
         const topics = (data && Array.isArray(data.topics)) ? data.topics : [];
+        const kinds = (ai && Array.isArray(ai.data.kinds)) ? ai.data.kinds : [];
         const lastmod = siteUpdated();
         const pages = [
             { loc: abs('/'), changefreq: 'daily', priority: 1.0 },
             { loc: abs('/stats'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/rundown'), changefreq: 'daily', priority: 0.9 },
+            { loc: abs('/ai'), changefreq: 'daily', priority: 0.9 },
+            ...kinds.filter((k) => k && bench.isKindId(k.id)).map((k) => ({
+                loc: abs(`/ai/${encodeURIComponent(k.id)}`), changefreq: 'daily', priority: 0.7,
+            })),
             ...topics.filter((t) => t && typeof t.slug === 'string').map((t) => ({
                 loc: abs(`/rundown/t/${encodeURIComponent(t.slug)}`),
                 changefreq: 'weekly',
@@ -71,6 +76,7 @@ function createDiscoveryRoutes({ config, live }) {
                     { title: 'OpenVibe.Report', url: abs('/'), note: 'the Report room' },
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
                     { title: 'The Rundown', url: abs('/rundown'), note: 'what streamers talked about, topic by topic' },
+                    { title: 'AI boards', url: abs('/ai'), note: 'Bench ratings, quality and cost across rooms' },
                 ] },
                 { title: 'Machine-readable', links: [
                     { title: 'Open stats (JSON)', url: abs('/api/v1/stats?days=7'), note: '?days=7, 30 or 90' },

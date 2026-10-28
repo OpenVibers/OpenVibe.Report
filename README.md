@@ -33,6 +33,7 @@ OpenVibe.Live in both modes.
 | **Report's tables** | `report_metric_days`, `report_metric_windows`, `report_streams` | the same routes while `REPORT_SOURCE=report` |
 | **OpenVibe.Live** — The Rundown | `GET /api/rundown/`, `/api/rundown/topics`, `/api/rundown/t/:slug`, `/api/rundown/e/:streamId`, `/api/rundown/s/:username` | `/rundown`, `/rundown/t/:slug`, `/rundown/e/:streamId`, `/rundown/s/:username` |
 | **OpenVibe.Live** — after-show reports | `GET /api/recap/:streamId`, `GET /api/recap/channel/:username` | `/after-show/:streamId`, `/c/:username` |
+| **OpenVibe.Bench** | `GET /api/v1/kinds`, `/api/v1/boards/:kind?type=elo\|pareto\|cost`, `/api/v1/models/:model` | `/ai`, `/ai/:kind`, `/ai/models/:model` |
 | **OpenVibe.Billing** | `GET /api/v1/stats`, `GET /api/v1/transactions?subject=…` | the revenue read for a channel; network money counts |
 
 A source that does not answer is null, after one short log line; the page (or API route) becomes a 404. The service
@@ -72,9 +73,14 @@ All server-rendered in `server/views/index.js`; every dynamic value goes through
 | `/rundown/s/:username` | one streamer's episodes and topics |
 | `/after-show/:streamId` | one after-show report |
 | `/c/:username` | one channel's latest after-show reports |
+| `/ai` | benchmark kinds grouped by room, with leaders and game counts |
+| `/ai/:kind` | Elo, Pareto quality against cost per solved, and cost per solved tables |
+| `/ai/models/:model` | a model's ratings and entries across kinds |
 
 A bad path parameter (slug, stream id, username) or a source that answered nothing renders `views.notFound()` with
 status 404. Pages are `Cache-Control: public, max-age=120`.
+AI pages use a 60-second Bench read cache and serve its last good copy with the read time during an outage. Their
+HTML is `no-store` so the outage notice stays current.
 
 ## API
 
@@ -135,6 +141,7 @@ Every value comes from the environment (production: `/etc/openvibe/report.env`).
 | `OV_NETWORK_INTERNAL_URL` | `http://127.0.0.1:4000` | Network's loopback origin (its manifest's `internalOrigin`) |
 | `OV_NETWORK_URL` | `https://openvibe.network` | the OAuth token endpoint's origin |
 | `OV_LIVE_INTERNAL_URL` | `http://127.0.0.1:3000` | Live's loopback origin |
+| `OV_BENCH_INTERNAL_URL` | `https://bench.openvibe.services` | Bench's public read origin, optionally an internal origin |
 | `OV_BILLING_INTERNAL_URL` | `http://127.0.0.1:4600` | Billing's loopback origin |
 | `OV_OAUTH_CLIENT_ID` / `OV_OAUTH_CLIENT_SECRET` | `report` / unset | Report's client-credentials token for `openvibe.billing` |
 | `REPORT_BILLING_TOKEN` | unset | an explicit Billing bearer token for an operator run |

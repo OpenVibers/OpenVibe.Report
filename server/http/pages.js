@@ -21,11 +21,11 @@ const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('.
 
 const CACHE = 'public, max-age=120';
 
-function createPageRoutes({ network, live, analytics = null }) {
+function createPageRoutes({ network, live, bench, analytics = null }) {
     const r = express.Router();
 
-    function send(res, html, status = 200) {
-        res.status(status).set('Cache-Control', CACHE).type('html').send(html);
+    function send(res, html, status = 200, cacheControl = CACHE) {
+        res.status(status).set('Cache-Control', cacheControl).type('html').send(html);
     }
     function notFound(res) {
         return send(res, views.notFound(), 404);
@@ -48,6 +48,30 @@ function createPageRoutes({ network, live, analytics = null }) {
         const stats = analytics ? await analytics.stats(days) : await network.stats(days);
         if (!stats) return notFound(res);
         return send(res, views.stats({ stats, days }));
+    });
+
+    r.get('/ai', async (_req, res) => {
+        const kinds = await bench.kinds();
+        const list = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
+        const boards = await Promise.all(list.map((kind) => bench.board(kind.id, 'elo')));
+        return send(res, views.aiIndex({ kinds, boards }), 200, 'no-store');
+    });
+
+    r.get('/ai/models/:model', async (req, res) => {
+        const model = req.params.model;
+        if (!bench.isModelName(model)) return notFound(res);
+        const summary = await bench.modelSummary(model);
+        return send(res, views.aiModel({ model, summary }), 200, 'no-store');
+    });
+
+    r.get('/ai/:kind', async (req, res) => {
+        const kindId = req.params.kind;
+        if (!bench.isKindId(kindId)) return notFound(res);
+        const tab = bench.normaliseTab(req.query.tab);
+        const [kinds, board, cost] = await Promise.all([bench.kinds(), bench.board(kindId, tab), tab === 'pareto' ? bench.board(kindId, 'cost') : Promise.resolve(null)]);
+        const kind = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds.find((k) => k.id === kindId) : null;
+        if (kinds && !kind) return notFound(res);
+        return send(res, views.aiBoard({ kindId, kind, tab, board, cost, kinds }), 200, 'no-store');
     });
 
     r.get('/rundown', async (_req, res) => {

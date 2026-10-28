@@ -7,6 +7,7 @@
  * Report reads Network's open stats and Live's Rundown and after-show reports over loopback. It also has its own
  * PostgreSQL database (migrations/) for the analytics it ingests, and reads revenue from Billing. REPORT_SOURCE
  * chooses which side the pages and GET /api/v1/stats answer from: `network` (today's behaviour) or `report`.
+ * The AI boards under /ai read OpenVibe.Bench's public boards the same way.
  */
 require('dotenv').config();
 
@@ -43,6 +44,10 @@ function load(env = process.env) {
         networkPublicUrl,
         networkInternalUrl: trim(env.OV_NETWORK_INTERNAL_URL || 'http://127.0.0.1:4000'),
         liveUrl: trim(env.OV_LIVE_INTERNAL_URL || 'http://127.0.0.1:3000'),
+
+        // OpenVibe.Bench's public reads (kinds, boards, models, datasets) — the AI boards under /ai. Public HTML
+        // boards render here; Bench stays the benchmark authority that owns the numbers.
+        benchUrl: trim(env.OV_BENCH_INTERNAL_URL || 'https://bench.openvibe.services'),
 
         // Report's own database (ADR-035). DATABASE_URL serves (PgBouncer), DATABASE_DIRECT_URL migrates (owner
         // role); development without DATABASE_URL uses an embedded PGlite database under REPORT_PGLITE_DIR.

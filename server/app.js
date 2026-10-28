@@ -6,6 +6,7 @@
  *
  *   /, /stats, /rundown, /rundown/t/:slug, /rundown/e/:streamId, /rundown/s/:username,
  *   /after-show/:streamId, /c/:username                       the pages (http/pages.js)
+ *   /ai, /ai/models/:model, /ai/:kind                         the AI boards, from OpenVibe.Bench (http/pages.js)
  *   /api/v1/*                                                  the JSON API (http/api.js)
  *   /robots.txt, /sitemap.xml, /llms.txt                       crawl artifacts (http/discovery.js)
  *   /api/health, /api/ready, /release.json, /release-metrics   the plumbing (loopback scrape for /metrics)
@@ -26,6 +27,7 @@ const { openStore } = require('./db');
 const { createNetworkClient } = require('./data/network');
 const { createLiveClient } = require('./data/live');
 const { createBillingClient } = require('./data/billing');
+const { createBenchClient } = require('./data/bench');
 const { createAnalytics } = require('./analytics');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
@@ -51,11 +53,12 @@ async function createApp(opts = {}) {
     const network = opts.network || createNetworkClient({ config, fetchImpl, log, now });
     const live = opts.live || createLiveClient({ config, fetchImpl, log, now });
     const billing = opts.billing || createBillingClient({ config, fetchImpl, log, now });
+    const bench = opts.bench || createBenchClient({ config, fetchImpl, log, now });
     const analytics = opts.analytics || createAnalytics({ config, store, network, billing, now, log });
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     views.configure({ baseUrl: config.baseUrl });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, analytics, shadow };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow };
     const app = express();
     app.disable('x-powered-by');
     app.set('trust proxy', config.trustProxy);
