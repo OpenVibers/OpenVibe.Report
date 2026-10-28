@@ -123,3 +123,9 @@ so a stateless front is never marked not-ready just because a source is unavaila
 
 Every source text is escaped before it reaches HTML. Path parameters are checked against fixed patterns before any
 request. Report holds no accounts, no cookies, no database and no write routes. See [SECURITY.md](SECURITY.md).
+
+<!-- versions:start -->
+- openvibe-contracts: v0.225.0
+- openvibe-sdk: v0.70.0
+- openvibe-shared: v4.30.0
+<!-- versions:end -->
