@@ -1,0 +1,51 @@
+{
+  "repository": "OpenVibers/OpenVibe.Report",
+  "version": "0.1.0",
+  "stage": "skeleton",
+  "code": true,
+  "wave": "W21",
+  "plan": "OpenVibe.Report: a stateless front for the network's open numbers, The Rundown and every stream's after-show report",
+  "runtime": "node 22, express 4, no database, no sessions, no events",
+  "port": "5080",
+  "domain": "openvibe.report",
+  "contracts": "openvibe-contracts v0.225.0",
+  "sdk": "openvibe-sdk v0.70.0",
+  "shared": "openvibe-shared v4.29.1",
+  "packages": [
+    "openvibe-contracts v0.225.0",
+    "openvibe-sdk v0.70.0",
+    "openvibe-shared v4.29.1"
+  ],
+  "summary": "The Report room of the OpenVibe network. A stateless front with no database, no sign-in and no events: it reads OpenVibe.Network's open stats (GET /api/v1/stats?days=7|30|90) and OpenVibe.Live's Rundown (GET /api/rundown/, /topics, /t/:slug, /e/:streamId, /s/:username) and after-show reports (GET /api/recap/:streamId, /api/recap/channel/:username) over loopback, caches each answer for 2 to 10 minutes in this process, and shows it as the source answered it. Network and Live failures answer null and a page or API 404, never a made-up zero. The pages are plain placeholders the main session will design; the routes, the JSON API, the crawl artifacts, readiness (degraded, never 503, when a source is down) and the deploy files are complete.",
+  "works": [
+    "The three sources read through two clients with injectable fetch, 8 s timeouts and an in-memory cache (stats 5 min, Rundown home 2 min, topics 5 min, a topic 5 min, an episode 5 min, an after-show report 10 min, a channel's reports 5 min; 1000 entries, oldest out)",
+    "Path parameters validated before a request: slug ^[a-z0-9-]{1,80}$, a positive integer stream id, username ^[A-Za-z0-9_]{1,32}$",
+    "Pages: /, /stats?days=7|30|90, /rundown, /rundown/t/:slug, /rundown/e/:streamId, /rundown/s/:username, /after-show/:streamId, /c/:username; a bad parameter or a missing source answer is the 404 view",
+    "JSON API: /api/v1/stats, /rundown, /rundown/topics, /rundown/t/:slug, /after-show/:streamId, /c/:username — the source's answer, CORS *, public for two minutes, 120 requests a minute per address, problem+json 404s",
+    "Plumbing: helmet with Help's CSP, /api/health, /api/ready (Network and Live optional → degraded, never 503), /release.json, /release-metrics, /metrics on loopback, /shared/*, /css and /js (immutable only with the matching ?v=), robots.txt, sitemap.xml, llms.txt, graceful stop",
+    "Deploy files: systemd unit openvibe-report on 127.0.0.1:5080 and an nginx vhost for openvibe.report + www (apex redirect, certs, proxy, GET-only API)",
+    "Tests: the clients' cache, expiry, failure and validation; every page 200 and its 404s; the API shapes, CORS and cache; robots/sitemap/llms; health, readiness and static cache"
+  ],
+  "notYet": [
+    "The real page designs: v1 ships plain placeholder views, as the task asked; the main session designs the room itself",
+    "A report manifest in openvibe-contracts: this skeleton does not register one, and CI skips the contracts-service check until it lands",
+    "Any write path: Report has no accounts, no reactions and no saved views; it is a read-only front"
+  ],
+  "capabilitiesRegistered": false,
+  "serviceManifestRegistered": false,
+  "deployed": false,
+  "placeholderInSites": false,
+  "features": [
+    "open network stats",
+    "The Rundown",
+    "after-show reports",
+    "source clients with caches",
+    "server-rendered placeholder pages",
+    "JSON API",
+    "crawl artifacts",
+    "readiness",
+    "deploy files"
+  ],
+  "deployment": "planned: openvibe-ovh, unit openvibe-report.service on 127.0.0.1:5080 (git checkout /opt/openvibe.report, env /etc/openvibe/report.env), public at https://openvibe.report",
+  "updated": "2026-10-28"
+}

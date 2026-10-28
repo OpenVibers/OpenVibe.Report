@@ -1,0 +1,16 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  # install, node --check and npm test: the shared test job (Track Q). Report has no database and no services to
+  # start. The contracts check is skipped until a report service manifest is registered in openvibe-contracts.
+  test:
+    uses: OpenVibers/OpenVibe.Shared/.github/workflows/test.yml@423fe519b5fe9594cc81b670e5ba5cb9f21f6176
+    with:
+      syntax-dirs: server test public
+      test: npm test
+  # Secret scan (gitleaks) and dependency audit, shared by every OpenVibers repo (Track Q).
+  security:
+    uses: OpenVibers/OpenVibe.Shared/.github/workflows/security.yml@423fe519b5fe9594cc81b670e5ba5cb9f21f6176

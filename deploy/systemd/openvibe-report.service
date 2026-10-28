@@ -1,0 +1,29 @@
+[Unit]
+Description=OpenVibe.Report — Every number on OpenVibe, honest.
+# Network and Live should be up first, but Report degrades honestly without either: the pages and the API answer
+# what they can and /api/ready says degraded (never 503), because neither source is required to serve a page.
+After=network.target openvibe-network.service openvibe-live.service
+Wants=openvibe-network.service openvibe-live.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/openvibe.report
+EnvironmentFile=/etc/openvibe/report.env
+Environment=NODE_ENV=production
+Environment=PORT=5080
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env node /opt/openvibe.report/server/index.js
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+# In-flight requests get the 10 s drain.
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
