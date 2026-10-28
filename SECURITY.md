@@ -16,9 +16,11 @@ Every OpenVibe service and site (openvibe.live, openvibe.network, openvibe.tools
 openvibe.games and the other openvibe.* domains) and every repository under github.com/OpenVibers. Machine-readable
 contact details are at `/.well-known/security.txt` on each site.
 
-For OpenVibe.Report specifically: the service reads two internal APIs and has no database, no accounts and no
-writes. The interesting surface is the path parameters it forwards (validated before a request), the HTML it renders
-(every source text is escaped by `server/views/index.js`) and the two source origins it is configured with.
+For OpenVibe.Report specifically: the service reads Network, Live and Billing over loopback, keeps its own
+analytics tables (counts and public channel facts only; no money payloads), and has no accounts. The interesting
+surface is the path parameters it forwards (validated before a request), the HTML it renders (every source text is
+escaped by `server/views/index.js`), the `/internal/` routes (loopback-only; `POST /internal/events` verifies the
+Events v2 HMAC) and the origins and service token it is configured with. A Billing or Events secret is never logged.
 
 ## Supported versions
 
