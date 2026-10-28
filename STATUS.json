@@ -10,11 +10,11 @@
   "domain": "openvibe.report",
   "contracts": "openvibe-contracts v0.225.0",
   "sdk": "openvibe-sdk v0.70.0",
-  "shared": "openvibe-shared v4.29.1",
+  "shared": "openvibe-shared v4.30.0",
   "packages": [
     "openvibe-contracts v0.225.0",
     "openvibe-sdk v0.70.0",
-    "openvibe-shared v4.29.1"
+    "openvibe-shared v4.30.0"
   ],
   "summary": "The Report room of the OpenVibe network. A stateless front with no database, no sign-in and no events: it reads OpenVibe.Network's open stats (GET /api/v1/stats?days=7|30|90) and OpenVibe.Live's Rundown (GET /api/rundown/, /topics, /t/:slug, /e/:streamId, /s/:username) and after-show reports (GET /api/recap/:streamId, /api/recap/channel/:username) over loopback, caches each answer for 2 to 10 minutes in this process, and shows it as the source answered it. Network and Live failures answer null and a page or API 404, never a made-up zero. The pages are plain placeholders the main session will design; the routes, the JSON API, the crawl artifacts, readiness (degraded, never 503, when a source is down) and the deploy files are complete.",
   "works": [
