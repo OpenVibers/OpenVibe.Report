@@ -127,5 +127,5 @@ request. Report holds no accounts, no cookies, no database and no write routes. 
 <!-- versions:start -->
 - openvibe-contracts: v0.225.0
 - openvibe-sdk: v0.70.0
-- openvibe-shared: v4.31.0
+- openvibe-shared: v4.33.0
 <!-- versions:end -->
