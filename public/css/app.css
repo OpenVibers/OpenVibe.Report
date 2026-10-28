@@ -32,6 +32,25 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-tabs { display: inline-flex; gap: 4px; margin-top: 16px; padding: 4px; border-radius: 999px; background: var(--bg-secondary, #101828); border: 1px solid var(--border, #1f2d47); }
 .rp-tabs a { padding: 7px 14px; border-radius: 999px; color: var(--text-secondary, #96a7c2); text-decoration: none; font-size: .86rem; font-weight: 700; }
 .rp-tabs a[aria-current] { background: var(--room-fill); color: var(--room-on); }
+.rp-ai-room { margin-top: 28px; }
+.rp-ai-room h2 { margin-bottom: 12px; }
+.rp-ai-room .rp-topic h3 { margin: 0; font-size: 1.05rem; }
+.rp-ai-room .rp-topic p { margin: 0; }
+.rp-ai-room .rp-topic .rp-fine { margin: 0; }
+.rp-ai-scroll { overflow-x: auto; margin: 20px 0; border: 1px solid var(--border, #1f2d47); border-radius: 16px; }
+.rp-ai-table { width: 100%; border-collapse: collapse; min-width: 650px; font-variant-numeric: tabular-nums; }
+.rp-ai-table th, .rp-ai-table td { padding: 11px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border, #1f2d47); }
+.rp-ai-table thead th { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted, #7386a3); }
+.rp-ai-table tbody tr:last-child > * { border-bottom: 0; }
+.rp-ai-table a { overflow-wrap: anywhere; }
+.rp-flag { display: inline-block; font-size: .72rem; color: var(--room-strong); margin-left: 5px; }
+.rp-ai-chart { margin: 20px 0; padding: 12px; border: 1px solid var(--border, #1f2d47); border-radius: 16px; background: var(--bg-card, #0f1729); }
+.rp-ai-chart svg { display: block; width: 100%; height: auto; }
+.rp-ai-chart line { stroke: var(--text-muted, #7386a3); stroke-width: 1; }
+.rp-ai-chart text { fill: var(--text-secondary, #96a7c2); font-size: 11px; }
+.rp-ai-chart .rp-ai-frontier { fill: var(--room-accent); stroke: var(--bg-card, #0f1729); stroke-width: 1; }
+.rp-ai-chart .rp-ai-point { fill: var(--text-muted, #7386a3); }
+.rp-ai-chart figcaption { margin-top: 6px; font-size: .8rem; color: var(--text-muted, #7386a3); }
 .rp-counts { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 14px 0 0; color: var(--text-secondary, #96a7c2); }
 .rp-counts b { color: var(--text-primary, #e6edf7); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 
@@ -131,3 +150,15 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-eps dt code { font: 600 .92rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--room-strong); overflow-wrap: anywhere; }
 .rp-eps dd { margin: 6px 0 0; color: var(--text-secondary, #96a7c2); line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { .rp-topic { transition: none; } }
+
+/* AI boards: rooms side by side, tables that fit a phone, and a chart that scrolls rather than shrinking its labels */
+.rp-ai-rooms { display: grid; gap: 0 24px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start; }
+.rp-ai-rooms .rp-topics { grid-template-columns: 1fr; }
+.rp-ai-table a { text-decoration: none; font-weight: 700; }
+.rp-ai-table a:hover, .rp-ai-table a:focus-visible { text-decoration: underline; }
+.rp-ai-chart { overflow-x: auto; }
+@media (max-width: 640px) {
+    .rp-ai-table { min-width: 0; font-size: .86rem; }
+    .rp-ai-table th, .rp-ai-table td { padding: 9px 7px; }
+    .rp-ai-chart svg { min-width: 720px; }
+}

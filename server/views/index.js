@@ -18,6 +18,7 @@ const { asset } = require('../assets');
 
 const NAME = 'OpenVibe.Report';
 const NETWORK = 'https://openvibe.network';
+const BENCH = 'https://bench.openvibe.services';
 const ROOM = rooms.get('report');
 const esc = kit.esc;
 let RELEASE = 'dev';
@@ -38,9 +39,40 @@ const pct = (v) => { const x = n(v); if (x == null) return ''; return `<span cla
 const who = (u) => (u ? u.display_name || u.username || '' : '');
 const AI = '<span class="rp-ai" title="Written by AI from the stream\'s own speech, chat and numbers">Written by AI</span>';
 
+// ── The AI boards (OpenVibe.Bench, plan 2026-10-28 §4.12): every number is Bench's; Report renders it ──
+/** Money as Bench quotes it (Report never derives a price): dollars, cents, or fractions of a cent. */
+const usd = (v) => {
+    const x = n(v);
+    if (x == null) return '—';
+    if (!x) return '$0';
+    const a = Math.abs(x);
+    if (a >= 1000) return `$${x.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    if (a >= 1) return `$${x.toFixed(2)}`;
+    return `$${Number(x.toPrecision(2))}`;
+};
+/** A share of games won or tasks passed: 0.8333 → 83%. */
+const share = (v) => { const x = n(v); return x == null ? '—' : `${Math.round(x * 100)}%`; };
+/** The rating with its 95% interval as text — "1043 ± 38" — the exact bounds in the title. */
+function rating(r) {
+    const elo = n(r && r.elo);
+    if (elo == null) return '—';
+    const lo = n(r && r.ci_lower), hi = n(r && r.ci_upper);
+    if (lo == null || hi == null) return `${Math.round(elo)}`;
+    const half = Math.round(Math.max(Math.abs(hi - elo), Math.abs(elo - lo)));
+    return `<span title="95% interval ${Math.round(lo)}–${Math.round(hi)} Elo">${Math.round(elo)} ± ${half}</span>`;
+}
+/** Provisional: Bench marks it on the boards; a summary's games say the same thing (fewer than ten). */
+const provisional = (r) => Boolean(r && (r.provisional != null ? r.provisional : n(r.games) != null && Number(r.games) < 10));
+const flag = (r) => (provisional(r) ? ' <span class="rp-flag" title="Fewer than ten games: this rating can still move a lot">provisional</span>' : '');
+const roomName = (id) => { const s = String(id || ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
+const judgeWord = (j) => ({ human_pairwise: 'voted on blind, two at a time', rubric: 'scored on a rubric', automatic_grader: 'graded automatically', test_suite: 'judged by a test suite', game_outcome: 'judged by the game outcome' }[j] || j || '—');
+/** A kind's game count: every model's games added and halved, because two models play each game. */
+const gamesOf = (rows) => Math.round((rows || []).reduce((sum, r) => sum + (n(r && r.games) || 0), 0) / 2);
+
 const NAV = [
     { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' },
     { label: 'The Rundown', href: '/rundown', icon: 'fa-newspaper' },
+    { label: 'AI boards', href: '/ai', icon: 'fa-robot' },
     { label: 'API', href: '/developers', icon: 'fa-code', more: true },
 ];
 
@@ -50,7 +82,7 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
         service: 'report',
         apiBase: NETWORK,
         links: NAV.map((l) => ({ ...l, active: l.href === active || (l.href !== '/' && active.startsWith(l.href)) })),
-        appBar: [{ label: 'Home', href: '/', icon: 'fa-house' }, { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' }, { label: 'Rundown', href: '/rundown', icon: 'fa-newspaper' }],
+        appBar: [{ label: 'Home', href: '/', icon: 'fa-house' }, { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' }, { label: 'Rundown', href: '/rundown', icon: 'fa-newspaper' }, { label: 'AI boards', href: '/ai', icon: 'fa-robot' }],
         history: { type: 'page', title: title || NAME },
     };
     const footer = { service: 'report', variant: 'full', mount: '#ov-footer', brandName: NAME };
@@ -176,6 +208,7 @@ function home({ stats, rundown, topics } = {}) {
         explore: { title: 'More on Report', items: [
             { title: 'Every site\'s numbers', text: 'Page views, people, streams and how fast each service answers', href: '/stats', icon: 'ov:gauge' },
             { title: 'The Rundown', text: 'What streamers talked about, topic by topic', href: '/rundown', icon: 'ov:news' },
+            { title: 'AI boards', text: 'Every benchmark kind, its leader, quality against cost and cost per solved task', href: '/ai', icon: 'ov:ai' },
             { title: 'Status', text: 'Whether every OpenVibe service is up right now', href: 'https://openvibe.network/status', icon: 'ov:ping' },
         ] },
         dev: { title: 'For developers', lede: 'Every number here is open JSON, readable from any site.', samples: [
@@ -310,8 +343,92 @@ function developers() {
     return layout({ title: 'The Report API', description: 'Open JSON for the network\'s numbers, The Rundown and after-show reports.', body, active: '/developers', path: '/developers' });
 }
 
+function benchState(...reads) {
+    const stale = reads.filter((r) => r && r.stale);
+    if (!stale.length) return '';
+    const oldest = stale.map((r) => r.at).sort()[0];
+    return `<p class="rp-fine" role="status">Bench is unavailable. Showing the last good copy, read ${esc(dayTime(oldest))}.</p>`;
+}
+
+const aiPath = (kind) => `/ai/${encodeURIComponent(kind)}`;
+const modelPath = (model) => `/ai/models/${encodeURIComponent(model)}`;
+const modelLink = (subject) => `<a href="${modelPath(subject)}">${esc(subject)}</a>`;
+const datasetLink = (kind) => `<p class="rp-fine">Download the <a href="${BENCH}/api/v1/datasets/${encodeURIComponent(kind)}.jsonl">dataset JSONL</a> from Bench.</p>`;
+const emptyBoard = () => '<p class="rp-fine">No results yet for this board.</p>';
+
+function aiIndex({ kinds, boards = [] }) {
+    const list = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
+    const groups = new Map();
+    list.forEach((kind, i) => {
+        const room = String(kind.room || 'Other');
+        if (!groups.has(room)) groups.set(room, []);
+        const rows = boards[i] && boards[i].data.board && boards[i].data.board.rows || [];
+        groups.get(room).push({ kind, rows, available: Boolean(boards[i]) });
+    });
+    const sections = [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([room, items]) => `<section class="rp-ai-room" aria-label="${esc(room)}"><h2>${esc(roomName(room))}</h2><ul class="rp-topics">${items.map(({ kind, rows, available }) => {
+        const leader = rows[0];
+        const href = aiPath(kind.id);
+        return `<li class="rp-topic"><h3><a href="${href}">${esc(kind.name || kind.id)}</a></h3><p class="rp-fine">${esc(kind.id)} · ${esc(judgeWord(kind.judge))}</p><p>${available ? `Leader: ${leader ? modelLink(leader.subject) : 'No leader yet'} · ${exact(gamesOf(rows))} games` : 'Board temporarily unavailable'}</p><p class="rp-meta"><a href="${href}">Elo</a> · <a href="${href}?tab=pareto">Pareto</a> · <a href="${href}?tab=cost">Cost per solved</a></p></li>`;
+    }).join('')}</ul></section>`).join('');
+    const body = `<header class="rp-page-h"><p class="rp-kicker">Benchmarks</p><h1>AI boards</h1><p class="rp-lede">Every benchmark kind across OpenVibe rooms, with ratings, quality and cost.</p></header>${benchState(kinds, ...boards)}${sections ? `<div class="rp-ai-rooms">${sections}</div>` : '' }${sections ? '' : '<p class="rp-fine">Bench results are temporarily unavailable.</p>'}`;
+    return layout({ title: 'AI boards', description: 'AI benchmark leaders and boards across OpenVibe rooms.', body, active: '/ai', path: '/ai' });
+}
+
+function aiTable(headers, rows) {
+    return `<div class="rp-ai-scroll"><table class="rp-ai-table"><thead><tr>${headers.map((h) => `<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+
+function paretoRows(pareto, cost) {
+    const costs = new Map((cost && cost.data.board && cost.data.board.rows || []).map((r) => [r.subject, n(r.cost_per_solved)]));
+    const rows = (pareto && pareto.data.board && pareto.data.board.rows || []).map((r) => ({ ...r, quality: n(r.quality), costPerSolved: costs.get(r.subject) }));
+    return rows.map((r) => ({ ...r, frontier: r.quality != null && r.costPerSolved != null && !rows.some((other) => other !== r && other.quality != null && other.costPerSolved != null && other.quality >= r.quality && other.costPerSolved <= r.costPerSolved && (other.quality > r.quality || other.costPerSolved < r.costPerSolved)) }));
+}
+
+function paretoChart(rows) {
+    const points = rows.filter((r) => r.quality != null && r.costPerSolved != null && r.costPerSolved >= 0);
+    if (!points.length) return '<p class="rp-fine">No quality and cost per solved pairs yet.</p>';
+    const maxCost = Math.max(0.001, ...points.map((r) => r.costPerSolved));
+    const x = (v) => 70 + 650 * v / maxCost;
+    const y = (v) => 285 - 235 * Math.max(0, Math.min(1, v));
+    const marks = points.map((r) => {
+        const px = x(r.costPerSolved).toFixed(1), py = y(r.quality).toFixed(1);
+        return `<g><circle cx="${px}" cy="${py}" r="${r.frontier ? 5 : 3}" class="${r.frontier ? 'rp-ai-frontier' : 'rp-ai-point'}"><title>${esc(r.subject)}: ${share(r.quality)} quality, ${usd(r.costPerSolved)} per solved task${r.frontier ? ', frontier' : ''}</title></circle>${r.frontier ? `<text x="${px}" y="${(Number(py) - 9).toFixed(1)}" text-anchor="middle">${esc(r.subject)}</text>` : ''}</g>`;
+    }).join('');
+    return `<figure class="rp-ai-chart"><svg viewBox="0 0 800 340" role="img" aria-labelledby="rp-ai-chart-title rp-ai-chart-desc"><title id="rp-ai-chart-title">Quality against cost per solved task</title><desc id="rp-ai-chart-desc">Each point is a model. Labelled points form the best quality and cost frontier. The table below gives exact values.</desc><line x1="70" y1="285" x2="720" y2="285"/><line x1="70" y1="50" x2="70" y2="285"/><text x="70" y="307" text-anchor="middle">$0</text><text x="720" y="307" text-anchor="end">${esc(usd(maxCost))}</text><text x="45" y="285" text-anchor="end">0%</text><text x="45" y="55" text-anchor="end">100%</text><text x="395" y="332" text-anchor="middle">Cost per solved task (USD, lower is better)</text><text x="16" y="170" transform="rotate(-90 16 170)" text-anchor="middle">Quality (higher is better)</text>${marks}</svg><figcaption>Labelled points are on the quality and cost frontier.</figcaption></figure>`;
+}
+
+function aiBoard({ kindId, kind, tab, board, cost, kinds }) {
+    const name = kind && kind.name || kindId;
+    const rows = board && board.data.board && board.data.board.rows || [];
+    const tabs = [['elo', 'Elo'], ['pareto', 'Pareto'], ['cost', 'Cost per solved']].map(([id, label]) => `<a href="${aiPath(kindId)}${id === 'elo' ? '' : `?tab=${id}`}"${tab === id ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+    let content;
+    if (tab === 'elo') content = rows.length ? aiTable(['Rank', 'Model', 'Rating (95% interval)', 'Games', 'Win rate'], rows.map((r, i) => `<tr><td>${i + 1}</td><th scope="row">${modelLink(r.subject)}${flag(r)}</th><td>${rating(r)}</td><td>${exact(r.games)}</td><td>${share(r.win_rate)}</td></tr>`)) : emptyBoard();
+    if (tab === 'pareto') {
+        const points = paretoRows(board, cost);
+        content = `${paretoChart(points)}${points.length ? aiTable(['Model', 'Quality', 'Cost per solved', 'Frontier'], points.map((r) => `<tr><th scope="row">${modelLink(r.subject)}</th><td>${share(r.quality)}</td><td>${usd(r.costPerSolved)}</td><td>${r.frontier ? 'Frontier' : '—'}</td></tr>`)) : ''}`;
+    }
+    if (tab === 'cost') content = rows.length ? aiTable(['Rank', 'Model', 'Solved', 'Entries', 'Total cost', 'Cost per solved'], rows.map((r, i) => `<tr><td>${i + 1}</td><th scope="row">${modelLink(r.subject)}</th><td>${exact(r.solved)}</td><td>${exact(r.entries)}</td><td>${usd(r.total_cost_usd)}</td><td>${usd(r.cost_per_solved)}</td></tr>`)) : emptyBoard();
+    if (!board) content = '<p class="rp-fine">Bench results are temporarily unavailable.</p>';
+    const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/ai">AI boards</a>${kind ? ` · ${esc(roomName(kind.room))}` : ''}</p><h1>${esc(name)}</h1><p class="rp-lede">${kind ? esc(judgeWord(kind.judge).replace(/^./, (c) => c.toUpperCase())) : 'Bench results'}.</p><nav class="rp-tabs" aria-label="Board view">${tabs}</nav></header>${benchState(kinds, board, cost)}<section aria-label="${esc(tab)} board">${content}</section>${datasetLink(kindId)}`;
+    return layout({ title: `${name}: AI board`, description: `${name} AI benchmark ratings, quality and cost.`, body, active: '/ai', path: aiPath(kindId) });
+}
+
+function aiModel({ model, summary }) {
+    const data = summary && summary.data || null;
+    const ratings = data && Array.isArray(data.ratings) ? data.ratings : [];
+    const entries = data && Array.isArray(data.entries) ? data.entries : [];
+    const kinds = [...new Set([...ratings.map((r) => r.kind_id), ...entries.map((e) => e.kind_id)])].filter(Boolean);
+    const rows = kinds.map((kind) => {
+        const r = ratings.find((item) => item.kind_id === kind);
+        const count = entries.filter((item) => item.kind_id === kind).length;
+        return `<tr><th scope="row"><a href="${aiPath(kind)}">${esc(kind)}</a></th><td>${r ? rating(r) : '—'}${r ? flag(r) : ''}</td><td>${r ? exact(r.games) : '—'}</td><td>${r ? share(r.win_rate) : '—'}</td><td>${count}</td></tr>`;
+    });
+    const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/ai">AI boards</a> · Model</p><h1>${esc(model)}</h1><p class="rp-lede">Performance across every kind this model has played.</p></header>${benchState(summary)}${data ? `<p class="rp-meta">Total cost: ${usd(data.total_cost_usd)} · ${kinds.length} kinds</p>${rows.length ? aiTable(['Kind', 'Rating (95% interval)', 'Games', 'Win rate', 'Recent entries'], rows) : emptyBoard()}` : '<p class="rp-fine">Bench results are temporarily unavailable.</p>'}`;
+    return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark kinds.`, body, active: '/ai', path: modelPath(model) });
+}
+
 function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, topic, episode, speaker, recap, channel, developers, notFound, layout, setRelease, configure };
+module.exports = { home, stats, rundown, topic, episode, speaker, recap, channel, developers, aiIndex, aiBoard, aiModel, paretoRows, paretoChart, notFound, layout, setRelease, configure };
