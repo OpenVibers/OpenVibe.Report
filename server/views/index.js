@@ -106,10 +106,12 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
         footer,
         head: `${appIcon.headTags({ site: 'report' })}
 <link rel="stylesheet" href="${esc(ovServe.url('kit.css'))}">
+<link rel="stylesheet" href="${esc(ovServe.url('kit-data.css'))}">
 <link rel="stylesheet" href="${esc(ovServe.url('room.css'))}">
 <link rel="stylesheet" href="${esc(ovServe.url('showcase.css'))}">
 <link rel="stylesheet" href="${esc(asset('css/app.css'))}">
 <script src="${esc(ovServe.url('kit-web.js'))}" defer></script>
+<script src="${esc(ovServe.url('kit-data-web.js'))}" defer></script>
 <script src="${esc(ovServe.url('motion.js'))}" defer></script>
 <meta name="ov-boost" content="report@${esc(RELEASE)}">`,
         body: `<a class="skip" href="#main">Skip to content</a>
