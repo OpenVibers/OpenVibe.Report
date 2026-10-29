@@ -37,23 +37,25 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
     };
     const t = await boot({ fetchImpl, now: () => time, env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' } });
     try {
-        await check('/ai groups kinds and links to all boards', async () => {
+        await check('/ai leads with the leaders: the job, its leader, the rating and the games', async () => {
             const r = await t.get('/ai');
             assert.strictEqual(r.status, 200);
-            for (const s of ['Design', 'Page &lt;design&gt;', 'openai/gpt-4o', '8 games', '/ai/design.page?tab=pareto', '/ai/design.page?tab=cost']) assert.ok(r.text.includes(s), s);
+            for (const s of ['<caption>Leaders</caption>', 'href="/ai/design.page">Page &lt;design&gt;</a>', 'openai/gpt-4o', '1043 ± 38', 'data-label="Games">8</td>', 'job rated', 'provisional']) assert.ok(r.text.includes(s), s);
+            assert.ok(!r.text.includes('No model is rated yet'), 'no empty notice while a board has a leader');
             assert.ok(!r.text.includes('Page <design>'));
         });
 
         await check('Elo shows ranks, intervals, win rates and provisional state', async () => {
             const r = await t.get('/ai/design.page');
             assert.strictEqual(r.status, 200);
-            for (const s of ['1043 ± 38', '75%', 'provisional', 'Rank', '95% interval', 'dataset JSONL']) assert.ok(r.text.includes(s), s);
+            for (const s of ['<ol class="ovk-rank"', '<b>1,043</b><small>± 38</small>', '75% won', 'provisional', 'Ranking', '95% interval', 'dataset JSONL']) assert.ok(r.text.includes(s), s);
         });
 
         await check('Pareto has an inline SVG, frontier labels and an exact-value table', async () => {
             const r = await t.get('/ai/design.page?tab=pareto');
             assert.strictEqual(r.status, 200);
-            for (const s of ['<svg', 'Quality against cost per solved task', 'Cost per solved task (USD', 'Frontier', 'model-b', 'dataset JSONL', '<table']) assert.ok(r.text.includes(s), s);
+            for (const s of ['ovk-chart--scatter', '<svg', 'class="ovk-chart-front"', 'Quality against cost per solved task', 'Cost per solved task (USD', 'frontier', 'model-b', 'dataset JSONL', '<table']) assert.ok(r.text.includes(s), s);
+            assert.ok(r.text.includes('data-label="Quality">80%</td>') && r.text.includes('data-label="Cost per solved">$0.10</td>'), 'the exact numbers, not dashes');
         });
 
         await check('cost and model views quote Bench numbers', async () => {
@@ -92,12 +94,35 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         });
     } finally { await t.close(); }
 
+    await check('no ratings yet: one plain notice, the jobs in one list, and each board says how it fills', async () => {
+        const fresh = await boot({
+            fetchImpl: async (url, opts) => {
+                const u = new URL(String(url));
+                if (u.port !== '5230') return source(url, opts);
+                if (u.pathname === '/api/v1/kinds') return jsonResponse({ count: 2, kinds: [{ id: 'design.page', room: 'design', name: 'Page', judge: 'human_pairwise' }, { id: 'speech.asr', room: 'speech', name: 'Speech', judge: 'automatic_grader' }] });
+                if (u.pathname.startsWith('/api/v1/boards/')) return jsonResponse({ board: { rows: [] } });
+                return jsonResponse({}, 404);
+            },
+            env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' },
+        });
+        try {
+            const r = await fresh.get('/ai');
+            assert.ok(r.text.includes('No model is rated yet') && r.text.includes('Jobs being rated'), 'one notice, one list');
+            assert.ok(!r.text.includes('<caption>Leaders</caption>') && !r.text.includes('jobs tracked'), 'no empty leaders table and no lone number');
+            const b = await fresh.get('/ai/design.page');
+            assert.ok(b.text.includes('No votes yet') && b.text.includes('href="https://openvibe.design/"') && b.text.includes('Vote on Design'), 'a blind-vote job sends people to vote');
+            assert.ok(!b.text.includes('class="ovk-tabs'), 'an empty board has no tabs');
+            const g = await fresh.get('/ai/speech.asr');
+            assert.ok(g.text.includes('No results yet') && !g.text.includes('Vote on'), 'a graded job has nothing to vote on');
+        } finally { await fresh.close(); }
+    });
+
     await check('an initial Bench outage still renders an AI page', async () => {
         const empty = await boot({ fetchImpl: async (url, opts) => String(url).includes(':5230') ? Promise.reject(new Error('offline')) : source(url, opts), env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' } });
         try {
             const r = await empty.get('/ai');
             assert.strictEqual(r.status, 200);
-            assert.ok(r.text.includes('temporarily unavailable'));
+            assert.ok(r.text.includes('Bench is unavailable'));
         } finally { await empty.close(); }
     });
 

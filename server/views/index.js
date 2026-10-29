@@ -358,75 +358,100 @@ const aiPath = (kind) => `/ai/${encodeURIComponent(kind)}`;
 const modelPath = (model) => `/ai/models/${encodeURIComponent(model)}`;
 const modelLink = (subject) => `<a href="${modelPath(subject)}">${esc(subject)}</a>`;
 const datasetLink = (kind) => `<p class="rp-fine">Download the <a href="${BENCH}/api/v1/datasets/${encodeURIComponent(kind)}.jsonl">dataset JSONL</a> from Bench.</p>`;
-const emptyBoard = () => '<p class="rp-fine">No results yet for this board.</p>';
 
-function aiIndex({ kinds, boards = [] }) {
-    const list = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
-    const groups = new Map();
-    list.forEach((kind, i) => {
-        const room = String(kind.room || 'Other');
-        if (!groups.has(room)) groups.set(room, []);
-        const rows = boards[i] && boards[i].data.board && boards[i].data.board.rows || [];
-        groups.get(room).push({ kind, rows, available: Boolean(boards[i]) });
-    });
-    const sections = [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([room, items]) => `<section class="rp-ai-room" aria-label="${esc(room)}"><h2>${esc(roomName(room))}</h2><ul class="rp-topics">${items.map(({ kind, rows, available }) => {
-        const leader = rows[0];
-        const href = aiPath(kind.id);
-        const headline = available && leader ? `<b class="rp-ai-lead-v">${rating(leader)}</b><span class="rp-ai-lead-s">${modelLink(leader.subject)}${flag(leader)}</span>` : available ? '<b class="rp-ai-lead-v">—</b><span class="rp-ai-lead-s">No leader yet</span>' : '<b class="rp-ai-lead-v">—</b><span class="rp-ai-lead-s">Board temporarily unavailable</span>';
-        return `<li class="rp-ai-kind"><div class="rp-ai-kind-h"><h3><a href="${href}">${esc(kind.name || kind.id)}</a></h3><p class="rp-fine">${esc(kind.id)} · ${esc(judgeWord(kind.judge))}</p></div>`
-            + `<p class="rp-ai-lead">${headline}</p>`
-            + `<p class="rp-fine">${available ? `${exact(gamesOf(rows))} games` : ''}</p>`
-            + `<p class="rp-meta rp-ai-links"><a href="${href}">Elo</a><span aria-hidden="true">·</span><a href="${href}?tab=pareto">Pareto</a><span aria-hidden="true">·</span><a href="${href}?tab=cost">Cost per solved</a></p></li>`;
-    }).join('')}</ul></section>`).join('');
-    const body = `<header class="rp-page-h"><p class="rp-kicker">Benchmarks</p><h1>AI boards</h1><p class="rp-lede">Every benchmark kind across OpenVibe rooms, with ratings, quality and cost.</p></header>${benchState(kinds, ...boards)}${sections ? `<div class="rp-ai-rooms">${sections}</div>` : '' }${sections ? '' : '<p class="rp-fine">Bench results are temporarily unavailable.</p>'}`;
-    return layout({ title: 'AI boards', description: 'AI benchmark leaders and boards across OpenVibe rooms.', body, active: '/ai', path: '/ai', agent: true });
+// ── AI boards (Kit 2): who does each job best, and what it costs ──
+// The reader came to choose a model for a job. So the page leads with the leaders, one row per job, and keeps the
+// jobs nobody has rated yet in one short list; each board is a ranking, a quality-against-cost chart and the exact
+// numbers. Nothing here is drawn from a guess: every figure is Bench's.
+const JUDGE_SHORT = { human_pairwise: 'blind votes', rubric: 'a rubric', automatic_grader: 'a grader', test_suite: 'a test suite', game_outcome: 'game results' };
+// Where people rate a kind themselves (only blind-vote kinds are rated by people); a room without a site has no link.
+const ROOM_HOSTS = { chat: 'openvibe.chat', games: 'openvibe.games', search: 'search.openvibe.network', codes: 'openvibe.codes' };
+const roomHost = (room) => { const r = rooms.get(room); return (r && r.host) || ROOM_HOSTS[room] || null; };
+const rowsOf = (read) => (read && read.data && read.data.board && Array.isArray(read.data.board.rows) ? read.data.board.rows : []);
+const howRated = (kind) => `Rated by ${JUDGE_SHORT[kind.judge] || 'Bench'}`;
+const METHOD = 'Ratings are Bradley–Terry Elo from Bench, with a 95% interval; a model with fewer than ten games is provisional.';
+
+/** What to do when a board is empty: rate it in its room (blind-vote kinds), or wait for runs (graded kinds). */
+function emptyFor(kind) {
+    const host = kind && kind.judge === 'human_pairwise' ? roomHost(kind.room) : null;
+    if (host) return kit.empty({ icon: 'trophy', title: 'No votes yet', text: `This board fills as people compare two answers blind on ${roomName(kind.room)} and pick the better one.`, action: { href: `https://${host}/`, label: `Vote on ${roomName(kind.room)}`, icon: 'forward' } });
+    return kit.empty({ icon: 'trophy', title: 'No results yet', text: kind ? `This board fills as models are run and ${JUDGE_SHORT[kind.judge] || 'Bench'} scores them.` : 'This board fills as models are run on Bench.' });
 }
 
-function aiTable(headers, rows) {
-    return `<div class="rp-ai-scroll"><table class="rp-ai-table"><thead><tr>${headers.map((h) => `<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+function aiIndex({ kinds, boards = [] }) {
+    const list = kinds && kinds.data && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
+    const items = list.map((kind, i) => ({ kind, rows: rowsOf(boards[i]), available: Boolean(boards[i]) }));
+    const rated = items.filter((x) => x.rows.length).sort((a, b) => gamesOf(b.rows) - gamesOf(a.rows));
+    const waiting = items.filter((x) => !x.rows.length);
+    const leaders = rated.length ? kit.table({
+        caption: 'Leaders', columns: [
+            { key: 'job', label: 'Job', primary: true, html: true }, { key: 'leader', label: 'Leader', html: true },
+            { key: 'rating', label: 'Rating', num: true, html: true }, { key: 'games', label: 'Games', num: true, fmt: 'int' },
+        ],
+        rows: rated.map(({ kind, rows }) => ({ job: `<a href="${aiPath(kind.id)}">${esc(kind.name || kind.id)}</a>`, leader: `${modelLink(rows[0].subject)}${flag(rows[0])}`, rating: rating(rows[0]), games: gamesOf(rows) })),
+    }) : '';
+    const waitRows = waiting.map(({ kind, available }) => kit.row({ href: aiPath(kind.id), title: kind.name || kind.id, sub: `${roomName(kind.room)} · ${available ? howRated(kind) : 'board unavailable'}`, trail: kit.icon('chevron') }));
+    const waitList = waitRows.length ? kit.list(waitRows, { flush: true }) : '';
+    const none = !rated.length && list.length;
+    const body = kit.head({ title: 'AI boards', sub: 'Which AI does each job best, and what it costs', sticky: false })
+        + benchState(kinds, ...boards)
+        + (!list.length ? kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'The boards come back as soon as Bench answers.' }) : '')
+        + (none ? kit.notice({ kind: 'info', text: `No model is rated yet. ${list.length} jobs are set up; each board fills as people vote blind on two answers, or as graders score runs.` }) : '')
+        + (rated.length ? kit.stats([[rated.length, rated.length === 1 ? 'job rated' : 'jobs rated'], [rated.reduce((s, x) => s + gamesOf(x.rows), 0), 'games played'], [list.length, 'jobs tracked']], { label: 'The boards in numbers' }) : '')
+        + leaders
+        + (waitList ? (none ? kit.section({ title: 'Jobs being rated', count: waiting.length, body: waitList }) : kit.fold({ title: 'Waiting for their first results', meta: String(waiting.length), body: waitList })) : '')
+        + `<p class="rp-fine">${esc(METHOD)} Every board's data is open: <a href="${BENCH}/docs">Bench's API and datasets</a>.</p>`;
+    return layout({ title: 'AI boards', description: 'Which AI does each job best, and what it costs: Bench ratings across OpenVibe.', body, active: '/ai', path: '/ai', agent: true });
 }
 
 function paretoRows(pareto, cost) {
-    const costs = new Map((cost && cost.data.board && cost.data.board.rows || []).map((r) => [r.subject, n(r.cost_per_solved)]));
-    const rows = (pareto && pareto.data.board && pareto.data.board.rows || []).map((r) => ({ ...r, quality: n(r.quality), costPerSolved: costs.get(r.subject) }));
+    const costs = new Map(rowsOf(cost).map((r) => [r.subject, n(r.cost_per_solved)]));
+    const rows = rowsOf(pareto).map((r) => ({ ...r, quality: n(r.quality), costPerSolved: costs.get(r.subject) }));
     return rows.map((r) => ({ ...r, frontier: r.quality != null && r.costPerSolved != null && !rows.some((other) => other !== r && other.quality != null && other.costPerSolved != null && other.quality >= r.quality && other.costPerSolved <= r.costPerSolved && (other.quality > r.quality || other.costPerSolved < r.costPerSolved)) }));
 }
 
+/** Quality against cost per solved task, the frontier dashed and labelled (kit.chart scatter). */
 function paretoChart(rows) {
     const points = rows.filter((r) => r.quality != null && r.costPerSolved != null && r.costPerSolved >= 0);
     if (!points.length) return '<p class="rp-fine">No quality and cost per solved pairs yet.</p>';
-    const maxCost = Math.max(0.001, ...points.map((r) => r.costPerSolved));
-    const x = (v) => 70 + 650 * v / maxCost;
-    const y = (v) => 285 - 235 * Math.max(0, Math.min(1, v));
-    const xt = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ v: f * maxCost, px: x(f * maxCost) }));
-    const yt = [0, 0.25, 0.5, 0.75, 1].map((q) => ({ q, py: y(q) }));
-    const grid = yt.map((t) => `<line class="rp-ai-grid" x1="70" y1="${t.py.toFixed(1)}" x2="720" y2="${t.py.toFixed(1)}"/>`).join('')
-        + xt.map((t) => `<line class="rp-ai-grid" x1="${t.px.toFixed(1)}" y1="50" x2="${t.px.toFixed(1)}" y2="285"/>`).join('');
-    const xTicks = xt.map((t) => `<text class="rp-ai-tick" x="${t.px.toFixed(1)}" y="307" text-anchor="middle">${esc(usd(t.v))}</text>`).join('');
-    const yTicks = yt.map((t) => `<text class="rp-ai-tick" x="64" y="${(t.py + 4).toFixed(1)}" text-anchor="end">${Math.round(t.q * 100)}%</text>`).join('');
-    const marks = points.map((r, i) => {
-        const px = x(r.costPerSolved).toFixed(1), py = y(r.quality).toFixed(1);
-        const dy = i % 2 ? 14 : -8;
-        return `<g><circle cx="${px}" cy="${py}" r="${r.frontier ? 5 : 3}" class="${r.frontier ? 'rp-ai-frontier' : 'rp-ai-point'}"><title>${esc(r.subject)}: ${share(r.quality)} quality, ${usd(r.costPerSolved)} per solved task${r.frontier ? ', frontier' : ''}</title></circle>`
-            + `<text class="rp-ai-lab${r.frontier ? ' is-frontier' : ''}" x="${(Number(px) + 6).toFixed(1)}" y="${(Number(py) + dy).toFixed(1)}">${esc(r.subject)}</text></g>`;
-    }).join('');
-    return `<figure class="rp-ai-chart"><svg viewBox="0 0 800 340" role="img" aria-labelledby="rp-ai-chart-title rp-ai-chart-desc"><title id="rp-ai-chart-title">Quality against cost per solved task</title><desc id="rp-ai-chart-desc">Each point is a model. Labelled points form the best quality and cost frontier. The table below gives exact values.</desc>${grid}<line x1="70" y1="285" x2="720" y2="285"/><line x1="70" y1="50" x2="70" y2="285"/>${xTicks}${yTicks}<text x="395" y="332" text-anchor="middle">Cost per solved task (USD, lower is better)</text><text x="16" y="170" transform="rotate(-90 16 170)" text-anchor="middle">Quality (higher is better)</text>${marks}</svg><figcaption>Every point is labelled; solid points are on the quality and cost frontier.</figcaption></figure>`;
+    return kit.chart({
+        type: 'scatter', title: 'Quality against cost per solved task', note: 'Up and to the left is better. The dashed line joins the models nothing beats on both.',
+        x: { label: 'Cost per solved task (USD, lower is better)', fmt: (v) => usd(v) }, y: { label: 'Quality', fmt: (v) => `${Math.round(v)}%`, zero: false },
+        points: points.map((r) => ({ label: r.subject, x: r.costPerSolved, y: r.quality * 100, best: r.frontier, mark: r.frontier || points.length <= 8, href: modelPath(r.subject) })),
+        height: 260,
+    });
 }
+
+const TABS = [{ key: 'elo', label: 'Ranking' }, { key: 'pareto', label: 'Quality and cost' }, { key: 'cost', label: 'Cost per solved' }];
 
 function aiBoard({ kindId, kind, tab, board, cost, kinds }) {
     const name = kind && kind.name || kindId;
-    const rows = board && board.data.board && board.data.board.rows || [];
-    const tabs = [['elo', 'Elo'], ['pareto', 'Pareto'], ['cost', 'Cost per solved']].map(([id, label]) => `<a href="${aiPath(kindId)}${id === 'elo' ? '' : `?tab=${id}`}"${tab === id ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+    const rows = rowsOf(board);
     let content;
-    if (tab === 'elo') content = rows.length ? aiTable(['Rank', 'Model', 'Rating (95% interval)', 'Games', 'Win rate'], rows.map((r, i) => `<tr><td>${i + 1}</td><th scope="row">${modelLink(r.subject)}${flag(r)}</th><td>${rating(r)}</td><td>${exact(r.games)}</td><td>${share(r.win_rate)}</td></tr>`)) : emptyBoard();
-    if (tab === 'pareto') {
+    if (!board) content = kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'This board comes back as soon as Bench answers.' });
+    else if (!rows.length) content = emptyFor(kind);
+    else if (tab === 'pareto') {
         const points = paretoRows(board, cost);
-        content = `${paretoChart(points)}${points.length ? aiTable(['Model', 'Quality', 'Cost per solved', 'Frontier'], points.map((r) => `<tr><th scope="row">${modelLink(r.subject)}</th><td>${share(r.quality)}</td><td>${usd(r.costPerSolved)}</td><td>${r.frontier ? 'Frontier' : '—'}</td></tr>`)) : ''}`;
+        content = paretoChart(points) + (points.length ? kit.table({ caption: 'The numbers', columns: [{ key: 'm', label: 'Model', primary: true, html: true }, { key: 'q', label: 'Quality', num: true, html: true }, { key: 'c', label: 'Cost per solved', num: true, html: true }],
+            // The frontier is a word on the model's name, so a phone's card stays two lines.
+            rows: points.map((r) => ({ m: `${modelLink(r.subject)}${r.frontier ? ` ${kit.badge('frontier', 'accent')}` : ''}`, q: share(r.quality), c: usd(r.costPerSolved) })) }) : '');
+    } else if (tab === 'cost') {
+        const crows = rowsOf(cost).length ? rowsOf(cost) : rows;
+        content = kit.table({ caption: 'Cost per solved task', columns: [{ key: 'm', label: 'Model', primary: true, html: true }, { key: 'solved', label: 'Solved', num: true, fmt: 'int' }, { key: 'entries', label: 'Entries', num: true, fmt: 'int' }, { key: 'total', label: 'Total cost', num: true, html: true }, { key: 'per', label: 'Cost per solved', num: true, html: true }],
+            rows: crows.map((r) => ({ m: modelLink(r.subject), solved: r.solved, entries: r.entries, total: usd(r.total_cost_usd), per: usd(r.cost_per_solved) })) });
+    } else {
+        // The bars start just under the lowest interval, so the differences that matter are the ones you see.
+        const floor = Math.floor((Math.min(...rows.map((r) => n(r.ci_lower) ?? n(r.elo) ?? 0)) - 25) / 50) * 50;
+        content = kit.rank({ label: `${name}: ranking`, base: floor, fmt: 'int', items: rows.map((r) => {
+            const lo = n(r.ci_lower), hi = n(r.ci_upper), elo = n(r.elo);
+            return { name: r.subject, href: modelPath(r.subject), value: elo, interval: lo != null && hi != null && elo != null ? Math.round(Math.max(hi - elo, elo - lo)) : null,
+                note: [n(r.games) != null ? `${exact(r.games)} games` : '', n(r.win_rate) != null ? `${share(r.win_rate)} won` : '', provisional(r) ? 'provisional' : ''].filter(Boolean).join(' · ') };
+        }) }) + `<p class="rp-fine">${esc(METHOD)}</p>`;
     }
-    if (tab === 'cost') content = rows.length ? aiTable(['Rank', 'Model', 'Solved', 'Entries', 'Total cost', 'Cost per solved'], rows.map((r, i) => `<tr><td>${i + 1}</td><th scope="row">${modelLink(r.subject)}</th><td>${exact(r.solved)}</td><td>${exact(r.entries)}</td><td>${usd(r.total_cost_usd)}</td><td>${usd(r.cost_per_solved)}</td></tr>`)) : emptyBoard();
-    if (!board) content = '<p class="rp-fine">Bench results are temporarily unavailable.</p>';
-    const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/ai">AI boards</a>${kind ? ` · ${esc(roomName(kind.room))}` : ''}</p><h1>${esc(name)}</h1><p class="rp-lede">${kind ? esc(judgeWord(kind.judge).replace(/^./, (c) => c.toUpperCase())) : 'Bench results'}.</p><nav class="rp-tabs" aria-label="Board view">${tabs}</nav></header>${benchState(kinds, board, cost)}<section aria-label="${esc(tab)} board">${content}</section>${datasetLink(kindId)}`;
-    return layout({ title: `${name}: AI board`, description: `${name} AI benchmark ratings, quality and cost.`, body, active: '/ai', path: aiPath(kindId), agent: true });
+    const head = kit.head({ title: name, sub: kind ? `${roomName(kind.room)} · ${howRated(kind)}` : 'Bench results', back: { href: '/ai', label: 'AI boards' },
+        tabs: rows.length ? kit.tabs({ base: aiPath(kindId), items: TABS, active: tab, label: 'Board view' }) : '' });
+    const body = head + benchState(kinds, board, cost) + `<section aria-label="${esc(TABS.find((t) => t.key === tab)?.label || 'Board')}">${content}</section>${datasetLink(kindId)}`;
+    return layout({ title: `${name}: AI board`, description: `${name}: which AI does it best, and what it costs.`, body, active: '/ai', path: aiPath(kindId), agent: true });
 }
 
 function aiModel({ model, summary }) {
@@ -436,11 +461,16 @@ function aiModel({ model, summary }) {
     const kinds = [...new Set([...ratings.map((r) => r.kind_id), ...entries.map((e) => e.kind_id)])].filter(Boolean);
     const rows = kinds.map((kind) => {
         const r = ratings.find((item) => item.kind_id === kind);
-        const count = entries.filter((item) => item.kind_id === kind).length;
-        return `<tr><th scope="row"><a href="${aiPath(kind)}">${esc(kind)}</a></th><td>${r ? rating(r) : '—'}${r ? flag(r) : ''}</td><td>${r ? exact(r.games) : '—'}</td><td>${r ? share(r.win_rate) : '—'}</td><td>${count}</td></tr>`;
+        return { job: `<a href="${aiPath(kind)}">${esc(kind)}</a>`, rating: r ? `${rating(r)}${flag(r)}` : '—', games: r ? r.games : null, won: r ? share(r.win_rate) : '—', recent: entries.filter((item) => item.kind_id === kind).length };
     });
-    const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/ai">AI boards</a> · Model</p><h1>${esc(model)}</h1><p class="rp-lede">Performance across every kind this model has played.</p></header>${benchState(summary)}${data ? `<p class="rp-meta">Total cost: ${usd(data.total_cost_usd)} · ${kinds.length} kinds</p>${rows.length ? aiTable(['Kind', 'Rating (95% interval)', 'Games', 'Win rate', 'Recent entries'], rows) : emptyBoard()}` : '<p class="rp-fine">Bench results are temporarily unavailable.</p>'}`;
-    return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark kinds.`, body, active: '/ai', path: modelPath(model), agent: true });
+    const games = ratings.reduce((s, r) => s + (n(r.games) || 0), 0);
+    const head = kit.head({ title: model, sub: 'Every job this model has been rated on', back: { href: '/ai', label: 'AI boards' }, sticky: false });
+    const body = head + benchState(summary) + (!data ? kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'This page comes back as soon as Bench answers.' })
+        : kit.stats([[kinds.length, kinds.length === 1 ? 'job' : 'jobs'], [games, 'games'], [n(data.total_cost_usd) ? usd(data.total_cost_usd) : null, 'spent on runs']], { label: `${model} in numbers` })
+        + (rows.length ? kit.table({ caption: 'By job', columns: [{ key: 'job', label: 'Job', primary: true, html: true }, { key: 'rating', label: 'Rating', num: true, html: true }, { key: 'games', label: 'Games', num: true, fmt: 'int' }, { key: 'won', label: 'Won', num: true, html: true }, { key: 'recent', label: 'Recent entries', num: true, fmt: 'int' }], rows })
+            : kit.empty({ icon: 'trophy', title: 'Not rated yet', text: 'This model appears here once it has played on a Bench board.' })))
+        + `<p class="rp-fine">${esc(METHOD)}</p>`;
+    return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark jobs: ratings, games and cost.`, body, active: '/ai', path: modelPath(model), agent: true });
 }
 
 function notFound() {
