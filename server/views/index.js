@@ -48,6 +48,7 @@ const usd = (v) => {
     const a = Math.abs(x);
     if (a >= 1000) return `$${x.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
     if (a >= 1) return `$${x.toFixed(2)}`;
+    if (a >= 0.01) return Math.abs(x - Math.round(x * 100) / 100) < 1e-9 ? `$${x.toFixed(2)}` : `$${Number(x.toPrecision(2))}`;
     return `$${Number(x.toPrecision(2))}`;
 };
 /** A share of games won or tasks passed: 0.8333 → 83%. */
@@ -368,7 +369,11 @@ function aiIndex({ kinds, boards = [] }) {
     const sections = [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([room, items]) => `<section class="rp-ai-room" aria-label="${esc(room)}"><h2>${esc(roomName(room))}</h2><ul class="rp-topics">${items.map(({ kind, rows, available }) => {
         const leader = rows[0];
         const href = aiPath(kind.id);
-        return `<li class="rp-topic"><h3><a href="${href}">${esc(kind.name || kind.id)}</a></h3><p class="rp-fine">${esc(kind.id)} · ${esc(judgeWord(kind.judge))}</p><p>${available ? `Leader: ${leader ? modelLink(leader.subject) : 'No leader yet'} · ${exact(gamesOf(rows))} games` : 'Board temporarily unavailable'}</p><p class="rp-meta"><a href="${href}">Elo</a> · <a href="${href}?tab=pareto">Pareto</a> · <a href="${href}?tab=cost">Cost per solved</a></p></li>`;
+        const headline = available && leader ? `<b class="rp-ai-lead-v">${rating(leader)}</b><span class="rp-ai-lead-s">${modelLink(leader.subject)}${flag(leader)}</span>` : available ? '<b class="rp-ai-lead-v">—</b><span class="rp-ai-lead-s">No leader yet</span>' : '<b class="rp-ai-lead-v">—</b><span class="rp-ai-lead-s">Board temporarily unavailable</span>';
+        return `<li class="rp-ai-kind"><div class="rp-ai-kind-h"><h3><a href="${href}">${esc(kind.name || kind.id)}</a></h3><p class="rp-fine">${esc(kind.id)} · ${esc(judgeWord(kind.judge))}</p></div>`
+            + `<p class="rp-ai-lead">${headline}</p>`
+            + `<p class="rp-fine">${available ? `${exact(gamesOf(rows))} games` : ''}</p>`
+            + `<p class="rp-meta rp-ai-links"><a href="${href}">Elo</a><span aria-hidden="true">·</span><a href="${href}?tab=pareto">Pareto</a><span aria-hidden="true">·</span><a href="${href}?tab=cost">Cost per solved</a></p></li>`;
     }).join('')}</ul></section>`).join('');
     const body = `<header class="rp-page-h"><p class="rp-kicker">Benchmarks</p><h1>AI boards</h1><p class="rp-lede">Every benchmark kind across OpenVibe rooms, with ratings, quality and cost.</p></header>${benchState(kinds, ...boards)}${sections ? `<div class="rp-ai-rooms">${sections}</div>` : '' }${sections ? '' : '<p class="rp-fine">Bench results are temporarily unavailable.</p>'}`;
     return layout({ title: 'AI boards', description: 'AI benchmark leaders and boards across OpenVibe rooms.', body, active: '/ai', path: '/ai' });
@@ -390,11 +395,19 @@ function paretoChart(rows) {
     const maxCost = Math.max(0.001, ...points.map((r) => r.costPerSolved));
     const x = (v) => 70 + 650 * v / maxCost;
     const y = (v) => 285 - 235 * Math.max(0, Math.min(1, v));
-    const marks = points.map((r) => {
+    const xt = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ v: f * maxCost, px: x(f * maxCost) }));
+    const yt = [0, 0.25, 0.5, 0.75, 1].map((q) => ({ q, py: y(q) }));
+    const grid = yt.map((t) => `<line class="rp-ai-grid" x1="70" y1="${t.py.toFixed(1)}" x2="720" y2="${t.py.toFixed(1)}"/>`).join('')
+        + xt.map((t) => `<line class="rp-ai-grid" x1="${t.px.toFixed(1)}" y1="50" x2="${t.px.toFixed(1)}" y2="285"/>`).join('');
+    const xTicks = xt.map((t) => `<text class="rp-ai-tick" x="${t.px.toFixed(1)}" y="307" text-anchor="middle">${esc(usd(t.v))}</text>`).join('');
+    const yTicks = yt.map((t) => `<text class="rp-ai-tick" x="64" y="${(t.py + 4).toFixed(1)}" text-anchor="end">${Math.round(t.q * 100)}%</text>`).join('');
+    const marks = points.map((r, i) => {
         const px = x(r.costPerSolved).toFixed(1), py = y(r.quality).toFixed(1);
-        return `<g><circle cx="${px}" cy="${py}" r="${r.frontier ? 5 : 3}" class="${r.frontier ? 'rp-ai-frontier' : 'rp-ai-point'}"><title>${esc(r.subject)}: ${share(r.quality)} quality, ${usd(r.costPerSolved)} per solved task${r.frontier ? ', frontier' : ''}</title></circle>${r.frontier ? `<text x="${px}" y="${(Number(py) - 9).toFixed(1)}" text-anchor="middle">${esc(r.subject)}</text>` : ''}</g>`;
+        const dy = i % 2 ? 14 : -8;
+        return `<g><circle cx="${px}" cy="${py}" r="${r.frontier ? 5 : 3}" class="${r.frontier ? 'rp-ai-frontier' : 'rp-ai-point'}"><title>${esc(r.subject)}: ${share(r.quality)} quality, ${usd(r.costPerSolved)} per solved task${r.frontier ? ', frontier' : ''}</title></circle>`
+            + `<text class="rp-ai-lab${r.frontier ? ' is-frontier' : ''}" x="${(Number(px) + 6).toFixed(1)}" y="${(Number(py) + dy).toFixed(1)}">${esc(r.subject)}</text></g>`;
     }).join('');
-    return `<figure class="rp-ai-chart"><svg viewBox="0 0 800 340" role="img" aria-labelledby="rp-ai-chart-title rp-ai-chart-desc"><title id="rp-ai-chart-title">Quality against cost per solved task</title><desc id="rp-ai-chart-desc">Each point is a model. Labelled points form the best quality and cost frontier. The table below gives exact values.</desc><line x1="70" y1="285" x2="720" y2="285"/><line x1="70" y1="50" x2="70" y2="285"/><text x="70" y="307" text-anchor="middle">$0</text><text x="720" y="307" text-anchor="end">${esc(usd(maxCost))}</text><text x="45" y="285" text-anchor="end">0%</text><text x="45" y="55" text-anchor="end">100%</text><text x="395" y="332" text-anchor="middle">Cost per solved task (USD, lower is better)</text><text x="16" y="170" transform="rotate(-90 16 170)" text-anchor="middle">Quality (higher is better)</text>${marks}</svg><figcaption>Labelled points are on the quality and cost frontier.</figcaption></figure>`;
+    return `<figure class="rp-ai-chart"><svg viewBox="0 0 800 340" role="img" aria-labelledby="rp-ai-chart-title rp-ai-chart-desc"><title id="rp-ai-chart-title">Quality against cost per solved task</title><desc id="rp-ai-chart-desc">Each point is a model. Labelled points form the best quality and cost frontier. The table below gives exact values.</desc>${grid}<line x1="70" y1="285" x2="720" y2="285"/><line x1="70" y1="50" x2="70" y2="285"/>${xTicks}${yTicks}<text x="395" y="332" text-anchor="middle">Cost per solved task (USD, lower is better)</text><text x="16" y="170" transform="rotate(-90 16 170)" text-anchor="middle">Quality (higher is better)</text>${marks}</svg><figcaption>Every point is labelled; solid points are on the quality and cost frontier.</figcaption></figure>`;
 }
 
 function aiBoard({ kindId, kind, tab, board, cost, kinds }) {
