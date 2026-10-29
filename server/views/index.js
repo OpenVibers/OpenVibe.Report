@@ -77,7 +77,7 @@ const NAV = [
     { label: 'API', href: '/developers', icon: 'fa-code', more: true },
 ];
 
-function layout({ title, description, canonical = null, path = null, robots = 'index, follow', body, active = '/', jsonLd = [] }) {
+function layout({ title, description, canonical = null, path = null, robots = 'index, follow', body, active = '/', jsonLd = [], agent = false }) {
     canonical = canonical || (path ? canon(path) : undefined);
     const navbar = {
         service: 'report',
@@ -95,6 +95,9 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
         siteName: NAME,
         description: description || 'The network\'s numbers open to everyone, what streamers talked about in The Rundown, and every stream\'s after-show report.',
         canonical,
+        // A page with a Markdown twin (server/agent-pages.js) names it in the head; only twinned pages set agent.
+        agentLayer: agent,
+        llms: `${BASE}/llms.txt`,
         robots,
         jsonLd,
         home: '/',
@@ -222,7 +225,7 @@ function home({ stats, rundown, topics } = {}) {
             ['Who writes the after-show reports?', 'An AI, from the stream\'s own numbers, chat and speech, and it says so on every report. It never describes how anyone looks.'],
         ] },
     });
-    return layout({ title: null, body, active: '/', path: '/' });
+    return layout({ title: null, body, active: '/', path: '/', agent: true });
 }
 
 function stats({ stats: d, days = 30 } = {}) {
@@ -249,7 +252,7 @@ ${sites ? `<section aria-labelledby="rp-sites-h"><h2 id="rp-sites-h">Every site<
 ${L ? `<section aria-labelledby="rp-live-h"><h2 id="rp-live-h">OpenVibe.Live</h2><div class="rp-minis">${[['Streamers', L.streamers], ['Streams', L.streams], ['Hours watched', L.hours_watched], ['Chat messages', L.messages], ['Recordings', L.vods], ['Clips', L.clips], ['AI moments', L.ai_moments]].filter(([, v]) => n(v)).map(([l, v]) => `<div><b>${fmt(v)}</b><span>${esc(l)}</span></div>`).join('')}</div></section>` : ''}
 ${A && A.daily && A.daily.length > 1 ? `<section aria-labelledby="rp-acc-h"><h2 id="rp-acc-h">New accounts a day</h2>${bars(A.daily, 'New accounts a day', { h: 110 })}</section>` : ''}
 <section aria-labelledby="rp-how-h"><h2 id="rp-how-h">How these are counted</h2><p class="rp-fine">${esc(d.note || '')} The same numbers: <a href="/api/v1/stats?days=${esc(days)}"><code>/api/v1/stats</code></a>.</p></section>`;
-    return layout({ title: `Every site's numbers, ${days} days`, description: 'Page views, people, streams and how fast each OpenVibe service answers, open to everyone.', body, active: '/stats', path: `/stats${Number(days) === 30 ? '' : `?days=${Number(days)}`}` });
+    return layout({ title: `Every site's numbers, ${days} days`, description: 'Page views, people, streams and how fast each OpenVibe service answers, open to everyone.', body, active: '/stats', path: `/stats${Number(days) === 30 ? '' : `?days=${Number(days)}`}`, agent: true });
 }
 
 function rundown({ rundown: R = {}, topics } = {}) {
@@ -341,7 +344,7 @@ function developers() {
     const body = `<header class="rp-page-h"><p class="rp-kicker">For developers</p><h1>The Report API</h1><p class="rp-lede">Open JSON, no key, readable from any site (CORS). Counts only, never about a person.</p></header>
 <section aria-labelledby="rp-ep-h"><h2 id="rp-ep-h">Endpoints</h2><dl class="rp-eps">${rows.map(([ep, what]) => `<div><dt><code>${esc(ep)}</code></dt><dd>${esc(what)}</dd></div>`).join('')}</dl></section>
 <p class="rp-fine">Limits: 120 requests a minute from one address. Errors are problem+json (RFC 9457). <a href="/llms.txt">llms.txt</a> describes the site for agents.</p>`;
-    return layout({ title: 'The Report API', description: 'Open JSON for the network\'s numbers, The Rundown and after-show reports.', body, active: '/developers', path: '/developers' });
+    return layout({ title: 'The Report API', description: 'Open JSON for the network\'s numbers, The Rundown and after-show reports.', body, active: '/developers', path: '/developers', agent: true });
 }
 
 function benchState(...reads) {
@@ -376,7 +379,7 @@ function aiIndex({ kinds, boards = [] }) {
             + `<p class="rp-meta rp-ai-links"><a href="${href}">Elo</a><span aria-hidden="true">·</span><a href="${href}?tab=pareto">Pareto</a><span aria-hidden="true">·</span><a href="${href}?tab=cost">Cost per solved</a></p></li>`;
     }).join('')}</ul></section>`).join('');
     const body = `<header class="rp-page-h"><p class="rp-kicker">Benchmarks</p><h1>AI boards</h1><p class="rp-lede">Every benchmark kind across OpenVibe rooms, with ratings, quality and cost.</p></header>${benchState(kinds, ...boards)}${sections ? `<div class="rp-ai-rooms">${sections}</div>` : '' }${sections ? '' : '<p class="rp-fine">Bench results are temporarily unavailable.</p>'}`;
-    return layout({ title: 'AI boards', description: 'AI benchmark leaders and boards across OpenVibe rooms.', body, active: '/ai', path: '/ai' });
+    return layout({ title: 'AI boards', description: 'AI benchmark leaders and boards across OpenVibe rooms.', body, active: '/ai', path: '/ai', agent: true });
 }
 
 function aiTable(headers, rows) {
@@ -423,7 +426,7 @@ function aiBoard({ kindId, kind, tab, board, cost, kinds }) {
     if (tab === 'cost') content = rows.length ? aiTable(['Rank', 'Model', 'Solved', 'Entries', 'Total cost', 'Cost per solved'], rows.map((r, i) => `<tr><td>${i + 1}</td><th scope="row">${modelLink(r.subject)}</th><td>${exact(r.solved)}</td><td>${exact(r.entries)}</td><td>${usd(r.total_cost_usd)}</td><td>${usd(r.cost_per_solved)}</td></tr>`)) : emptyBoard();
     if (!board) content = '<p class="rp-fine">Bench results are temporarily unavailable.</p>';
     const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/ai">AI boards</a>${kind ? ` · ${esc(roomName(kind.room))}` : ''}</p><h1>${esc(name)}</h1><p class="rp-lede">${kind ? esc(judgeWord(kind.judge).replace(/^./, (c) => c.toUpperCase())) : 'Bench results'}.</p><nav class="rp-tabs" aria-label="Board view">${tabs}</nav></header>${benchState(kinds, board, cost)}<section aria-label="${esc(tab)} board">${content}</section>${datasetLink(kindId)}`;
-    return layout({ title: `${name}: AI board`, description: `${name} AI benchmark ratings, quality and cost.`, body, active: '/ai', path: aiPath(kindId) });
+    return layout({ title: `${name}: AI board`, description: `${name} AI benchmark ratings, quality and cost.`, body, active: '/ai', path: aiPath(kindId), agent: true });
 }
 
 function aiModel({ model, summary }) {
@@ -437,7 +440,7 @@ function aiModel({ model, summary }) {
         return `<tr><th scope="row"><a href="${aiPath(kind)}">${esc(kind)}</a></th><td>${r ? rating(r) : '—'}${r ? flag(r) : ''}</td><td>${r ? exact(r.games) : '—'}</td><td>${r ? share(r.win_rate) : '—'}</td><td>${count}</td></tr>`;
     });
     const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/ai">AI boards</a> · Model</p><h1>${esc(model)}</h1><p class="rp-lede">Performance across every kind this model has played.</p></header>${benchState(summary)}${data ? `<p class="rp-meta">Total cost: ${usd(data.total_cost_usd)} · ${kinds.length} kinds</p>${rows.length ? aiTable(['Kind', 'Rating (95% interval)', 'Games', 'Win rate', 'Recent entries'], rows) : emptyBoard()}` : '<p class="rp-fine">Bench results are temporarily unavailable.</p>'}`;
-    return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark kinds.`, body, active: '/ai', path: modelPath(model) });
+    return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark kinds.`, body, active: '/ai', path: modelPath(model), agent: true });
 }
 
 function notFound() {

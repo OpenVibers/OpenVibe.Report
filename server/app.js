@@ -31,7 +31,7 @@ const { createBenchClient } = require('./data/bench');
 const { createAnalytics } = require('./analytics');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
-const { createPageRoutes } = require('./http/pages');
+const { createPageRoutes, createPublicPages } = require('./http/pages');
 const { createDiscoveryRoutes } = require('./http/discovery');
 const { createInternalRoutes } = require('./http/internal');
 const { createServiceReadiness } = require('./observability');
@@ -143,7 +143,15 @@ async function createApp(opts = {}) {
 
     // ── Crawl artifacts, then the pages ─────────────────────
     app.use(createDiscoveryRoutes(ctx));
-    app.use(createPageRoutes(ctx));
+    // The agent layer (openvibe-shared/agent-layer): /.well-known/agent.json and each twinned page's Markdown twin. It
+    // mounts after the page routes, which keep their own cache policy and answer the HTML (with the discovery links),
+    // and before the 404, so an unknown twin is still a 404. A .md path skips the page routes (http/pages.js).
+    const publicPages = createPublicPages(ctx);
+    app.use(createPageRoutes({ ...ctx, publicPages }));
+    require('openvibe-shared/agent-layer').mount(app, {
+        descriptor: require('./agent-descriptor'),
+        render: require('./agent-pages').createAgentPages({ publicPages, bench }).renderPublicPage,
+    });
     app.use((_req, res) => {
         res.status(404).set('Cache-Control', PAGE_CACHE).type('html').send(views.notFound());
     });

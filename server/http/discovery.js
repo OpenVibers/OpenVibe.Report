@@ -40,6 +40,7 @@ function createDiscoveryRoutes({ config, live, bench }) {
     r.get('/robots.txt', (_req, res) => {
         res.type('text/plain').set('Cache-Control', CACHE).send(
             '# openvibe.report: the public pages are for search and AI crawlers; the JSON API is not.\n'
+            + `# Agent manifest: ${abs('/.well-known/agent.json')}\n`
             + seo.robotsTxt({ sitemaps: [abs('/sitemap.xml')], disallow: ['/api/'] }),
         );
     });
