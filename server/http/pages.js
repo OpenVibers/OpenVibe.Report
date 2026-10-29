@@ -14,111 +14,149 @@
  *
  * A bad path parameter is a 404 without a source request; so is a source that answers nothing. Pages are public
  * for two minutes.
+ *
+ * The public pages the agent layer also twins have their data and view here (createPublicPages), so a route and its
+ * Markdown twin render the very same page; `agent: true` in those views adds the discovery links.
  */
 const express = require('express');
 const views = require('../views');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
+const { twinPath } = require('../agent-pages');
 
 const CACHE = 'public, max-age=120';
 
-function createPageRoutes({ network, live, bench, analytics = null }) {
-    const r = express.Router();
+/** The pages the agent layer twins: their data, then the view. Each returns { html } or null (nothing to show). */
+function createPublicPages({ network, live, bench, analytics = null }) {
+    const numbers = (days) => (analytics ? analytics.stats(days) : network.stats(days));
 
-    function send(res, html, status = 200, cacheControl = CACHE) {
-        res.status(status).set('Cache-Control', cacheControl).type('html').send(html);
-    }
-    function notFound(res) {
-        return send(res, views.notFound(), 404);
-    }
-
-    r.get('/', async (_req, res) => {
-        const [stats, rundown, topics] = await Promise.all([
-            analytics ? analytics.stats(7) : network.stats(7),
-            live.rundown(),
-            live.topics(),
-        ]);
+    async function home() {
+        const [stats, rundown, topics] = await Promise.all([numbers(7), live.rundown(), live.topics()]);
         // Each part of the home stands alone: a source that does not answer leaves its part out, not the page.
-        return send(res, views.home({ stats, rundown, topics }));
-    });
+        return { html: views.home({ stats, rundown, topics }) };
+    }
 
-    r.get('/developers', (_req, res) => send(res, views.developers()));
+    async function stats(days) {
+        const data = await numbers(days);
+        return data ? { html: views.stats({ stats: data, days }) } : null;
+    }
 
-    r.get('/stats', async (req, res) => {
-        const days = normaliseDays(req.query.days);
-        const stats = analytics ? await analytics.stats(days) : await network.stats(days);
-        if (!stats) return notFound(res);
-        return send(res, views.stats({ stats, days }));
-    });
+    function developers() {
+        return { html: views.developers() };
+    }
 
-    r.get('/ai', async (_req, res) => {
+    async function aiIndex() {
         const kinds = await bench.kinds();
         const list = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
         const boards = await Promise.all(list.map((kind) => bench.board(kind.id, 'elo')));
-        return send(res, views.aiIndex({ kinds, boards }), 200, 'no-store');
+        return { html: views.aiIndex({ kinds, boards }) };
+    }
+
+    async function aiBoard(kindId, tab) {
+        if (!bench.isKindId(kindId)) return null;
+        const [kinds, board, cost] = await Promise.all([
+            bench.kinds(), bench.board(kindId, tab), tab === 'pareto' ? bench.board(kindId, 'cost') : Promise.resolve(null),
+        ]);
+        const kind = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds.find((k) => k.id === kindId) : null;
+        if (kinds && !kind) return null;
+        return { html: views.aiBoard({ kindId, kind, tab, board, cost, kinds }) };
+    }
+
+    async function aiModel(model) {
+        if (!bench.isModelName(model)) return null;
+        return { html: views.aiModel({ model, summary: await bench.modelSummary(model) }) };
+    }
+
+    return { home, stats, developers, aiIndex, aiBoard, aiModel };
+}
+
+function createPageRoutes(ctx) {
+    const { live, bench } = ctx;
+    const r = express.Router();
+    const publicPages = ctx.publicPages || createPublicPages(ctx);
+    // A path ending in .md is a Markdown twin (server/agent-pages.js), never a page parameter.
+    r.use((req, res, next) => (req.path.endsWith('.md') ? next('router') : next()));
+
+    function send(req, res, html, status = 200, cacheControl = CACHE) {
+        // A page with a Markdown twin names it, as the agent layer's own responses do (openvibe-shared/agent-layer).
+        if (status === 200 && twinPath(req.path)) {
+            const site = String(ctx.config.baseUrl).replace(/\/+$/, '');
+            res.set('Link', require('openvibe-shared/agent-layer').linkHeaderTags(`${site}${req.originalUrl}`, `${site}/llms.txt`).header);
+        }
+        res.status(status).set('Cache-Control', cacheControl).type('html').send(html);
+    }
+    function notFound(req, res) {
+        return send(req, res, views.notFound(), 404);
+    }
+
+    r.get('/', async (req, res) => send(req, res, (await publicPages.home()).html));
+
+    r.get('/developers', (req, res) => send(req, res, publicPages.developers().html));
+
+    r.get('/stats', async (req, res) => {
+        const page = await publicPages.stats(normaliseDays(req.query.days));
+        if (!page) return notFound(req, res);
+        return send(req, res, page.html);
     });
 
+    r.get('/ai', async (req, res) => send(req, res, (await publicPages.aiIndex()).html, 200, 'no-store'));
+
     r.get('/ai/models/:model', async (req, res) => {
-        const model = req.params.model;
-        if (!bench.isModelName(model)) return notFound(res);
-        const summary = await bench.modelSummary(model);
-        return send(res, views.aiModel({ model, summary }), 200, 'no-store');
+        const page = await publicPages.aiModel(req.params.model);
+        if (!page) return notFound(req, res);
+        return send(req, res, page.html, 200, 'no-store');
     });
 
     r.get('/ai/:kind', async (req, res) => {
-        const kindId = req.params.kind;
-        if (!bench.isKindId(kindId)) return notFound(res);
-        const tab = bench.normaliseTab(req.query.tab);
-        const [kinds, board, cost] = await Promise.all([bench.kinds(), bench.board(kindId, tab), tab === 'pareto' ? bench.board(kindId, 'cost') : Promise.resolve(null)]);
-        const kind = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds.find((k) => k.id === kindId) : null;
-        if (kinds && !kind) return notFound(res);
-        return send(res, views.aiBoard({ kindId, kind, tab, board, cost, kinds }), 200, 'no-store');
+        const page = await publicPages.aiBoard(req.params.kind, bench.normaliseTab(req.query.tab));
+        if (!page) return notFound(req, res);
+        return send(req, res, page.html, 200, 'no-store');
     });
 
-    r.get('/rundown', async (_req, res) => {
+    r.get('/rundown', async (req, res) => {
         const [rundown, topics] = await Promise.all([live.rundown(), live.topics()]);
-        if (!rundown || !topics) return notFound(res);
-        return send(res, views.rundown({ rundown, topics }));
+        if (!rundown || !topics) return notFound(req, res);
+        return send(req, res, views.rundown({ rundown, topics }));
     });
 
     r.get('/rundown/t/:slug', async (req, res) => {
         const { slug } = req.params;
-        if (!isSlug(slug)) return notFound(res);
+        if (!isSlug(slug)) return notFound(req, res);
         const topic = await live.topic(slug);
-        if (!topic) return notFound(res);
-        return send(res, views.topic({ topic }));
+        if (!topic) return notFound(req, res);
+        return send(req, res, views.topic({ topic }));
     });
 
     r.get('/rundown/e/:streamId', async (req, res) => {
-        if (!isStreamId(req.params.streamId)) return notFound(res);
+        if (!isStreamId(req.params.streamId)) return notFound(req, res);
         const episode = await live.episode(streamIdOf(req.params.streamId));
-        if (!episode) return notFound(res);
-        return send(res, views.episode({ episode }));
+        if (!episode) return notFound(req, res);
+        return send(req, res, views.episode({ episode }));
     });
 
     r.get('/rundown/s/:username', async (req, res) => {
         const { username } = req.params;
-        if (!isUsername(username)) return notFound(res);
+        if (!isUsername(username)) return notFound(req, res);
         const speaker = await live.speaker(username);
-        if (!speaker) return notFound(res);
-        return send(res, views.speaker({ speaker, username }));
+        if (!speaker) return notFound(req, res);
+        return send(req, res, views.speaker({ speaker, username }));
     });
 
     r.get('/after-show/:streamId', async (req, res) => {
-        if (!isStreamId(req.params.streamId)) return notFound(res);
+        if (!isStreamId(req.params.streamId)) return notFound(req, res);
         const recap = await live.recap(streamIdOf(req.params.streamId));
-        if (!recap) return notFound(res);
-        return send(res, views.recap({ recap }));
+        if (!recap) return notFound(req, res);
+        return send(req, res, views.recap({ recap }));
     });
 
     r.get('/c/:username', async (req, res) => {
         const { username } = req.params;
-        if (!isUsername(username)) return notFound(res);
+        if (!isUsername(username)) return notFound(req, res);
         const recaps = await live.channelRecaps(username);
-        if (!recaps) return notFound(res);
-        return send(res, views.channel({ username, recaps }));
+        if (!recaps) return notFound(req, res);
+        return send(req, res, views.channel({ username, recaps }));
     });
 
     return r;
 }
 
-module.exports = { createPageRoutes };
+module.exports = { createPageRoutes, createPublicPages };
