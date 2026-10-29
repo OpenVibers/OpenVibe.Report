@@ -48,7 +48,7 @@ const usd = (v) => {
     const a = Math.abs(x);
     if (a >= 1000) return `$${x.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
     if (a >= 1) return `$${x.toFixed(2)}`;
-    if (a >= 0.01) return `$${x.toFixed(2)}`;
+    if (a >= 0.01) return Math.abs(x - Math.round(x * 100) / 100) < 1e-9 ? `$${x.toFixed(2)}` : `$${Number(x.toPrecision(2))}`;
     return `$${Number(x.toPrecision(2))}`;
 };
 /** A share of games won or tasks passed: 0.8333 → 83%. */
