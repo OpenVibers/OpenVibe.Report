@@ -207,5 +207,5 @@ verifies the Events v2 HMAC. See [SECURITY.md](SECURITY.md).
 <!-- versions:start -->
 - openvibe-contracts: v0.225.0
 - openvibe-sdk: v0.70.0
-- openvibe-shared: v4.43.0
+- openvibe-shared: v4.45.0
 <!-- versions:end -->
