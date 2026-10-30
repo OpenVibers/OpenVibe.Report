@@ -12,6 +12,10 @@ const shell = require('openvibe-shared/shell');
 const ovServe = require('openvibe-shared/serve');
 const appIcon = require('openvibe-shared/app-icon');
 const kit = require('openvibe-shared/kit');
+// The short home (the owner's rule, 2026-10-30): pick blocks and folds.
+const { pickList, pickListRules, foldAround } = require('./short');
+// A short name for a chip: the title, cut where it stops saying anything.
+const clip = (s, n = 40) => { const x = String(s == null ? '' : s); return x.length > n ? `${x.slice(0, n - 1).trimEnd()}…` : x; };
 const sc = require('openvibe-shared/showcase');
 const rooms = require('openvibe-shared/rooms');
 const { asset } = require('../assets');
@@ -77,7 +81,7 @@ const NAV = [
     { label: 'API', href: '/developers', icon: 'fa-code', more: true },
 ];
 
-function layout({ title, description, canonical = null, path = null, robots = 'index, follow', body, active = '/', jsonLd = [], agent = false }) {
+function layout({ title, description, canonical = null, path = null, robots = 'index, follow', body, active = '/', jsonLd = [], agent = false, inlineStyles = [] }) {
     canonical = canonical || (path ? canon(path) : undefined);
     const navbar = {
         service: 'report',
@@ -113,6 +117,7 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
 <script src="${esc(ovServe.url('kit-web.js'))}" defer></script>
 <script src="${esc(ovServe.url('kit-data-web.js'))}" defer></script>
 <script src="${esc(ovServe.url('motion.js'))}" defer></script>
+${(inlineStyles || []).map((css) => `<style>${css}</style>`).join('\n')}
 <meta name="ov-boost" content="report@${esc(RELEASE)}">`,
         body: `<a class="skip" href="#main">Skip to content</a>
 <div id="navbar-mount"></div>
@@ -165,9 +170,9 @@ function takeRow(t) {
     return `<li class="rp-take"><h3>${sid ? `<a href="/rundown/e/${encodeURIComponent(sid)}">${esc(t.title)}</a>` : esc(t.title)}</h3>${t.what ? `<p>${esc(t.what)}</p>` : ''}`
         + `<p class="rp-meta">${by ? `<a href="/rundown/s/${encodeURIComponent((t.user || (t.stream && t.stream.user) || {}).username || '')}">${esc(by)}</a>` : ''}${t.at || t.started_at ? `<time>${esc(dayTime(t.at || t.started_at))}</time>` : ''}</p></li>`;
 }
-function topicCard(t) {
+function topicCard(t, i) {
     if (!t || !t.slug) return '';
-    return `<li><a class="rp-topic" href="/rundown/t/${encodeURIComponent(t.slug)}"><span class="rp-kind">${esc(KIND[t.kind] || t.kind || 'Topic')}</span><b>${esc(t.title)}</b>${t.headline ? `<span class="rp-topic-h">${esc(t.headline)}</span>` : ''}`
+    return `<li${i == null ? '' : ` data-i="${i}"`}><a class="rp-topic" href="/rundown/t/${encodeURIComponent(t.slug)}"><span class="rp-kind">${esc(KIND[t.kind] || t.kind || 'Topic')}</span><b>${esc(t.title)}</b>${t.headline ? `<span class="rp-topic-h">${esc(t.headline)}</span>` : ''}`
         + `<span class="rp-meta">${[n(t.takes) ? `${exact(t.takes)} takes` : '', n(t.streamers) ? `${exact(t.streamers)} streamer${Number(t.streamers) === 1 ? '' : 's'}` : '', t.last_seen_at ? day(t.last_seen_at) : ''].filter(Boolean).map(esc).join(' · ')}</span></a></li>`;
 }
 function streamCard(s) {
@@ -186,7 +191,16 @@ function home({ stats, rundown, topics } = {}) {
     const lead = R.lead;
     const leadHTML = lead ? `<section class="rp-lead" aria-labelledby="rp-lead-h"><p class="rp-kicker">The Rundown · lead</p><h2 id="rp-lead-h">${lead.stream_id || (lead.stream && lead.stream.id) ? `<a href="/rundown/e/${encodeURIComponent(lead.stream_id || lead.stream.id)}">${esc(lead.title)}</a>` : esc(lead.title)}</h2>`
         + `${lead.what ? `<p class="rp-lead-what">${esc(lead.what)}</p>` : ''}${lead.take ? `<p class="rp-lead-take">${esc(lead.take)}</p>` : ''}<p class="rp-meta">${AI}${who(lead.user) ? ` · ${esc(who(lead.user))}` : ''}</p></section>` : '';
-    const topicsHTML = trending.length ? `<section aria-labelledby="rp-tr-h"><div class="rp-head-row"><h2 id="rp-tr-h">What streamers talked about</h2><a class="rp-more" href="/rundown">The Rundown${kit.icon('chevron')}</a></div><ul class="rp-topics">${trending.map(topicCard).join('')}</ul></section>` : '';
+    const topicsHTML = trending.length ? `<section aria-labelledby="rp-tr-h"><div class="rp-head-row"><h2 id="rp-tr-h">What streamers talked about</h2><a class="rp-more" href="/rundown">The Rundown${kit.icon('chevron')}</a></div><ul class="rp-topics pick-list">${trending.map((t, i) => topicCard(t, i)).join('')}</ul></section>` : '';
+    // The short home (the owner's rule, 2026-10-30): the topics are one pick block, a row of chips picks one of them,
+    // and the parts a reader rarely needs are folds.
+    const topicsBlock = trending.length ? pickList({
+        key: 'topics',
+        label: 'What streamers talked about',
+        head: 'What streamers talked about',
+        labels: trending.map((t) => clip(t.title, 40)),
+        html: topicsHTML,
+    }) : '';
     const pv = stats && stats.pageviews_daily;
     const numbersScene = pv && pv.length > 1 ? {
         title: 'Every number says what it counts',
@@ -209,7 +223,7 @@ function home({ stats, rundown, topics } = {}) {
             { value: n(R.counts && R.counts.takes), label: 'takes written up' },
         ].filter((p) => p.value),
         rails: streams.length ? [{ id: 'after-show', title: 'After-show reports', more: { href: '/rundown', label: 'The Rundown' }, items: streams }] : [],
-        html: leadHTML + topicsHTML,
+        html: leadHTML + topicsBlock,
         scenes: [numbersScene].filter(Boolean),
         explore: { title: 'More on Report', items: [
             { title: 'Every site\'s numbers', text: 'Page views, people, streams and how fast each service answers', href: '/stats', icon: 'ov:gauge' },
@@ -227,7 +241,15 @@ function home({ stats, rundown, topics } = {}) {
             ['Who writes the after-show reports?', 'An AI, from the stream\'s own numbers, chat and speech, and it says so on every report. It never describes how anyone looks.'],
         ] },
     });
-    return layout({ title: null, body, active: '/', path: '/', agent: true });
+    // The numbers, the code samples and the questions are the parts a reader rarely needs on a phone.
+    let out = foldAround(body, '>Every number says what it counts</h2>', 'numbers', '<h2 id="rp-numbers-h">Every number says what it counts</h2>');
+    out = foldAround(out, '>For developers</h2>', 'dev', '<h2 id="rp-dev-h">For developers</h2>');
+    out = foldAround(out, '>Questions</h2>', 'faq', '<h2 id="rp-faq-h">Questions</h2>');
+    return layout({
+        title: null, body: out, active: '/', path: '/', agent: true,
+        // The rule that shows the picked topic of the pick list: one per topic, written for this page.
+        inlineStyles: [`@supports selector(:has(*)){@media (max-width:640px){${pickListRules('topics', trending.length)}}}`],
+    });
 }
 
 function stats({ stats: d, days = 30 } = {}) {
