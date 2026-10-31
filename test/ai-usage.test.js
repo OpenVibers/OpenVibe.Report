@@ -125,10 +125,11 @@ function delivery(event) {
             assert.strictEqual(body.totals.calls, 1);
         });
 
-        await check('the route for a person is specified and answers 501 until Report has sign-in', async () => {
+        await check('the route for a person refuses a caller with no session, privately', async () => {
             const r = await t.get('/api/v1/me/ai/usage');
-            assert.strictEqual(r.status, 501, r.text);
-            assert.strictEqual(r.json().code, 'report.not_implemented');
+            assert.strictEqual(r.status, 401, r.text);
+            assert.strictEqual(r.json().code, 'auth.sign_in_required');
+            assert.strictEqual(r.headers.get('cache-control'), 'private, no-store');
         });
 
         await check('ADR-033: the records and the roll-ups leave with the account', async () => {

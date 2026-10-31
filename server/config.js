@@ -100,6 +100,8 @@ function load(env = process.env) {
 
         // One caller may make this many API requests a minute (express-rate-limit, keyed by address).
         apiRateLimitPerMinute: Math.max(1, int(env.REPORT_API_RATE_LIMIT_PER_MIN, 120)),
+        // A person's own narrow routes (GET /api/v1/me/ai/usage) have their own, tighter per-address limit.
+        meRateLimitPerMinute: Math.max(1, int(env.REPORT_ME_RATE_LIMIT_PER_MIN, 60)),
 
         // How long a readiness probe may take before the source is reported as not answering.
         readyTimeoutMs: Math.max(200, int(env.REPORT_READY_TIMEOUT_MS, 2500)),
