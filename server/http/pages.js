@@ -154,12 +154,16 @@ function createPageRoutes(ctx) {
         const user = req.user;
         if (!user || !isUsername(String(user.username || ''))) return send(req, res, views.youSignedOut(), 200, 'private, no-store');
         const days = normaliseDays(req.query.days);
-        const [stats, recaps, speaker] = await Promise.all([
+        // Your AI (plan L40/L41): the ledger's own rows for this person, read in-process, never by a query value.
+        const subject = typeof user.subject_id === 'string' ? user.subject_id.trim() : '';
+        const from = new Date((ctx.now ? ctx.now() : Date.now()) - (days - 1) * 86400000).toISOString().slice(0, 10);
+        const [stats, recaps, speaker, ai] = await Promise.all([
             ctx.analytics && typeof ctx.analytics.channel === 'function' ? ctx.analytics.channel(user.username, days).catch(() => null) : null,
             Promise.resolve(live.channelRecaps(user.username)).catch(() => null),
             Promise.resolve(live.speaker(user.username)).catch(() => null),
+            subject && ctx.aiUsage ? ctx.aiUsage.forPerson({ subject, from, group: 'day' }).catch(() => null) : null,
         ]);
-        return send(req, res, views.you({ user, days, stats, recaps, speaker }), 200, 'private, no-store');
+        return send(req, res, views.you({ user, days, stats, recaps, speaker, ai }), 200, 'private, no-store');
     });
 
     r.get('/c/:username', async (req, res) => {

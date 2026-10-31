@@ -169,6 +169,7 @@ async function boot(opts = {}) {
         analytics: opts.analytics,
         sso: opts.sso,
         shadow: opts.shadow,
+        ...(opts.aiUsage ? { aiUsage: opts.aiUsage } : {}),
         releaseEnv: { ...process.env, RELEASE_COMMIT: '0000000' },
     });
     const server = await new Promise((resolve) => {
