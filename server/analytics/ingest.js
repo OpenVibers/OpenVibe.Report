@@ -20,7 +20,7 @@ const { normaliseDays } = require('../data/source');
 const INBOX = 'report-events';
 const STATS_INBOX = 'network-stats';
 const DAY = 86_400_000;
-const ALLOWED_TOPICS = new Set(['live.stream.ended', 'live.stream.started', 'network.frame.hit', 'network.frame.day', 'frame.hit']);
+const ALLOWED_TOPICS = new Set(['live.stream.ended', 'live.stream.started', 'network.frame.hit', 'network.frame.day', 'frame.hit', 'ai.usage.recorded']);
 
 const hashOf = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -293,6 +293,8 @@ async function recordEvent(store, event, { now = () => Date.now() } = {}) {
         await t.prepare('UPDATE report_inbox SET source = ?, topic = ?, payload_hash = ? WHERE consumer = ? AND event_id = ?')
             .run(source, topic, hashOf(payload), INBOX, eventId);
         if (topic === 'live.stream.ended') return await recordStream(t, e, payload, occurredAt, source);
+        // The AI meter (L40/L41): one record per AI call, stored once by the system and the run (or turn).
+        if (topic === 'ai.usage.recorded') return await require('./ai-usage').recordUsage(t, payload, { occurredAt, source });
         if (topic === 'network.frame.hit' || topic === 'network.frame.day' || topic === 'frame.hit') return await recordFrame(t, topic, payload, occurredAt, source);
         return 'event:recorded';
     });
