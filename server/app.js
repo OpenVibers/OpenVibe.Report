@@ -65,7 +65,6 @@ async function createApp(opts = {}) {
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     views.configure({ baseUrl: config.baseUrl });
 
-<<<<<<< HEAD
     // A person's sign-in (the `report` client, the same id and secret Report already reads Billing with).
     const sso = opts.sso || createSsoClient({
         site: 'report', baseUrl: config.baseUrl, clientId: config.oauth.clientId, clientSecret: config.oauth.clientSecret,
