@@ -9,6 +9,7 @@
  */
 const assert = require('assert');
 const crypto = require('crypto');
+const contracts = require('openvibe-contracts');
 const { createSsoClient } = require('openvibe-sdk/sso');
 const { boot, check, done } = require('./helpers/boot');
 const ledger = require('../server/analytics/ai-usage');
@@ -38,6 +39,12 @@ const sso = createSsoClient({
 });
 
 const MEASURES = ['calls', 'input_tokens', 'output_tokens', 'cached_tokens', 'cache_write_tokens', 'cost_usd', 'fee_usd', 'charged_usd', 'saved_usd'];
+
+/** The route's answer must match the published contract, not only this test's idea of it. */
+function assertContract(body, label) {
+    const r = contracts.validate('report.ai-usage-me-result@2', body);
+    assert.ok(r.valid, `${label} does not match report.ai-usage-me-result@2: ${JSON.stringify(r.errors)}`);
+}
 
 (async () => {
     const t = await boot({ db: true, now: () => NOW, sso });
@@ -120,6 +127,24 @@ const MEASURES = ['calls', 'input_tokens', 'output_tokens', 'cached_tokens', 'ca
                 assert.deepStrictEqual(body.rows.map((x) => x.key), keys, group);
                 for (const row of body.rows) for (const k of MEASURES) assert.strictEqual(typeof row[k], 'number', `${group}.${k}`);
             }
+        });
+
+        await check('a real answer matches report.ai-usage-me-result@2', async () => {
+            const headers = { cookie: `ov_token=${alice}` };
+            for (const [label, query] of [
+                ['default', ''],
+                ['paid_by', '?group=paid_by&from=2026-09-01&to=2026-10-31'],
+                ['empty', '?from=2026-01-01&to=2026-01-02'],
+                ['rollups', '?group=surface&from=2026-01-01&to=2026-06-30'],
+                ['straddle', '?group=provider&from=2026-01-01&to=2026-10-31'],
+            ]) {
+                const r = await t.get('/api/v1/me/ai/usage' + query, { headers });
+                assert.strictEqual(r.status, 200, label + ': ' + r.text);
+                assertContract(r.json(), label);
+            }
+            const bobAnswer = await t.get('/api/v1/me/ai/usage', { headers: { cookie: `ov_token=${bob}` } });
+            assert.strictEqual(bobAnswer.status, 200, bobAnswer.text);
+            assertContract(bobAnswer.json(), 'bob (org_key)');
         });
 
         await check('the totals and by_paid_by add up to the rows', async () => {
