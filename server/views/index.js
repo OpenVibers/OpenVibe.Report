@@ -381,7 +381,33 @@ function youSentence({ name, days, stats, speaker }) {
     return `In the last ${days} days, ${name}, you ${list}.`;
 }
 
-function you({ user, days = 30, stats = null, recaps = null, speaker = null } = {}) {
+// Your AI on /you (plan L40/L41): who paid, in words a person uses.
+const PAID_BY = { own_key: 'Your own keys', openvibe_key: 'The OpenVibe key', plan: 'Your plan', own_machine: 'Your own machine', free_tier: 'Free tiers', network_allowance: 'OpenVibe\u2019s allowance', org_key: 'Your organisation\u2019s key' };
+const aiUsd = (v) => { const x = n(v); if (x == null) return '\u2014'; if (x === 0) return '$0'; return x < 0.01 ? 'under $0.01' : `$${x.toFixed(x < 10 ? 2 : 0)}`; };
+const bigNum = (v) => { const x = n(v) || 0; return x >= 1e6 ? `${(x / 1e6).toFixed(1)}M` : x >= 1e4 ? `${Math.round(x / 1e3)}k` : exact(x); };
+
+function youAi(ai, days) {
+    const T = ai && ai.totals;
+    if (!T || !n(T.calls)) {
+        return `<section aria-labelledby="rp-you-ai"><h2 id="rp-you-ai">Your AI</h2><p class="rp-fine">No AI calls in the last ${esc(days)} days. When you use AI on any OpenVibe site, it is counted here: the tokens, how much came from cache, what it cost and whose key paid. Only you see it.</p></section>`;
+    }
+    const tokens = (n(T.input_tokens) || 0) + (n(T.output_tokens) || 0);
+    const cacheShare = (n(T.cached_tokens) || 0) / Math.max(1, (n(T.input_tokens) || 0) + (n(T.cached_tokens) || 0));
+    const daily = (ai.rows || []).map((r) => ({ day: r.key, n: n(r.calls) || 0 }));
+    const paid = Object.entries(ai.by_paid_by || {}).filter(([, v]) => v && n(v.calls)).sort((a, b) => (n(b[1].calls) || 0) - (n(a[1].calls) || 0));
+    const chips = paid.map(([k, v]) => `<li><b>${esc(PAID_BY[k] || k)}</b> ${esc(plural(v.calls, 'call', 'calls'))} \u00b7 ${n(v.charged_usd) ? esc(aiUsd(v.charged_usd)) + (n(v.fee_usd) ? ` incl. ${esc(aiUsd(v.fee_usd))} fee` : '') : 'no charge'}</li>`).join('');
+    const lines = (ai.insights || []).slice(0, 3);
+    return `<section aria-labelledby="rp-you-ai"><h2 id="rp-you-ai">Your AI</h2>
+${lines.length ? `<p class="rp-lede">${esc(lines[0])}</p>` : ''}
+<div class="rp-tiles rp-tiles-sm">${tile('Calls', exact(T.calls))}${tile('Tokens', esc(bigNum(tokens)))}${tile('From cache', `${Math.round(cacheShare * 100)}%`)}${tile('Cost', esc(aiUsd(T.cost_usd)), n(T.saved_usd) ? `cache saved ${esc(aiUsd(T.saved_usd))}` : '')}${tile('Fees', esc(aiUsd(T.fee_usd)))}</div>
+${daily.length > 1 ? bars(daily, 'AI calls a day', { h: 100 }) : ''}
+${chips ? `<h3 class="rp-you-sub">Who paid</h3><ul class="rp-chips rp-paid">${chips}</ul>` : ''}
+${lines.slice(1).map((l) => `<p class="rp-fine">${esc(l)}</p>`).join('')}
+<p class="rp-meta"><a href="https://ai.openvibe.services/you">Your keys and how AI is paid for</a> \u00b7 <a href="/api/v1/me/ai/usage">As JSON</a></p>
+</section>`;
+}
+
+function you({ user, days = 30, stats = null, recaps = null, speaker = null, ai = null } = {}) {
     const name = String(user.display_name || user.username || 'you');
     const username = String(user.username || '');
     const T = (stats && stats.totals) || {};
@@ -404,8 +430,8 @@ ${(sp.episodes || []).length ? `<p class="rp-meta">${plural(sp.episodes.length, 
 </section>` : '';
     const body = `<header class="rp-page-h rp-person">${kit.mark({ name, src: user.avatar_url || '', size: 64 })}<div><p class="rp-kicker">Your numbers</p><h1>${esc(name)}</h1>
 <p class="rp-lede rp-you-say">${esc(youSentence({ name, days, stats, speaker }))}</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></div></header>
-${streams}${money}${rundown}
-<section aria-labelledby="rp-you-next" class="rp-you-next"><h2 id="rp-you-next">Coming here</h2><p class="rp-fine">Your AI use across every OpenVibe site (tokens, how much came from cache, what it cost and whose key paid), your agents' work and what your computers ran. Only you see this page.</p></section>`;
+${streams}${money}${youAi(ai, days)}${rundown}
+<section aria-labelledby="rp-you-next" class="rp-you-next"><h2 id="rp-you-next">Coming here</h2><p class="rp-fine">Your agents' work and what your computers ran. Only you see this page.</p></section>`;
     return layout({ title: 'Your numbers', description: 'Your own numbers across OpenVibe: streams, money and The Rundown, in one place.', body, active: '/you', robots: 'noindex, nofollow' });
 }
 

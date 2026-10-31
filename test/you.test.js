@@ -7,6 +7,8 @@
  */
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { createSsoClient } = require('openvibe-sdk/sso');
 const { boot, check, done } = require('./helpers/boot');
 
@@ -36,7 +38,21 @@ const goosely = token({ sub: '7', subject_id: 'usr_01JTESTGOOSELY0000000000000',
         stats: async () => null, metrics: async () => null, reportStats: () => null,
     };
     const sso = createSsoClient({ site: 'report', baseUrl: 'https://openvibe.report', clientId: 'report', clientSecret: 'x', networkUrl: 'https://openvibe.network', publicKey: publicKey.export({ type: 'spki', format: 'pem' }), log: { warn() {}, info() {}, log() {}, error() {} } });
-    const t = await boot({ sso, analytics });
+    // The AI ledger (plan L40/L41), answered by hand: the rows of the person the session names.
+    const aiAsked = [];
+    const aiUsage = {
+        async forPerson({ subject, from, group }) {
+            aiAsked.push({ subject, from, group });
+            return {
+                group, source: 'raw',
+                rows: [{ key: '2026-10-30', calls: 1, cost_usd: 0.05 }, { key: '2026-10-31', calls: 2, cost_usd: 0.002 }],
+                totals: { calls: 3, input_tokens: 1250, output_tokens: 590, cached_tokens: 800, cost_usd: 0.0531, fee_usd: 0.01, charged_usd: 0.06, saved_usd: 0.0017 },
+                by_paid_by: { own_key: { calls: 2, charged_usd: 0, fee_usd: 0 }, openvibe_key: { calls: 1, charged_usd: 0.06, fee_usd: 0.01 } },
+                insights: ['67% of your calls ran on your own keys, so no fee on those.', 'Your calls cost $0.06, including $0.01 in fees.'],
+            };
+        },
+    };
+    const t = await boot({ sso, analytics, aiUsage });
     try {
         await check('signed out: what it is, a sign-in back to /you, private and not indexed', async () => {
             const r = await t.get('/you');
@@ -60,7 +76,20 @@ const goosely = token({ sub: '7', subject_id: 'usr_01JTESTGOOSELY0000000000000',
             assert.ok(html.includes('2 payments in Vibes reached you') && html.includes('https://billing.openvibe.network/'), 'money says where the amounts are');
             assert.ok(html.includes('<h2 id="rp-you-rd">In The Rundown</h2>') && html.includes('href="/rundown/t/seattle"'));
             assert.ok(html.includes('aria-current="page">7 days'));
-            assert.ok(html.includes('whose key paid'), 'what joins next (L40)');
+            // Your AI (L40/L41): the person's own ledger, by the session's subject, never a query value.
+            assert.deepStrictEqual(aiAsked[aiAsked.length - 1].subject, 'usr_01JTESTGOOSELY0000000000000', 'the session\'s own subject');
+            assert.strictEqual(aiAsked[aiAsked.length - 1].from, new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10), 'the window asked for');
+            assert.ok(html.includes('<h2 id="rp-you-ai">Your AI</h2>'));
+            assert.ok(html.includes('67% of your calls ran on your own keys, so no fee on those.'), 'the first insight leads');
+            assert.ok(html.includes('>From cache<') && html.includes('>39%<'), 'the share from cache: 800 of 2,050 input tokens');
+            assert.ok(html.includes('<b>Your own keys</b> 2 calls'), 'who paid, in words');
+            assert.ok(html.includes('<b>The OpenVibe key</b> 1 call') && html.includes('incl. $0.01 fee'));
+            assert.ok(html.includes('href="https://ai.openvibe.services/you"'), 'where the keys are');
+            const before = await t.get('/you?days=7&subject=usr_01JSOMEONEELSE00000000000000', { headers: { cookie: `ov_token=${goosely}` } });
+            assert.strictEqual(before.status, 200);
+            assert.strictEqual(aiAsked[aiAsked.length - 1].subject, 'usr_01JTESTGOOSELY0000000000000', 'a subject in the address changes nothing');
+            const pagesSrc = fs.readFileSync(path.join(__dirname, '..', 'server/http/pages.js'), 'utf8');
+            assert.match(pagesSrc, /ctx\.aiUsage\.forPerson\(\{ subject, from, group: 'day' \}\)/, 'the page reads the ledger in-process, by the session\'s subject');
         });
 
         await check('only the parts with something in them: no streams or money, just The Rundown', async () => {
