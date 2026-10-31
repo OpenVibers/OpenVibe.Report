@@ -10,11 +10,11 @@
   "domain": "openvibe.report",
   "contracts": "openvibe-contracts v0.225.0",
   "sdk": "openvibe-sdk v0.70.0",
-  "shared": "openvibe-shared v4.55.0",
+  "shared": "openvibe-shared v4.57.1",
   "packages": [
     "openvibe-contracts v0.225.0",
     "openvibe-sdk v0.70.0",
-    "openvibe-shared v4.55.0",
+    "openvibe-shared v4.57.1",
     "pg v8.23.1",
     "pglite v0.5.13 (dev)"
   ],
@@ -63,5 +63,5 @@
     "deploy files"
   ],
   "deployment": "planned: openvibe-ovh, unit openvibe-report.service on 127.0.0.1:5080 (git checkout /opt/openvibe.report, env /etc/openvibe/report.env), public at https://openvibe.report; DATABASE_URL/DATABASE_DIRECT_URL from OpenVibe.Host roles/data add-service.sh report",
-  "updated": "2026-10-30"
+  "updated": "2026-10-31"
 }
