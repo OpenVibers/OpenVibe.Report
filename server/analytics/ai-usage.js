@@ -2,7 +2,7 @@
 /**
  * The AI ledger (plan L40 and L41): Report keeps the meter.
  *
- * OpenVibe.AI writes one ai.usage.recorded@1 event per run. Report takes that event on its own HMAC-verified
+ * OpenVibe.AI writes one ai.call.recorded@1 event per run. Report takes that event on its own HMAC-verified
  * /internal/events, writes the record once (the key is the system and the run id, or the turn id), and rolls the
  * records up by day. The raw records are kept for 90 days; the roll-ups are kept for good.
  *

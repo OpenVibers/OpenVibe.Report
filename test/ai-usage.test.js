@@ -1,6 +1,6 @@
 'use strict';
 /**
- * The AI meter in Report (plan L40 and L41): the consumer of ai.usage.recorded, the ledger, the roll-up job and the
+ * The AI meter in Report (plan L40 and L41): the consumer of ai.call.recorded, the ledger, the roll-up job and the
  * three routes.
  */
 const assert = require('assert');
@@ -30,11 +30,11 @@ function token(cap) {
     }, privateKey);
 }
 
-/** One ai.usage.recorded event (the shape OpenVibe.AI publishes). */
+/** One ai.call.recorded event (the shape OpenVibe.AI publishes). */
 function usageEvent(over = {}) {
     return {
         event_id: 'evt_AIUSAGE001',
-        event_type: 'ai.usage.recorded',
+        event_type: 'ai.call.recorded',
         source: 'ai',
         occurred_at: '2026-10-31T10:00:00.000Z',
         payload: {
@@ -63,7 +63,7 @@ function delivery(event) {
     const t = await boot({ db: true, now: () => NOW, env: { REPORT_EVENTS_SECRET: SECRET, OV_NETWORK_PUBLIC_KEY: publicKey } });
     const db = t.ctx.store.db;
     try {
-        await check('a signed ai.usage.recorded is stored once, and a replay is a duplicate', async () => {
+        await check('a signed ai.call.recorded is stored once, and a replay is a duplicate', async () => {
             const d = delivery(usageEvent());
             const first = await t.get('/internal/events', { method: 'POST', headers: d.headers, body: d.raw });
             assert.strictEqual(first.status, 200, first.text);
