@@ -13,12 +13,16 @@
  * A bad parameter is checked here, before the source is asked, and is a 404 problem+json, exactly like a source
  * that answered nothing. Every /api/v1 answer is CORS-open and public for two minutes; the app mounts the 120/min
  * per-address limit in front of this router.
+ *
+ * GET /api/v1/me/ai/usage is the exception: it answers only the person their session names, so it is private, never
+ * cached, and has its own tighter per-address limit.
  */
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const contracts = require('openvibe-contracts');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
 const { createServiceAuth, CAPS } = require('../auth');
-const { GROUPS: AI_USAGE_GROUPS } = require('../analytics/ai-usage');
+const { GROUPS: AI_USAGE_GROUPS, PERSON_GROUPS } = require('../analytics/ai-usage');
 const GROUPS = Object.keys(AI_USAGE_GROUPS);
 
 const CACHE = 'public, max-age=120';
@@ -36,6 +40,19 @@ function createApi({ network, live, analytics = null, aiUsage = null, config = {
         }
         return next();
     });
+
+    // The personal routes: private and never cached, even when they refuse the caller, and their own limit.
+    const personalLimit = rateLimit({
+        windowMs: 60_000,
+        limit: Math.max(1, Number(config.meRateLimitPerMinute) || 60),
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
+    });
+    r.use('/me', (req, res, next) => {
+        res.set('Cache-Control', 'private, no-store');
+        next();
+    }, personalLimit);
 
     function problem(req, res, status, code, detail) {
         return contracts.http.sendProblem(res, status, code, { detail, ctx: req.ov });
@@ -121,10 +138,26 @@ function createApi({ network, live, analytics = null, aiUsage = null, config = {
         }
     });
 
-    // The person's own rows: the route opens with Report's sign-in, which is the owner's next step. The shape is
-    // already fixed in the contracts (report.ai-usage-me-result@1), so the route does not have to change when it
-    // opens.
-    r.get('/me/ai/usage', (req, res) => problem(req, res, 501, 'report.not_implemented', 'This route opens with Report sign-in.'));
+    // The person's own rows (plan L41 R1). The subject is the signed-in person from Report's sso session (cookie or
+    // bearer), never the query; signed out is 401. The last 30 days by default, 400 at most; raw records answer a
+    // range inside the 90-day retention and the roll-ups the part beyond it. Private: the /me middleware above sets
+    // private, no-store and the tighter limit, and the answer adds the lines worked out from its own numbers.
+    r.get('/me/ai/usage', async (req, res) => {
+        const user = req.user;
+        const subject = user && typeof user.subject_id === 'string' ? user.subject_id.trim() : '';
+        if (!subject) return problem(req, res, 401, 'auth.sign_in_required', 'Sign in to see your own AI usage.');
+        if (!aiUsage) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const group = String(req.query.group || 'day');
+        if (!PERSON_GROUPS.includes(group)) return problem(req, res, 422, 'ai.invalid', 'group must be one of ' + PERSON_GROUPS.join(', '));
+        try {
+            const body = await aiUsage.forPerson({ from: req.query.from || null, to: req.query.to || null, group, subject, now: now() });
+            return res.json(body);
+        } catch (err) {
+            if (err instanceof RangeError) return problem(req, res, 422, 'ai.invalid', err.message);
+            log.error('[OpenVibe.Report] the personal AI usage rows failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return problem(req, res, 500, 'report.ai_usage_failed', 'Your AI usage could not be read.');
+        }
+    });
 
     r.use((req, res) => notFound(req, res, 'route.not_found', 'No such API route.'));
     return r;
