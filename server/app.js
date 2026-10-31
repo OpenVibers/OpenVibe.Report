@@ -6,6 +6,8 @@
  *
  *   /, /stats, /rundown, /rundown/t/:slug, /rundown/e/:streamId, /rundown/s/:username,
  *   /after-show/:streamId, /c/:username                       the pages (http/pages.js)
+ *   /you                                                       your own numbers, signed in (plan L41 R1)
+ *   /auth/*                                                    sign-in with OpenVibe.Network (openvibe-sdk/sso)
  *   /ai, /ai/models/:model, /ai/:kind                         the AI boards, from OpenVibe.Bench (http/pages.js)
  *   /api/v1/*                                                  the JSON API (http/api.js)
  *   /robots.txt, /sitemap.xml, /llms.txt                       crawl artifacts (http/discovery.js)
@@ -13,7 +15,8 @@
  *
  * Report has its own database (server/db.js, migrations/) for the analytics it ingests, and reads Billing's money
  * through Billing's read API. The pages and GET /api/v1/stats answer from REPORT_SOURCE (network by default,
- * report after cutover); Report's tables are written by the ingest job and by OpenVibe.Events. No sessions.
+ * report after cutover); Report's tables are written by the ingest job and by OpenVibe.Events. The only session is
+ * the person's own sign-in (openvibe-sdk/sso, the `report` client): it reads /you and nothing else.
  */
 const path = require('path');
 const express = require('express');
@@ -35,13 +38,14 @@ const { createPageRoutes, createPublicPages } = require('./http/pages');
 const { createDiscoveryRoutes } = require('./http/discovery');
 const { createInternalRoutes } = require('./http/internal');
 const { createServiceReadiness } = require('./observability');
+const { createSsoClient } = require('openvibe-sdk/sso');
 const views = require('./views');
 const { PUBLIC_DIR, assetVersion } = require('./assets');
 
 const VERSION = require('../package.json').version;
 const PAGE_CACHE = 'public, max-age=120';
 
-/** opts: config, store, fetchImpl, log, now, network, live, billing, analytics, shadow, releaseEnv */
+/** opts: config, store, fetchImpl, log, now, network, live, billing, analytics, shadow, sso, releaseEnv */
 async function createApp(opts = {}) {
     const config = opts.config || configLib.load();
     const log = opts.log || console;
@@ -58,7 +62,14 @@ async function createApp(opts = {}) {
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     views.configure({ baseUrl: config.baseUrl });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow };
+    // A person's sign-in (the `report` client, the same id and secret Report already reads Billing with).
+    const sso = opts.sso || createSsoClient({
+        site: 'report', baseUrl: config.baseUrl, clientId: config.oauth.clientId, clientSecret: config.oauth.clientSecret,
+        networkUrl: config.networkPublicUrl, networkInternalUrl: config.networkInternalUrl,
+        secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
+    });
+
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso };
     const app = express();
     app.disable('x-powered-by');
     app.set('trust proxy', config.trustProxy);
@@ -121,6 +132,10 @@ async function createApp(opts = {}) {
             res.setHeader('Cache-Control', cache.assetHeaders(rel, { hashed: !!v && v === assetVersion(rel) }));
         },
     }));
+
+    // ── Sign-in (/auth/login, /callback, /fedcm, /logout, /me, /refresh); req.user on every later route ──
+    app.use('/auth', sso.router(express));
+    app.use(sso.optionalAuth());
 
     // ── Loopback-only operator and Events routes ────────────
     app.use('/internal', createInternalRoutes({ analytics, shadow, config, now, log }));

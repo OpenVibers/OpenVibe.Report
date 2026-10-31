@@ -75,6 +75,7 @@ const judgeWord = (j) => ({ human_pairwise: 'voted on blind, two at a time', rub
 const gamesOf = (rows) => Math.round((rows || []).reduce((sum, r) => sum + (n(r && r.games) || 0), 0) / 2);
 
 const NAV = [
+    { label: 'You', href: '/you', icon: 'fa-user' },
     { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' },
     { label: 'The Rundown', href: '/rundown', icon: 'fa-newspaper' },
     { label: 'AI boards', href: '/ai', icon: 'fa-robot' },
@@ -89,6 +90,10 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
         links: NAV.map((l) => ({ ...l, active: l.href === active || (l.href !== '/' && active.startsWith(l.href)) })),
         appBar: [{ label: 'Home', href: '/', icon: 'fa-house' }, { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' }, { label: 'Rundown', href: '/rundown', icon: 'fa-newspaper' }, { label: 'AI boards', href: '/ai', icon: 'fa-robot' }],
         history: { type: 'page', title: title || NAME },
+        // Sign-in is this site's own (openvibe-sdk/sso at /auth): the navbar's buttons and its silent check use it.
+        silentLogin: `${BASE}/auth/login?silent=1&next={url}`,
+        loginUrl: '/auth/login?next={path}',
+        logoutUrl: '/auth/logout?next={path}',
     };
     const footer = { service: 'report', variant: 'full', mount: '#ov-footer', brandName: NAME };
     return shell.page({
@@ -356,6 +361,61 @@ ${cards.length ? `<ul class="rp-grid">${cards.map((c) => `<li>${c}</li>`).join('
     return layout({ title: `${username}: after-show reports`, description: `How each of ${username}'s streams went.`, body, active: '/rundown', path: `/c/${encodeURIComponent(username)}` });
 }
 
+// ── You (plan L41 R1): a person's own numbers, signed in, in one place ──
+// A sentence first, then each part that has something in it: streams, money, The Rundown. AI use, agents and
+// machines join as their records reach Report (L40). Private: never cached, never indexed.
+const plural = (v, one, many) => `${exact(v)} ${Number(v) === 1 ? one : many}`;
+const hours = (sec) => { const h = (n(sec) || 0) / 3600; return h >= 10 ? `${Math.round(h)} h` : h >= 1 ? `${h.toFixed(1).replace(/\.0$/, '')} h` : `${Math.round(h * 60)} min`; };
+
+function youSentence({ name, days, stats, speaker }) {
+    const T = (stats && stats.totals) || {};
+    const parts = [];
+    if (n(T.streams)) parts.push(`streamed ${plural(T.streams, 'time', 'times')} for ${hours(T.stream_seconds)}${n(T.peak_viewers) ? `, with up to ${plural(T.peak_viewers, 'viewer', 'viewers')} at once` : ''}`);
+    if (n(T.messages)) parts.push(`drew ${plural(T.messages, 'chat message', 'chat messages')}${n(T.unique_chatters) ? ` from ${plural(T.unique_chatters, 'person', 'people')}` : ''}`);
+    const rev = stats && stats.revenue;
+    if (rev && n(rev.transactions)) parts.push(`received ${plural(rev.transactions, 'payment', 'payments')} in Vibes`);
+    const eps = speaker && !speaker.opted_out ? (speaker.episodes || []).length : 0;
+    if (eps) parts.push(`were written up in The Rundown ${plural(eps, 'time', 'times')}`);
+    if (!parts.length) return `Nothing to count for you in the last ${days} days yet. Go live, and every stream gets its own report here.`;
+    const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+    return `In the last ${days} days, ${name}, you ${list}.`;
+}
+
+function you({ user, days = 30, stats = null, recaps = null, speaker = null } = {}) {
+    const name = String(user.display_name || user.username || 'you');
+    const username = String(user.username || '');
+    const T = (stats && stats.totals) || {};
+    const tabs = [7, 30, 90].map((x) => `<a href="/you?days=${x}"${Number(days) === x ? ' aria-current="page"' : ''}>${x} days</a>`).join('');
+    const watch = (stats && stats.daily || []).map((d) => ({ day: d.day, n: d.watch_minutes }));
+    const cards = ((recaps && recaps.recaps) || []).slice(0, 6).map((x) => kit.card({ href: `/after-show/${x.stream_id}`, title: x.headline || x.title || 'Stream', peek: x.headline && x.title ? x.title : '', type: 'stream', image: x.thumbnail_url || '', badge: x.grade ? `Grade ${x.grade}` : '', corner: n(x.duration_seconds) ? mins(x.duration_seconds) : '', count: n(x.peak_viewers) ? [x.peak_viewers, 'peak'] : null, when: x.ended_at ? ts(x.ended_at) : null }));
+    const streams = n(T.streams) || cards.length ? `<section aria-labelledby="rp-you-st"><h2 id="rp-you-st">Your streams</h2>
+${n(T.streams) ? `<div class="rp-tiles rp-tiles-sm">${tile('Streams', exact(T.streams))}${tile('On air', hours(T.stream_seconds))}${tile('Most at once', exact(T.peak_viewers))}${tile('Average watching', T.avg_viewers != null ? exact(T.avg_viewers) : null)}${tile('Watch time', n(T.watch_minutes) ? `${fmt(T.watch_minutes)}<small> min</small>` : null)}${tile('Chat', n(T.messages) ? fmt(T.messages) : null, n(T.unique_chatters) ? `from ${plural(T.unique_chatters, 'person', 'people')}` : '')}</div>` : ''}
+${watch.length > 1 ? bars(watch, 'Minutes watched a day', { h: 110 }) : ''}
+${cards.length ? `<h3 class="rp-you-sub">After-show reports</h3><ul class="rp-grid">${cards.map((c) => `<li>${c}</li>`).join('')}</ul><p class="rp-meta"><a href="/c/${encodeURIComponent(username)}">All your reports</a></p>` : ''}
+</section>` : '';
+    const rev = stats && stats.revenue;
+    const money = rev && n(rev.transactions) ? `<section aria-labelledby="rp-you-mo"><h2 id="rp-you-mo">Money</h2>
+<p class="rp-lede">${plural(rev.transactions, 'payment', 'payments')} in Vibes reached you in the last ${esc(rev.days || days)} days${n(rev.refunded_bits) ? ', some refunded since' : ''}. OpenVibe.Billing keeps every amount and receipt: <a href="https://billing.openvibe.network/">see them there</a>.</p>
+</section>` : '';
+    const sp = speaker && !speaker.opted_out ? speaker : null;
+    const rundown = sp && ((sp.topics || []).length || (sp.episodes || []).length) ? `<section aria-labelledby="rp-you-rd"><h2 id="rp-you-rd">In The Rundown</h2>
+${(sp.topics || []).length ? `<ul class="rp-chips">${sp.topics.slice(0, 12).map((t) => `<li><a href="/rundown/t/${encodeURIComponent(t.slug)}">${esc(t.title)}</a></li>`).join('')}</ul>` : ''}
+${(sp.episodes || []).length ? `<p class="rp-meta">${plural(sp.episodes.length, 'stream', 'streams')} written up · <a href="/rundown/s/${encodeURIComponent(username)}">all of it</a></p>` : ''}
+</section>` : '';
+    const body = `<header class="rp-page-h rp-person">${kit.mark({ name, src: user.avatar_url || '', size: 64 })}<div><p class="rp-kicker">Your numbers</p><h1>${esc(name)}</h1>
+<p class="rp-lede rp-you-say">${esc(youSentence({ name, days, stats, speaker }))}</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></div></header>
+${streams}${money}${rundown}
+<section aria-labelledby="rp-you-next" class="rp-you-next"><h2 id="rp-you-next">Coming here</h2><p class="rp-fine">Your AI use across every OpenVibe site (tokens, how much came from cache, what it cost and whose key paid), your agents' work and what your computers ran. Only you see this page.</p></section>`;
+    return layout({ title: 'Your numbers', description: 'Your own numbers across OpenVibe: streams, money and The Rundown, in one place.', body, active: '/you', robots: 'noindex, nofollow' });
+}
+
+function youSignedOut() {
+    const body = `<header class="rp-page-h"><p class="rp-kicker">Your numbers</p><h1>Everything you do on OpenVibe, counted for you</h1>
+<p class="rp-lede">Your streams and their after-show reports, the payments that reach you, The Rundown, and soon your AI use across every site. Only you see it.</p>
+<p>${kit.button({ href: `/auth/login?next=${encodeURIComponent('/you')}`, label: 'Sign in to see yours', icon: 'forward' })}</p></header>`;
+    return layout({ title: 'Your numbers', description: 'Sign in to see your own numbers across OpenVibe.', body, active: '/you', robots: 'noindex, nofollow' });
+}
+
 function developers() {
     const rows = [
         ['GET /api/v1/stats?days=30', 'The network\'s open numbers over 7, 30 or 90 days: page views, accounts, Live, OpenCoins and every site.'],
@@ -501,4 +561,4 @@ function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, topic, episode, speaker, recap, channel, developers, aiIndex, aiBoard, aiModel, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { home, stats, rundown, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, paretoRows, paretoChart, notFound, layout, setRelease, configure };
