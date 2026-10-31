@@ -205,7 +205,7 @@ payloads with money or personal data are not stored. `/internal/` is loopback-on
 verifies the Events v2 HMAC. See [SECURITY.md](SECURITY.md).
 
 <!-- versions:start -->
-- openvibe-contracts: v0.260.0
+- openvibe-contracts: v0.263.0
 - openvibe-sdk: v0.78.0
 - openvibe-shared: v4.67.0
 <!-- versions:end -->
