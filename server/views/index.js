@@ -238,7 +238,7 @@ function home({ stats, rundown, topics } = {}) {
         faq: { items: [
             ['Where do these numbers come from?', 'From the services themselves: page views from the shared navbar\'s anonymous counter and OpenVibe.Live\'s own analytics, traffic from the servers\' metrics, streams and chat from Live. Each page says what a number counts and when it was read.'],
             ['Is anything here about me?', 'No. Every number is a count. The Rundown and the after-show reports are about public streams, and a streamer can opt out of The Rundown.'],
-            ['Who writes the after-show reports?', 'An AI, from the stream\'s own numbers, chat and speech, and it says so on every report. It never describes how anyone looks.'],
+            ['Who writes the after-show reports?', 'An AI, from the stream\'s own numbers, chat and speech, and it says so on every report. It describes what happened, people included.'],
         ] },
     });
     // The numbers, the code samples and the questions are the parts a reader rarely needs on a phone.
