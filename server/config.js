@@ -15,6 +15,8 @@ const trim = (s) => String(s || '').replace(/\/+$/, '');
 const int = (v, def) => (Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : def);
 const bool = (v, def = false) => (v == null || v === '' ? def : !/^(0|false|no|off)$/i.test(String(v)));
 const sourceOf = (v) => (String(v || '').toLowerCase() === 'report' ? 'report' : 'network');
+// A PEM in one line carries two-character escapes for its line breaks; this turns them back into newlines.
+const unescapePem = (v) => String(v || '').split(String.fromCharCode(92) + 'n').join('\n');
 
 function load(env = process.env) {
     const nodeEnv = env.NODE_ENV || 'development';
@@ -67,6 +69,15 @@ function load(env = process.env) {
             clientSecret: env.OV_OAUTH_CLIENT_SECRET || '',
         },
 
+        // OpenVibe.Network's signing keys, for the operator routes that need a service token: a pinned PEM
+        // (OV_NETWORK_PUBLIC_KEY) or the JWKS the SDK's client fetches.
+        networkPublicKey: env.OV_NETWORK_PUBLIC_KEY ? unescapePem(env.OV_NETWORK_PUBLIC_KEY) : null,
+        networkJwksUrl: `${trim(env.OV_NETWORK_JWKS_URL || env.OV_NETWORK_INTERNAL_URL || 'http://127.0.0.1:4000')}/api/.well-known/jwks`,
+        issuer: trim(env.OV_NETWORK_ISSUER || networkPublicUrl),
+
+        // Drill mode: the jobs that would change numbers stay off while a drill runs.
+        drill: env.REPORT_DRILL === '1' || env.REPORT_DRILL === 'true',
+
         // OpenVibe.Events → Report: live.stream.ended and the frame beacon. The secret signs a delivery (comma
         // separated for rotation, 32+ characters each); unset makes POST /internal/events answer 503.
         events: {
@@ -81,6 +92,10 @@ function load(env = process.env) {
             ingestWindows: [7, 30, 90],
             shadowIntervalMs: Math.max(30_000, int(env.REPORT_SHADOW_INTERVAL_MS, 15 * 60_000)),
             shadowWindowDays: [7, 30, 90].includes(Number(env.REPORT_SHADOW_WINDOW_DAYS)) ? Number(env.REPORT_SHADOW_WINDOW_DAYS) : 7,
+            // The AI meter (plan L40/L41): the daily roll-up of the usage records, and the pruning of the raw records.
+            aiUsageIntervalMs: Math.max(60_000, int(env.REPORT_AI_USAGE_INTERVAL_MS, 60 * 60_000)),
+            aiUsageRollupDays: Math.max(1, int(env.REPORT_AI_USAGE_ROLLUP_DAYS, 14)),
+            aiUsageRetentionDays: Math.max(1, int(env.REPORT_AI_USAGE_RETENTION_DAYS, 90)),
         },
 
         // One caller may make this many API requests a minute (express-rate-limit, keyed by address).

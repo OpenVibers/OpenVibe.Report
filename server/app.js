@@ -32,6 +32,7 @@ const { createLiveClient } = require('./data/live');
 const { createBillingClient } = require('./data/billing');
 const { createBenchClient } = require('./data/bench');
 const { createAnalytics } = require('./analytics');
+const { createAiUsage } = require('./analytics/ai-usage');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
 const { createPageRoutes, createPublicPages } = require('./http/pages');
@@ -59,6 +60,8 @@ async function createApp(opts = {}) {
     const billing = opts.billing || createBillingClient({ config, fetchImpl, log, now });
     const bench = opts.bench || createBenchClient({ config, fetchImpl, log, now });
     const analytics = opts.analytics || createAnalytics({ config, store, network, billing, now, log });
+    // The AI ledger (plan L40/L41): the records of every AI call on the network and their roll-ups.
+    const aiUsage = opts.aiUsage || createAiUsage({ store, now, log });
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     views.configure({ baseUrl: config.baseUrl });
 
@@ -69,7 +72,7 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage };
     const app = express();
     app.disable('x-powered-by');
     app.set('trust proxy', config.trustProxy);
@@ -153,7 +156,7 @@ async function createApp(opts = {}) {
         legacyHeaders: false,
         handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
     }));
-    app.use('/api/v1', createApi({ network, live, analytics }));
+    app.use('/api/v1', createApi({ network, live, analytics, aiUsage, config, now, log }));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 
     // ── Crawl artifacts, then the pages ─────────────────────

@@ -6,6 +6,7 @@
  */
 const { createApp } = require('./app');
 const { createAnalyticsJobs } = require('./jobs/analytics');
+const { createAiUsageJobs } = require('./jobs/ai-usage');
 const { gracefulStop } = require('openvibe-sdk/service');
 
 /**
@@ -32,8 +33,12 @@ async function start() {
     const { config } = ctx;
 
     const jobs = createAnalyticsJobs({ config, analytics: ctx.analytics, shadow: ctx.shadow, log: ctx.log });
-    ctx.jobs = jobs;
+    // The AI meter's job (plan L40/L41): the daily roll-ups, off under drill mode.
+    const aiUsageJobs = createAiUsageJobs({ config, store: ctx.store, now: ctx.now, log: ctx.log });
+    const allJobs = { ...jobs, stop: async () => { jobs.stop(); aiUsageJobs.stop(); } };
+    ctx.jobs = allJobs;
     jobs.start();
+    aiUsageJobs.start();
 
     // Socket activation (2026-10-31): systemd's .socket unit holds the listener across restarts, so a deploy
     // queues requests in the kernel instead of answering 502. Without the socket unit, the usual listen.
