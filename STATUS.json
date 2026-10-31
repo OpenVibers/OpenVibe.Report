@@ -9,12 +9,12 @@
   "port": "5080",
   "domain": "openvibe.report",
   "contracts": "openvibe-contracts v0.225.0",
-  "sdk": "openvibe-sdk v0.70.0",
-  "shared": "openvibe-shared v4.62.0",
+  "sdk": "openvibe-sdk v0.78.0",
+  "shared": "openvibe-shared v4.64.0",
   "packages": [
     "openvibe-contracts v0.225.0",
-    "openvibe-sdk v0.70.0",
-    "openvibe-shared v4.62.0",
+    "openvibe-sdk v0.78.0",
+    "openvibe-shared v4.64.0",
     "pg v8.23.1",
     "pglite v0.5.13 (dev)"
   ],
