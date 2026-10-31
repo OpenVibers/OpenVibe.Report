@@ -148,6 +148,20 @@ function createPageRoutes(ctx) {
         return send(req, res, views.recap({ recap }));
     });
 
+    // A person's own numbers (plan L41 R1). Signed out: what it is and a sign-in. Signed in: their channel's streams and
+    // after-show reports, the payments Billing says reached them, and The Rundown, over 7, 30 or 90 days. Private.
+    r.get('/you', async (req, res) => {
+        const user = req.user;
+        if (!user || !isUsername(String(user.username || ''))) return send(req, res, views.youSignedOut(), 200, 'private, no-store');
+        const days = normaliseDays(req.query.days);
+        const [stats, recaps, speaker] = await Promise.all([
+            ctx.analytics && typeof ctx.analytics.channel === 'function' ? ctx.analytics.channel(user.username, days).catch(() => null) : null,
+            Promise.resolve(live.channelRecaps(user.username)).catch(() => null),
+            Promise.resolve(live.speaker(user.username)).catch(() => null),
+        ]);
+        return send(req, res, views.you({ user, days, stats, recaps, speaker }), 200, 'private, no-store');
+    });
+
     r.get('/c/:username', async (req, res) => {
         const { username } = req.params;
         if (!isUsername(username)) return notFound(req, res);

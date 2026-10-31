@@ -167,6 +167,7 @@ async function boot(opts = {}) {
         now: opts.now,
         billing: opts.billing,
         analytics: opts.analytics,
+        sso: opts.sso,
         shadow: opts.shadow,
         releaseEnv: { ...process.env, RELEASE_COMMIT: '0000000' },
     });

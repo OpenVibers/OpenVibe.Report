@@ -263,3 +263,12 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 @supports selector(:has(*)) { @media (max-width: 640px) {
   .pick .rp-head-row h2 { display: none; }
 } }
+
+/* You (plan L41 R1): a person's own numbers. The sentence leads; the parts follow. */
+.rp-you-say { max-width: 62ch; font-size: clamp(1.05rem, 2vw, 1.2rem); line-height: 1.55; color: var(--text-primary, #e6edf7); }
+.rp-person > div { min-width: 0; }
+.rp-tiles-sm { grid-template-columns: repeat(auto-fit, minmax(min(140px, 44%), 1fr)); margin-top: 12px; }
+.rp-you-sub { margin: 26px 0 12px; font-size: 1rem; }
+.rp-you-next { border-top: 1px solid var(--border, #1f2d47); padding-top: 18px; }
+.rp-you-next h2 { font-size: 1rem; }
+@media (max-width: 560px) { .rp-person { align-items: flex-start; } }
