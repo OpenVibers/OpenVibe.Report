@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-01T11:43:10.685Z",
+ "generated_at": "2026-11-01T12:59:10.400Z",
  "rules": [
   "literal_duration",
   "literal_curve",
@@ -18,7 +18,7 @@
  "sites": [
   {
    "repo": "OpenVibe.Actor",
-   "commit": "c3ce087a8db7752b4bbcd9ccd2728f30d0affc83",
+   "commit": "94cccf8704ec904e753c0b89d7a32c00c4ea207a",
    "files_scanned": 12,
    "counts": {
     "literal_duration": 27,
@@ -210,7 +210,7 @@
   },
   {
    "repo": "OpenVibe.Bench",
-   "commit": "79c085fe32073498118ab4e6609e60b99a45e9ee",
+   "commit": "f169b62a281bd36f18ef09ab3a04768788ef62dc",
    "files_scanned": 8,
    "counts": {
     "literal_duration": 2,
@@ -290,7 +290,7 @@
   },
   {
    "repo": "OpenVibe.Blog",
-   "commit": "eae2d20bd5a425b5da865561242e413c869fb9af",
+   "commit": "952975b81826454d5fc886746a7c17fd5651a368",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 1,
@@ -328,7 +328,7 @@
   },
   {
    "repo": "OpenVibe.Bot",
-   "commit": "8082ed74c0056e8d47061f2b532281c1b4d04bab",
+   "commit": "d1e2bfc29b2555e9f03836fdfc6770306589c652",
    "files_scanned": 13,
    "counts": {
     "literal_duration": 12,
@@ -520,7 +520,7 @@
   },
   {
    "repo": "OpenVibe.Cam",
-   "commit": "3ef54be41b1b8810e06fa84ec6dd5a6524cdfd77",
+   "commit": "f0828d95f3383418283130531a9863ed827d68d6",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -712,7 +712,7 @@
   },
   {
    "repo": "OpenVibe.Casino",
-   "commit": "9118048b4b79b61ca12bddbc63dcac5af2cd47e4",
+   "commit": "f7f6f4d6a40e0389c3ae0aae84c0fe383b09953f",
    "files_scanned": 6,
    "counts": {
     "literal_duration": 0,
@@ -728,65 +728,65 @@
   },
   {
    "repo": "OpenVibe.Chat",
-   "commit": "b52e9203d0ca8cbf70b331b749d4043e6740c2a3",
+   "commit": "61cb9699e021ece614b2a09cd06d57425983bcd7",
    "files_scanned": 16,
    "counts": {
     "literal_duration": 29,
     "literal_curve": 7,
     "spinner": 0,
-    "color_drift": 66,
+    "color_drift": 64,
     "missing_reduced_motion": 0,
-    "total": 102
+    "total": 100
    },
-   "score": 87.7,
-   "findings_total": 102,
+   "score": 87.8,
+   "findings_total": 100,
    "findings": [
     {
      "rule": "literal_duration",
      "file": "public/web/chat.css",
-     "line": 123,
+     "line": 127,
      "value": ".25s",
      "text": "@media (prefers-reduced-motion: no-preference) { .oc-ring:not(.oc-ring-gone) { animation: oc-ring-in .25s ease-out; } @keyframes oc-ring-in { from { transform: "
     },
     {
      "rule": "literal_curve",
      "file": "public/web/chat.css",
-     "line": 123,
+     "line": 127,
      "value": "ease-out",
      "text": "@media (prefers-reduced-motion: no-preference) { .oc-ring:not(.oc-ring-gone) { animation: oc-ring-in .25s ease-out; } @keyframes oc-ring-in { from { transform: "
     },
     {
      "rule": "literal_duration",
      "file": "public/web/chat.css",
-     "line": 151,
+     "line": 155,
      "value": ".15s",
      "text": ".oc-srv-icon { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 50%; background: hsl(var(--oc-h"
     },
     {
      "rule": "literal_duration",
      "file": "public/web/chat.css",
-     "line": 151,
+     "line": 155,
      "value": ".15s",
      "text": ".oc-srv-icon { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 50%; background: hsl(var(--oc-h"
     },
     {
      "rule": "literal_curve",
      "file": "public/web/chat.css",
-     "line": 151,
+     "line": 155,
      "value": "ease",
      "text": ".oc-srv-icon { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 50%; background: hsl(var(--oc-h"
     },
     {
      "rule": "literal_curve",
      "file": "public/web/chat.css",
-     "line": 151,
+     "line": 155,
      "value": "ease",
      "text": ".oc-srv-icon { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 50%; background: hsl(var(--oc-h"
     },
     {
      "rule": "literal_duration",
      "file": "public/web/chat.css",
-     "line": 356,
+     "line": 360,
      "value": "1.6s",
      "text": ".oc-task-running .oc-task-state { background: var(--oc-accent); color: var(--oc-on-accent); animation: oc-work 1.6s ease-in-out infinite; }"
     },
@@ -920,7 +920,7 @@
   },
   {
    "repo": "OpenVibe.Codes",
-   "commit": "5b66102996add1088393e8dd0b3d910eaf1f2fa2",
+   "commit": "661a4dfea98cc080967f7d70d8785760ab055a9f",
    "files_scanned": 8,
    "counts": {
     "literal_duration": 13,
@@ -1112,7 +1112,7 @@
   },
   {
    "repo": "OpenVibe.Community",
-   "commit": "f3af06352107631697aa7fcf0e1fad41138208a4",
+   "commit": "5753c08685f4527e63f9705210d04786f859bfc9",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 7,
@@ -1304,7 +1304,7 @@
   },
   {
    "repo": "OpenVibe.Coupons",
-   "commit": "bc24c2bed830581c1ccd98860bae8e5f8c0ba2d5",
+   "commit": "cb0dd5cd683e82b4526c7c650904c29b1c6aa190",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 1,
@@ -1328,7 +1328,7 @@
   },
   {
    "repo": "OpenVibe.Deals",
-   "commit": "8b3633d8c7a0be2c78a1d7f9926fca3a720cc8e1",
+   "commit": "b9b7cbae5a00837dfd0991e224c611c37e63980f",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 4,
@@ -1387,137 +1387,60 @@
   },
   {
    "repo": "OpenVibe.Design",
-   "commit": "f9ba48f99bb7f314bfe92f0dd05843e72021642d",
+   "commit": "e2bb354659448101e03f450ebdfc223fb06c678e",
    "files_scanned": 41,
    "counts": {
-    "literal_duration": 143,
-    "literal_curve": 59,
+    "literal_duration": 63,
+    "literal_curve": 1,
     "spinner": 0,
     "color_drift": 235,
     "missing_reduced_motion": 0,
-    "total": 437
+    "total": 299
    },
-   "score": 37.75,
-   "findings_total": 437,
+   "score": 72.25,
+   "findings_total": 299,
    "findings": [
     {
      "rule": "literal_duration",
-     "file": "public/css/brand.css",
-     "line": 34,
-     "value": ".18s",
-     "text": ".br-chip{min-height:40px;padding:0 15px;border-radius:999px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font:inherit"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/brand.css",
-     "line": 34,
-     "value": ".18s",
-     "text": ".br-chip{min-height:40px;padding:0 15px;border-radius:999px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font:inherit"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/brand.css",
-     "line": 34,
-     "value": ".18s",
-     "text": ".br-chip{min-height:40px;padding:0 15px;border-radius:999px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font:inherit"
+     "file": "public/css/design.css",
+     "line": 126,
+     "value": "9s",
+     "text": ".ds-orb-ring { position: absolute; inset: 8%; border-radius: 50%; border: 1.5px dashed color-mix(in srgb, var(--room-accent) 40%, transparent); animation: ds-br"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/design.css",
-     "line": 26,
-     "value": ".15s",
-     "text": ".ds-swatch { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 10px; border-radiu"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/design.css",
-     "line": 26,
-     "value": ".15s",
-     "text": ".ds-swatch { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 10px; border-radiu"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/design.css",
-     "line": 60,
-     "value": ".2s",
-     "text": ".ds-previews { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); transition: filter .2s; }"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/css/icon-motion.css",
-     "line": 14,
-     "value": "cubic-bezier(",
-     "text": "animation: ovm-draw var(--ovm-draw-time, .9s) cubic-bezier(.65, 0, .35, 1) forwards;"
+     "line": 292,
+     "value": "1.6s",
+     "text": ".dv-skeleton { display: grid; place-content: center; gap: 8px; height: 100%; text-align: center; background: linear-gradient(100deg, var(--bg-card), var(--bg-se"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/icon-motion.css",
-     "line": 21,
-     "value": ".32s",
-     "text": ".ovm-pop { transition: transform .32s cubic-bezier(.34, 1.56, .64, 1); transform-origin: 50% 50%; }"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/css/icon-motion.css",
-     "line": 21,
-     "value": "cubic-bezier(",
-     "text": ".ovm-pop { transition: transform .32s cubic-bezier(.34, 1.56, .64, 1); transform-origin: 50% 50%; }"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/icons.css",
-     "line": 31,
-     "value": ".15s",
-     "text": ".ic-tile{text-decoration:none;display:grid;justify-items:center;align-content:center;gap:10px;min-height:104px;padding:14px 6px 10px;border-radius:14px;border:1"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/icons.css",
-     "line": 31,
-     "value": ".15s",
-     "text": ".ic-tile{text-decoration:none;display:grid;justify-items:center;align-content:center;gap:10px;min-height:104px;padding:14px 6px 10px;border-radius:14px;border:1"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/icons.css",
-     "line": 31,
-     "value": ".15s",
-     "text": ".ic-tile{text-decoration:none;display:grid;justify-items:center;align-content:center;gap:10px;min-height:104px;padding:14px 6px 10px;border-radius:14px;border:1"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/kit-pages.css",
-     "line": 38,
-     "value": ".15s",
-     "text": "transition: border-color .15s, box-shadow .15s; scroll-margin-top: 72px; }"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/kit-pages.css",
-     "line": 38,
-     "value": ".15s",
-     "text": "transition: border-color .15s, box-shadow .15s; scroll-margin-top: 72px; }"
+     "line": 28,
+     "value": ".9s",
+     "text": ".ovm-ring:hover, :hover > .ovm-ring, :focus-visible > .ovm-ring { animation: ovm-ring .9s var(--ov-ease-out, cubic-bezier(.36, .07, .19, .97)); }"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/marks.css",
-     "line": 25,
-     "value": ".6s",
-     "text": ".mx-lean-bar i{position:absolute;inset:0 auto 0 0;width:var(--l,50%);background:#4f7cff;border-right:2px solid var(--mx-card);transition:width .6s cubic-bezier("
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/css/marks.css",
-     "line": 25,
-     "value": "cubic-bezier(",
-     "text": ".mx-lean-bar i{position:absolute;inset:0 auto 0 0;width:var(--l,50%);background:#4f7cff;border-right:2px solid var(--mx-card);transition:width .6s cubic-bezier("
+     "line": 178,
+     "value": "1.1s",
+     "text": ".mx-wrap.mx-live .mx-stage .mx-s:not([stroke-dasharray]){stroke-dasharray:100;transition:stroke-dashoffset 1.1s var(--ov-ease-out, cubic-bezier(.45,0,.2,1)) cal"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/marks.css",
-     "line": 35,
+     "line": 178,
+     "value": ".1s",
+     "text": ".mx-wrap.mx-live .mx-stage .mx-s:not([stroke-dasharray]){stroke-dasharray:100;transition:stroke-dashoffset 1.1s var(--ov-ease-out, cubic-bezier(.45,0,.2,1)) cal"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/css/marks.css",
+     "line": 180,
      "value": ".5s",
-     "text": ".mx-top.is-new{animation:mxTopIn .5s cubic-bezier(.2,.9,.25,1.2) both}"
+     "text": ".mx-wrap.mx-live .mx-stage .mx-f{transition:opacity var(--ov-dur-4, .8s) var(--ov-ease-out, ease) calc(var(--d,0s) + .5s)}"
     },
     {
      "rule": "literal_duration",
@@ -1529,30 +1452,93 @@
     {
      "rule": "literal_duration",
      "file": "public/css/patterns.css",
-     "line": 6,
-     "value": "180ms",
-     "text": ".pgroup{padding:18px}.pcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pcard{position:relative;display:grid;gap:6px;min-height:94px;pa"
+     "line": 7,
+     "value": "900ms",
+     "text": ".dbtn,.pill-action,.opill,.tab-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var("
     },
     {
-     "rule": "literal_duration",
+     "rule": "literal_curve",
      "file": "public/css/patterns.css",
-     "line": 6,
-     "value": "180ms",
-     "text": ".pgroup{padding:18px}.pcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pcard{position:relative;display:grid;gap:6px;min-height:94px;pa"
+     "line": 42,
+     "value": "ease",
+     "text": ".watch-demo .bottom-nav{transition:transform var(--ov-dur-base,260ms) ease}"
     },
     {
      "rule": "literal_duration",
      "file": "public/mark-studies.html",
      "line": 49,
      "value": "1.1s",
-     "text": ".busy{animation:ringBreathe 1.1s ease-in-out infinite alternate;transform-origin:50px 50px;transform-box:view-box}"
+     "text": ".busy{animation:ringBreathe 1.1s var(--ov-ease-in-out, ease-in-out) infinite alternate;transform-origin:50px 50px;transform-box:view-box}"
     },
     {
-     "rule": "literal_curve",
+     "rule": "literal_duration",
      "file": "public/mark-studies.html",
-     "line": 49,
-     "value": "ease-in-out",
-     "text": ".busy{animation:ringBreathe 1.1s ease-in-out infinite alternate;transform-origin:50px 50px;transform-box:view-box}"
+     "line": 51,
+     "value": "1.15s",
+     "text": ".run{animation:run 1.15s linear infinite}"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/brand.css",
+     "line": 3,
+     "value": "--br-o #4f7cff",
+     "text": ".br{--br-o:#4f7cff;--br-v:#8b5cf6;--br-face:'OV Brand',Nunito,Inter,-apple-system,BlinkMacSystemFont,sans-serif;max-width:1120px;margin:0 auto;padding:clamp(18p"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/brand.css",
+     "line": 3,
+     "value": "--br-v #8b5cf6",
+     "text": ".br{--br-o:#4f7cff;--br-v:#8b5cf6;--br-face:'OV Brand',Nunito,Inter,-apple-system,BlinkMacSystemFont,sans-serif;max-width:1120px;margin:0 auto;padding:clamp(18p"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/brand.css",
+     "line": 12,
+     "value": "#000",
+     "text": ".br-hero-stage::after{content:'';position:absolute;inset:0;background-image:radial-gradient(color-mix(in srgb,var(--text-primary) 9%,transparent) 1px,transparen"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/design.css",
+     "line": 65,
+     "value": "#fff",
+     "text": ".pv-badge { position: absolute; left: 8px; top: 8px; padding: 1px 7px; border-radius: 5px; background: var(--live-red, #e11d48); color: #fff; font-size: .68rem;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/icons.css",
+     "line": 41,
+     "value": "rgba(0,0,0,.45)",
+     "text": ".ic-sheet::backdrop{background:rgba(0,0,0,.45)}"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/icons.css",
+     "line": 133,
+     "value": "--gp-ink #141a2b",
+     "text": ".gp-sizes.is-light{--gp-ink:#141a2b;--gp-muted:#5d6577;background:#fbfcfe;border-color:#e2e6ee}"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/icons.css",
+     "line": 133,
+     "value": "--gp-muted #5d6577",
+     "text": ".gp-sizes.is-light{--gp-ink:#141a2b;--gp-muted:#5d6577;background:#fbfcfe;border-color:#e2e6ee}"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/kit-pages.css",
+     "line": 44,
+     "value": "#000",
+     "text": "-webkit-mask-image: linear-gradient(180deg, #000 72%, transparent); mask-image: linear-gradient(180deg, #000 72%, transparent); }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/kit-pages.css",
+     "line": 44,
+     "value": "#000",
+     "text": "-webkit-mask-image: linear-gradient(180deg, #000 72%, transparent); mask-image: linear-gradient(180deg, #000 72%, transparent); }"
     },
     {
      "rule": "color_drift",
@@ -1570,16 +1556,30 @@
     },
     {
      "rule": "color_drift",
+     "file": "public/css/loading.css",
+     "line": 34,
+     "value": "hsl(calc(var(--h)",
+     "text": ".ld-thumb, .ld-tile, .ld-avatar, .ld-dot { display: block; background: linear-gradient(135deg, hsl(var(--h, 220) 70% 55%), hsl(calc(var(--h, 220) + 40) 70% 40%)"
+    },
+    {
+     "rule": "color_drift",
      "file": "public/css/motion.css",
      "line": 3,
      "value": "--mo-o #4f7cff",
+     "text": ".mo{--mo-o:#4f7cff;--mo-v:#8b5cf6;--mo-face:'OV Brand',Nunito,Inter,-apple-system,BlinkMacSystemFont,sans-serif;max-width:1120px;margin:0 auto;padding:clamp(18p"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/motion.css",
+     "line": 3,
+     "value": "--mo-v #8b5cf6",
      "text": ".mo{--mo-o:#4f7cff;--mo-v:#8b5cf6;--mo-face:'OV Brand',Nunito,Inter,-apple-system,BlinkMacSystemFont,sans-serif;max-width:1120px;margin:0 auto;padding:clamp(18p"
     }
    ]
   },
   {
    "repo": "OpenVibe.Domains",
-   "commit": "b6f90829cbb1f8716f2c3ec2b0d58f27810021b8",
+   "commit": "884591db74b7ad49d68732c844456b83f425aeb5",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 6,
@@ -1645,7 +1645,7 @@
   },
   {
    "repo": "OpenVibe.Exchange",
-   "commit": "d1e0e0e8b7b46aeaadd29cf90fcb5dbd33d5b142",
+   "commit": "a8e9be9c26d568e270d6a555375e1ad680673a8d",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 5,
@@ -1725,7 +1725,7 @@
   },
   {
    "repo": "OpenVibe.Food",
-   "commit": "fc5402cd1782fd3a338c2531775ea6e9e4930fa7",
+   "commit": "3b0a0bfa49c69024d38921a92a4e872cb0670891",
    "files_scanned": 10,
    "counts": {
     "literal_duration": 4,
@@ -1854,7 +1854,7 @@
   },
   {
    "repo": "OpenVibe.Fun",
-   "commit": "6996abf72fefd478ed4e1451c663d432fdc83338",
+   "commit": "b8e6784aebbd084221a734fc30f66f41076e81ff",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 7,
@@ -1962,7 +1962,7 @@
   },
   {
    "repo": "OpenVibe.Games",
-   "commit": "b7979fff6bf22190672bbe7b1b6057195d967b80",
+   "commit": "0f93f4024e11fd5e516c79202e91ccde71748b9a",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -1978,7 +1978,7 @@
   },
   {
    "repo": "OpenVibe.Help",
-   "commit": "1f78f597903d385d4673069ed6539848271a76f2",
+   "commit": "a5217e6a1e9331a0487720870a089015f509be73",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 2,
@@ -2016,7 +2016,7 @@
   },
   {
    "repo": "OpenVibe.Host",
-   "commit": "de4e16313867bd2b30ccbd6649e9bfed2362c844",
+   "commit": "b40cc6307adf915385ccb864aca9a771f4f34599",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 2,
@@ -2152,7 +2152,7 @@
   },
   {
    "repo": "OpenVibe.Inventory",
-   "commit": "2fbb1c4150f6e5369a09605b8598e9aa521aeb46",
+   "commit": "baeca08a952c526df3decf73abbc4efee15b2520",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
@@ -2232,46 +2232,39 @@
   },
   {
    "repo": "OpenVibe.Live",
-   "commit": "b90121e8c8dfbaa41ecf7caa652ea84983d19a2e",
+   "commit": "111c174a282569820f034d4b5889a8817b544197",
    "files_scanned": 119,
    "counts": {
-    "literal_duration": 931,
-    "literal_curve": 448,
+    "literal_duration": 194,
+    "literal_curve": 7,
     "spinner": 0,
-    "color_drift": 1652,
+    "color_drift": 1615,
     "missing_reduced_motion": 0,
-    "total": 3031
+    "total": 1816
    },
    "score": 0,
-   "findings_total": 3031,
+   "findings_total": 1816,
    "findings": [
     {
      "rule": "literal_duration",
      "file": "public/banned.html",
      "line": 17,
      "value": "6s",
-     "text": "background: radial-gradient(120% 90% at 50% 115%, #4a0b0b 0%, #1a0708 45%, #0b0a0d 75%); animation: breathe 6s ease-in-out infinite; }"
+     "text": "background: radial-gradient(120% 90% at 50% 115%, #4a0b0b 0%, #1a0708 45%, #0b0a0d 75%); animation: breathe 6s var(--ov-ease-in-out, ease-in-out) infinite; }"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/broadcast.css",
-     "line": 33,
-     "value": "0.2s",
-     "text": "transition: color 0.2s ease;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/chat-shared.css",
-     "line": 17,
-     "value": "0.12s",
-     "text": "animation: ctxFadeIn 0.12s ease-out;"
+     "line": 281,
+     "value": "1.5s",
+     "text": "animation: pulse-live 1.5s infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/context-cards.css",
-     "line": 9,
-     "value": "0.35s",
-     "text": ".cc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.35s ease; }"
+     "line": 16,
+     "value": "1.8s",
+     "text": ".cc-timeline i { position: absolute; top: -2px; bottom: -2px; min-width: 6px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 10px var(--accent),"
     },
     {
      "rule": "literal_duration",
@@ -2283,86 +2276,65 @@
     {
      "rule": "literal_duration",
      "file": "public/css/features/broadcast.css",
-     "line": 73,
-     "value": "0.15s",
-     "text": "transition: background 0.15s;"
+     "line": 1176,
+     "value": "1.5s",
+     "text": "animation: pulse-live 1.5s infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/features/channel.css",
-     "line": 14,
-     "value": "0.15s",
-     "text": "transition: border-color 0.15s ease, transform 0.15s ease;"
+     "line": 45,
+     "value": "1.2s",
+     "text": "animation: mic-bar-pulse 1.2s var(--ov-ease-in-out, ease-in-out) infinite;"
     },
     {
-     "rule": "literal_duration",
+     "rule": "literal_curve",
      "file": "public/css/features/chatpage.css",
-     "line": 15,
-     "value": "0.15s",
-     "text": "font-size: 0.82rem; color: var(--text-secondary); transition: background 0.15s;"
+     "line": 356,
+     "value": "ease-in",
+     "text": ".vc-channel-item.is-leaving { animation: vcRowOut var(--ov-dur-2, 200ms) ease-in forwards; }"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/features/content.css",
-     "line": 141,
-     "value": ".32s",
-     "text": "animation: cfIn .32s var(--ease-standard, ease) both;"
+     "line": 452,
+     "value": "1.5s",
+     "text": "animation: cfSweep 1.5s var(--ov-ease-in-out, ease-in-out) infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/features/dashboard.css",
-     "line": 6,
-     "value": ".3s",
-     "text": "#dash-powerchat-card { transition: box-shadow .3s ease, border-color .3s ease; }"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/features/docs.css",
-     "line": 14,
-     "value": "0.15s",
-     "text": ".docs-tab-arrow { flex: 0 0 auto; display: none; align-items: center; justify-content: center; width: 30px; background: none; border: none; color: var(--text-mu"
+     "line": 9,
+     "value": "2.2s",
+     "text": ".pc-dot-on { background: #53fc18; box-shadow: 0 0 6px rgba(83,252,24,0.6); animation: pcDotPulse 2.2s var(--ov-ease-in-out, ease-in-out) infinite; }"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/features/featured.css",
-     "line": 10,
-     "value": "320ms",
-     "text": "animation: hfIn 320ms cubic-bezier(.2, .9, .3, 1);"
+     "line": 24,
+     "value": "1.6s",
+     "text": ".hf-live i { font-size: 0.5rem; animation: hfBlink 1.6s var(--ov-ease-in-out, ease-in-out) infinite; }"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/features/home.css",
      "line": 31,
      "value": "3.5s",
-     "text": ".hero-egg-icon { font-size: 1.3rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); animation: eggWobble 3.5s ease-in-out infinite; }"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/features/rundown.css",
-     "line": 238,
-     "value": ".18s",
-     "text": ".rd-more > summary::before { content: ''; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: trans"
+     "text": ".hero-egg-icon { font-size: 1.3rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); animation: eggWobble 3.5s var(--ov-ease-in-out, ease-in-out) infinite; }"
     },
     {
      "rule": "literal_curve",
      "file": "public/css/features/stats.css",
-     "line": 6,
-     "value": "ease-out",
-     "text": "animation: snFade var(--dur-fast, 160ms) ease-out;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/features/viewer-places.css",
      "line": 8,
-     "value": "0.16s",
-     "text": "animation: ovp-in 0.16s ease-out;"
+     "value": "ease-in",
+     "text": ".sn-overlay.is-closing { animation: snFadeOut var(--ov-dur-2, 160ms) ease-in forwards; }"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/home-fx.css",
-     "line": 10,
-     "value": "0.4s",
-     "text": "pointer-events: none; z-index: 0; opacity: 0; transition: opacity 0.4s;"
+     "line": 110,
+     "value": "1.6s",
+     "text": ".hb:hover::after, .hb:focus-visible::after { opacity: 1; animation: hbOrbit 1.6s linear infinite; }"
     },
     {
      "rule": "literal_duration",
@@ -2374,37 +2346,30 @@
     {
      "rule": "literal_duration",
      "file": "public/css/i18n-star.css",
-     "line": 15,
-     "value": "0.35s",
-     "text": "animation: i18nSlideIn 0.35s ease both;"
+     "line": 29,
+     "value": "3s",
+     "text": "cursor: help; animation: i18nPulse 3s var(--ov-ease-in-out, ease-in-out) infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/media-player.css",
      "line": 82,
      "value": "1.4s",
-     "text": "animation: mp-pulse 1.4s ease-out infinite;   /* a ring that pulses out: nothing spins */"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/messenger.css",
-     "line": 24,
-     "value": "0.15s",
-     "text": "transition: transform 0.15s, background 0.15s;"
+     "text": "animation: mp-pulse 1.4s var(--ov-ease-out, ease-out) infinite;   /* a ring that pulses out: nothing spins */"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/ov-guide.css",
-     "line": 7,
-     "value": ".25s",
-     "text": ".ovg-scrim { position: absolute; inset: 0; background: rgba(4,5,10,0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: ovgFade .25"
+     "line": 80,
+     "value": "2.2s",
+     "text": ".ovg-big { font-size: 1.1rem; padding: 14px 28px; box-shadow: 0 12px 34px color-mix(in srgb, var(--accent) 45%, transparent); animation: ovgPulse 2.2s var(--ov-"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/style.css",
-     "line": 180,
-     "value": "0.4s",
-     "text": "transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, backdrop-filter 0.4s ease;"
+     "line": 251,
+     "value": "1.5s",
+     "text": "animation: nav-live-pulse 1.5s var(--ov-ease-in-out, ease-in-out) infinite;"
     },
     {
      "rule": "literal_duration",
@@ -2416,15 +2381,50 @@
     {
      "rule": "literal_duration",
      "file": "public/kiosk.html",
-     "line": 123,
-     "value": ".5s",
-     "text": "min-height:1.5em;transition:opacity .5s"
+     "line": 146,
+     "value": "1.6s",
+     "text": "box-shadow:0 0 12px var(--red);animation:pulse 1.6s infinite"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/obs/alerts.html",
+     "line": 32,
+     "value": "1s",
+     "text": ".al::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.22) 50%, tr"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/obs/chat.html",
+     "line": 55,
+     "value": "1s",
+     "text": "animation: msg-fade 1s var(--ov-ease-out, ease-out) forwards;"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/obs/scene.html",
+     "line": 25,
+     "value": "28s",
+     "text": ".sc-light.a { background: var(--accent, var(--o)); left: -18vmax; top: -24vmax; animation: scDriftA 28s var(--ov-ease-in-out, ease-in-out) infinite alternate; }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/chat-shared.css",
+     "line": 15,
+     "value": "rgba(0,0,0,0.4)",
+     "text": "box-shadow: 0 8px 24px rgba(0,0,0,0.4);"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/features/docs.css",
+     "line": 9,
+     "value": "rgba(var(--accent-rgb)",
+     "text": ".doc-table tr:hover td { background: rgba(var(--accent-rgb, 99,102,241), 0.04); }"
     }
    ]
   },
   {
    "repo": "OpenVibe.Media",
-   "commit": "d4dc27191555fab54bd0503266e3e50cee2c6673",
+   "commit": "2efda0fe90335f0f8149cb0be57a677033b04298",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 0,
@@ -2440,7 +2440,7 @@
   },
   {
    "repo": "OpenVibe.MediaHub",
-   "commit": "8076bc7305b6f32f5c8694948a10697522a38098",
+   "commit": "9456fdb52e222aaed04e6b859ec1c2b18192ba7b",
    "files_scanned": 9,
    "counts": {
     "literal_duration": 13,
@@ -2632,7 +2632,7 @@
   },
   {
    "repo": "OpenVibe.Meme",
-   "commit": "e591605baded51e02c79d4448229264db3a96a36",
+   "commit": "d3f7b95c1755ab205f0dbd3828abafc98e2c0dcc",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 5,
@@ -2824,67 +2824,25 @@
   },
   {
    "repo": "OpenVibe.Network",
-   "commit": "1f37de66f63fcbf32e4b9bed63c6d99b7a96dd99",
+   "commit": "0ca3c484bf2282e65140851cbd8a006b905e5b6b",
    "files_scanned": 31,
    "counts": {
-    "literal_duration": 89,
-    "literal_curve": 31,
+    "literal_duration": 14,
+    "literal_curve": 0,
     "spinner": 0,
     "color_drift": 212,
     "missing_reduced_motion": 0,
-    "total": 332
+    "total": 226
    },
-   "score": 59.4,
-   "findings_total": 332,
+   "score": 85.9,
+   "findings_total": 226,
    "findings": [
-    {
-     "rule": "literal_duration",
-     "file": "public/css/admin.css",
-     "line": 30,
-     "value": ".15s",
-     "text": "background:transparent;color:var(--text-muted);cursor:pointer;transition:all .15s;white-space:nowrap;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/admin.css",
-     "line": 36,
-     "value": ".15s",
-     "text": "background:var(--bg-secondary);color:var(--text-muted);cursor:pointer;transition:all .15s;opacity:0;pointer-events:none;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/admin.css",
-     "line": 43,
-     "value": ".2s",
-     "text": ".section{display:none;animation:sec-in .2s ease}"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/css/admin.css",
-     "line": 43,
-     "value": "ease",
-     "text": ".section{display:none;animation:sec-in .2s ease}"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/admin.css",
-     "line": 67,
-     "value": ".15s",
-     "text": ".btn{padding:8px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap"
-    },
     {
      "rule": "literal_duration",
      "file": "public/css/login.css",
      "line": 17,
      "value": "20s",
-     "text": "animation:orb-drift 20s ease-in-out infinite alternate;"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/css/login.css",
-     "line": 17,
-     "value": "ease-in-out",
-     "text": "animation:orb-drift 20s ease-in-out infinite alternate;"
+     "text": "animation:orb-drift 20s var(--ov-ease-in-out, ease-in-out) infinite alternate;"
     },
     {
      "rule": "literal_duration",
@@ -2896,127 +2854,169 @@
     {
      "rule": "literal_duration",
      "file": "public/css/login.css",
-     "line": 63,
-     "value": ".6s",
-     "text": "animation:card-entrance .6s cubic-bezier(.34,1.56,.64,1);"
+     "line": 70,
+     "value": "3s",
+     "text": "animation:shimmer 3s var(--ov-ease-in-out, ease-in-out) infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "public/css/my.css",
-     "line": 38,
-     "value": ".15s",
-     "text": "background:transparent;color:var(--text-muted);cursor:pointer;transition:all .15s;white-space:nowrap;"
+     "line": 252,
+     "value": "2s",
+     "text": ".td-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--live-red); box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-red) 60%, transparent); "
     },
     {
      "rule": "literal_duration",
      "file": "public/css/my.css",
-     "line": 65,
-     "value": ".2s",
-     "text": ".section{display:none;animation:sec-in .2s ease}"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/css/my.css",
-     "line": 65,
-     "value": "ease",
-     "text": ".section{display:none;animation:sec-in .2s ease}"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/css/my.css",
-     "line": 82,
-     "value": ".18s",
-     "text": "transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease;"
+     "line": 338,
+     "value": "1.6s",
+     "text": ".mc-wait-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: mcBreathe 1.6s var(--ov-ease-in-out, ease-in-out) infinite; }"
     },
     {
      "rule": "literal_duration",
      "file": "public/index.html",
      "line": 65,
      "value": "24s",
-     "text": ".bg-orbs .orb{position:absolute;border-radius:50%;filter:blur(110px);opacity:.14;animation:orb-drift 24s ease-in-out infinite alternate}"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/index.html",
-     "line": 65,
-     "value": "ease-in-out",
-     "text": ".bg-orbs .orb{position:absolute;border-radius:50%;filter:blur(110px);opacity:.14;animation:orb-drift 24s ease-in-out infinite alternate}"
+     "text": ".bg-orbs .orb{position:absolute;border-radius:50%;filter:blur(110px);opacity:.14;animation:orb-drift 24s var(--ov-ease-in-out, ease-in-out) infinite alternate}"
     },
     {
      "rule": "literal_duration",
      "file": "public/index.html",
-     "line": 88,
-     "value": ".15s",
-     "text": "transition:transform .15s, box-shadow .15s, background .15s, border-color .15s;"
+     "line": 126,
+     "value": "4.2s",
+     "text": ".constellation .cs-halo{fill:var(--accent);opacity:.16;transform-box:fill-box;transform-origin:center;animation:cs-twinkle 4.2s var(--ov-ease-in-out, ease-in-ou"
     },
     {
      "rule": "literal_duration",
      "file": "public/index.html",
-     "line": 88,
-     "value": ".15s",
-     "text": "transition:transform .15s, box-shadow .15s, background .15s, border-color .15s;"
+     "line": 135,
+     "value": "6s",
+     "text": ".orb-glow{position:absolute;inset:22%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 34%,transparent),transparent);fi"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/index.html",
+     "line": 137,
+     "value": "7s",
+     "text": ".orb-ring::before{content:\"\";position:absolute;border-radius:50%;border:1px dashed color-mix(in srgb,var(--accent-light) 30%,transparent);animation:orb-dash 7s "
     },
     {
      "rule": "literal_duration",
      "file": "public/sso-fanout.html",
-     "line": 35,
-     "value": ".4s",
-     "text": ".card{width:100%;max-width:440px;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:30px 28px;position:relative;overflow:hidden"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/sso-fanout.html",
-     "line": 35,
-     "value": "cubic-bezier(",
-     "text": ".card{width:100%;max-width:440px;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:30px 28px;position:relative;overflow:hidden"
+     "line": 43,
+     "value": "1.2s",
+     "text": ".bar i::after{content:\"\";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:sheen 1.2s linear i"
     },
     {
      "rule": "literal_duration",
      "file": "public/sso-fanout.html",
-     "line": 42,
-     "value": ".45s",
-     "text": ".bar i{position:absolute;inset:0 auto 0 0;width:var(--w,0%);background:linear-gradient(90deg,var(--accent),var(--accent-light));transition:width .45s cubic-bezi"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/sso-fanout.html",
-     "line": 42,
-     "value": "cubic-bezier(",
-     "text": ".bar i{position:absolute;inset:0 auto 0 0;width:var(--w,0%);background:linear-gradient(90deg,var(--accent),var(--accent-light));transition:width .45s cubic-bezi"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/verify-email.html",
-     "line": 38,
-     "value": ".5s",
-     "text": ".card{width:100%;max-width:480px;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:36px 32px;text-align:center;position:relati"
-    },
-    {
-     "rule": "literal_curve",
-     "file": "public/verify-email.html",
-     "line": 38,
-     "value": "cubic-bezier(",
-     "text": ".card{width:100%;max-width:480px;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:36px 32px;text-align:center;position:relati"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "public/verify-email.html",
-     "line": 39,
-     "value": ".6s",
-     "text": ".card::before{content:\"\";position:absolute;inset:-40% -20% auto;height:70%;background:radial-gradient(60% 60% at 50% 40%,rgba(var(--accent-rgb),.22),transparent"
+     "line": 53,
+     "value": "1.2s",
+     "text": "li.now .dot i{animation:breathe 1.2s var(--ov-ease-in-out, ease-in-out) infinite}"
     },
     {
      "rule": "literal_duration",
      "file": "public/verify-email.html",
      "line": 45,
      "value": "1.4s",
-     "text": ".ring.spin{border-color:var(--accent);animation:ring-pulse 1.4s ease-out infinite}"
+     "text": ".ring.spin{border-color:var(--accent);animation:ring-pulse 1.4s var(--ov-ease-out, ease-out) infinite}"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/verify-email.html",
+     "line": 55,
+     "value": ".9s",
+     "text": ".card[data-state=\"ok\"] .burst i{animation:fly .9s var(--ov-ease-out, cubic-bezier(.2,.8,.2,1)) both}"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/verify-email.html",
+     "line": 67,
+     "value": ".25s",
+     "text": ".next{margin-top:22px;text-align:left;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:14px 16px;font-size:13px;color:va"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/admin.css",
+     "line": 4,
+     "value": "--bg #0d0d14",
+     "text": "--bg:#0d0d14;--bg-secondary:#151520;--bg-card:#1a1a26;--bg-input:#1c1c28;--bg-tertiary:#222233;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/admin.css",
+     "line": 4,
+     "value": "--bg-secondary #151520",
+     "text": "--bg:#0d0d14;--bg-secondary:#151520;--bg-card:#1a1a26;--bg-input:#1c1c28;--bg-tertiary:#222233;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/admin.css",
+     "line": 4,
+     "value": "--bg-card #1a1a26",
+     "text": "--bg:#0d0d14;--bg-secondary:#151520;--bg-card:#1a1a26;--bg-input:#1c1c28;--bg-tertiary:#222233;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/admin.css",
+     "line": 4,
+     "value": "--bg-input #1c1c28",
+     "text": "--bg:#0d0d14;--bg-secondary:#151520;--bg-card:#1a1a26;--bg-input:#1c1c28;--bg-tertiary:#222233;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/admin.css",
+     "line": 4,
+     "value": "--bg-tertiary #222233",
+     "text": "--bg:#0d0d14;--bg-secondary:#151520;--bg-card:#1a1a26;--bg-input:#1c1c28;--bg-tertiary:#222233;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/login.css",
+     "line": 4,
+     "value": "--bg #0d0d14",
+     "text": "--bg:#0d0d14;--bg-card:#16161f;--bg-input:#1c1c28;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/my.css",
+     "line": 4,
+     "value": "--bg-primary #0d0d14",
+     "text": "--bg-primary:#0d0d14;--bg-secondary:#151520;--bg-card:#1a1a26;--bg-input:#1c1c28;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/css/my.css",
+     "line": 4,
+     "value": "--bg-secondary #151520",
+     "text": "--bg-primary:#0d0d14;--bg-secondary:#151520;--bg-card:#1a1a26;--bg-input:#1c1c28;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/sso-fanout.html",
+     "line": 32,
+     "value": "--bg-primary #0a0f1c",
+     "text": ":root{--bg-primary:#0a0f1c;--bg-secondary:#101828;--bg-card:#131c2e;--border:#1f2d47;--text-primary:#e8ecf5;--text-secondary:#a9b3c9;--text-muted:#6b7590;--acce"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/sso-fanout.html",
+     "line": 32,
+     "value": "--bg-secondary #101828",
+     "text": ":root{--bg-primary:#0a0f1c;--bg-secondary:#101828;--bg-card:#131c2e;--border:#1f2d47;--text-primary:#e8ecf5;--text-secondary:#a9b3c9;--text-muted:#6b7590;--acce"
+    },
+    {
+     "rule": "color_drift",
+     "file": "public/verify-email.html",
+     "line": 34,
+     "value": "--bg-primary #0a0f1c",
+     "text": ":root{--bg-primary:#0a0f1c;--bg-secondary:#101828;--bg-card:#131c2e;--bg-hover:#1c2a44;--border:#1f2d47;--text-primary:#e8ecf5;--text-secondary:#a9b3c9;--text-m"
     }
    ]
   },
   {
    "repo": "OpenVibe.News",
-   "commit": "06d9f98849be566e7c95bc955424619703c3e4e0",
+   "commit": "1da9a6866d409d864435805d99756b05a3210e65",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 1,
@@ -3152,7 +3152,7 @@
   },
   {
    "repo": "OpenVibe.Play",
-   "commit": "2e537f159ea804ae2d5a71dbd012dcaf7934f587",
+   "commit": "b1e93ebb31a296c3ea85d4abca5c4967f447cd10",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
@@ -3168,7 +3168,7 @@
   },
   {
    "repo": "OpenVibe.Quest",
-   "commit": "6789102cdc226e0213759ee1c82d83b63325f074",
+   "commit": "b8508012221bbdcfce187a8bbc0abcad110c8420",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 2,
@@ -3255,7 +3255,7 @@
   },
   {
    "repo": "OpenVibe.Rent",
-   "commit": "17906de0e5ef798eab15b19f9aa2f356f6e0dec1",
+   "commit": "ceb1536e45562b4a3c04df03454459ff5dcc25a5",
    "files_scanned": 7,
    "counts": {
     "literal_duration": 4,
@@ -3335,7 +3335,7 @@
   },
   {
    "repo": "OpenVibe.Report",
-   "commit": "2bc4ed3c91c2cde796b39c191be62909209fe521",
+   "commit": "5ca74bdc21c74d8e79fe403d7e8190f8ee8ef92e",
    "files_scanned": 5,
    "counts": {
     "literal_duration": 2,
@@ -3366,7 +3366,7 @@
   },
   {
    "repo": "OpenVibe.Reviews",
-   "commit": "791467f79a2be2596e5ef918b5c456c129f91137",
+   "commit": "abfd295b7eeaeff7017a861162239aaa5771cf50",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -3446,7 +3446,7 @@
   },
   {
    "repo": "OpenVibe.Services",
-   "commit": "622d1e73b277a9374d164af2e4e9f14d6887f2b7",
+   "commit": "42b7dbec2ffb24eb34ecb1441808dc9cdd64e774",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -3462,7 +3462,7 @@
   },
   {
    "repo": "OpenVibe.Shoes",
-   "commit": "d61bdb78db4496d0fdb397b8a4cf3513411da186",
+   "commit": "8e18bc3e75f267c83dea7ca61ea8f69295042f78",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 0,
@@ -3500,7 +3500,7 @@
   },
   {
    "repo": "OpenVibe.Sources",
-   "commit": "7c49c75b35dc6354e6e48863c64e3362ea6ccc43",
+   "commit": "ceba7dc966ba3fa4332492c9b46c67eb135a4e54",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
@@ -3516,7 +3516,7 @@
   },
   {
    "repo": "OpenVibe.Space",
-   "commit": "85564a4613b18c4eb9280cafc53e52cf6bc97587",
+   "commit": "863c7da289de3f164b1ff3b2d0d066d087f0b64d",
    "files_scanned": 5,
    "counts": {
     "literal_duration": 3,
@@ -3708,7 +3708,7 @@
   },
   {
    "repo": "OpenVibe.Surf",
-   "commit": "35c01111284336d57de686f15f4d48142167d699",
+   "commit": "e70214725ba176384f10a8899438414bf1cfb0ce",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 9,
@@ -3900,7 +3900,7 @@
   },
   {
    "repo": "OpenVibe.Tips",
-   "commit": "008af8c7aae3ecc0e26e21823092ec0e80181f7a",
+   "commit": "dcdf17ae46a20001ad92e69e01f0bd762eb9ee40",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 3,
@@ -4001,7 +4001,7 @@
   },
   {
    "repo": "OpenVibe.Today",
-   "commit": "e132bbd614487acb1355eef26f0023df689764d6",
+   "commit": "9af31db0b339e515795254915c1bc21b4f7d0802",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 5,
@@ -4137,165 +4137,109 @@
   },
   {
    "repo": "OpenVibe.Tools",
-   "commit": "dabb06f53f618ddb5b0ab14e2328f71ff7d257c6",
+   "commit": "19232b01b7d422c2d27c4fb63c552470ca75d71b",
    "files_scanned": 69,
    "counts": {
-    "literal_duration": 157,
-    "literal_curve": 44,
+    "literal_duration": 34,
+    "literal_curve": 0,
     "spinner": 0,
     "color_drift": 399,
     "missing_reduced_motion": 0,
-    "total": 600
+    "total": 433
    },
-   "score": 29.8,
-   "findings_total": 600,
+   "score": 71.55,
+   "findings_total": 433,
    "findings": [
     {
      "rule": "literal_duration",
      "file": "apps/audio/public/css/style.css",
-     "line": 213,
-     "value": ".25s",
-     "text": ".option-group { animation: fadeIn .25s ease; }"
+     "line": 364,
+     "value": "1.4s",
+     "text": "animation: spin 1.4s var(--ov-ease-out, ease-out) infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "apps/docs/public/css/style.css",
-     "line": 89,
-     "value": ".15s",
-     "text": "transition: all .15s;"
+     "line": 342,
+     "value": "1.4s",
+     "text": "animation: spin 1.4s var(--ov-ease-out, ease-out) infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "apps/food/public/css/style.css",
-     "line": 50,
-     "value": "0.2s",
-     "text": "color:var(--text-muted); font-size:14px; cursor:pointer; transition:0.2s; text-decoration:none;"
+     "line": 212,
+     "value": "1.4s",
+     "text": ".spinner { width:24px; height:24px; border: 3px solid var(--green); --spin-c: var(--green); border-radius:50%; animation: spin 1.4s var(--ov-ease-out, ease-out)"
     },
     {
      "rule": "literal_duration",
      "file": "apps/gateway/public/audio.html",
-     "line": 67,
-     "value": "0.3s",
-     "text": ".showcase-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border-radius: 16px; background: var(--bg-c"
+     "line": 68,
+     "value": "3s",
+     "text": ".showcase-tool:nth-child(1) { animation-delay: 0s; animation-duration: 3s; }"
     },
     {
      "rule": "literal_duration",
      "file": "apps/gateway/public/codes.html",
-     "line": 56,
-     "value": ".15s",
-     "text": ".cx-tabs a{display:inline-flex;align-items:center;gap:6px;flex:none;padding:7px 12px;border-radius:9px;color:var(--c-tx2);text-decoration:none;font-size:.86rem;"
+     "line": 136,
+     "value": "1s",
+     "text": ".verdict.wait .dot{animation:pulse 1s var(--ov-ease-in-out, ease-in-out) infinite}"
     },
     {
      "rule": "literal_duration",
      "file": "apps/gateway/public/dev.html",
      "line": 35,
      "value": "20s",
-     "text": ".bg-glow::before,.bg-glow::after{content:'';position:absolute;border-radius:50%;filter:blur(120px);opacity:.35;animation:gd 20s ease-in-out infinite alternate}"
+     "text": ".bg-glow::before,.bg-glow::after{content:'';position:absolute;border-radius:50%;filter:blur(120px);opacity:.35;animation:gd 20s var(--ov-ease-in-out, ease-in-ou"
     },
     {
      "rule": "literal_duration",
      "file": "apps/gateway/public/img.html",
-     "line": 67,
-     "value": "0.3s",
-     "text": ".showcase-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border-radius: 16px; background: var(--bg-c"
+     "line": 68,
+     "value": "3s",
+     "text": ".showcase-tool:nth-child(1) { animation-delay: 0s; animation-duration: 3s; }"
     },
     {
      "rule": "literal_duration",
      "file": "apps/gateway/public/net.html",
      "line": 74,
      "value": "20s",
-     "text": "animation: glow-drift 20s ease-in-out infinite alternate;"
+     "text": "animation: glow-drift 20s var(--ov-ease-in-out, ease-in-out) infinite alternate;"
     },
     {
      "rule": "literal_duration",
      "file": "apps/img/public/css/style.css",
-     "line": 89,
-     "value": ".15s",
-     "text": "transition: all .15s;"
+     "line": 337,
+     "value": "1.4s",
+     "text": "animation: spin 1.4s var(--ov-ease-out, ease-out) infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "apps/maps/public/css/style.css",
-     "line": 48,
-     "value": "0.5s",
-     "text": ".splash-content { text-align: center; animation: fadeIn 0.5s ease; }"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/badge.html",
-     "line": 38,
-     "value": ".2s",
-     "text": ".shape-pill { padding: .4rem .9rem; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); font-siz"
+     "line": 49,
+     "value": "3s",
+     "text": ".splash-icon { font-size: 64px; color: var(--green); margin-bottom: 16px; animation: float 3s var(--ov-ease-in-out, ease-in-out) infinite; }"
     },
     {
      "rule": "literal_duration",
      "file": "apps/text/public/css/shared.css",
      "line": 305,
      "value": "2s",
-     "text": "animation: livePulse 2s ease-in-out infinite;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/ice.html",
-     "line": 44,
-     "value": "0.2s",
-     "text": "transition: border-color 0.2s, transform 0.2s;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/peso.html",
-     "line": 68,
-     "value": "0.3s",
-     "text": "transition: transform 0.3s, background 0.2s;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/slang.html",
-     "line": 46,
-     "value": "0.2s",
-     "text": "font-weight: 600; transition: all 0.2s; font-family: 'Inter', sans-serif;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/spanish.html",
-     "line": 34,
-     "value": "0.2s",
-     "text": "transition: border-color 0.2s;"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/thumbnail.html",
-     "line": 40,
-     "value": ".2s",
-     "text": ".upload-btn { width: 100%; padding: .75rem; border-radius: 12px; border: 2px dashed var(--border); background: var(--bg-tertiary); color: var(--text-secondary);"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/title.html",
-     "line": 36,
-     "value": ".2s",
-     "text": ".preset-btn { padding: .5rem .25rem; font-size: .7rem; border-radius: 10px; cursor: pointer; border: 2px solid var(--border); background: var(--bg-tertiary); co"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/watermark.html",
-     "line": 29,
-     "value": ".2s",
-     "text": ".drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: all .2s; }"
-    },
-    {
-     "rule": "literal_duration",
-     "file": "apps/text/public/wordmark.html",
-     "line": 25,
-     "value": ".2s",
-     "text": ".wm-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: all .2s; }"
+     "text": "animation: livePulse 2s var(--ov-ease-in-out, ease-in-out) infinite;"
     },
     {
      "rule": "literal_duration",
      "file": "apps/yt/public/css/style.css",
-     "line": 85,
-     "value": ".2s",
-     "text": "transition: border-color .2s, box-shadow .2s;"
+     "line": 172,
+     "value": "1.4s",
+     "text": "animation: spin 1.4s var(--ov-ease-out, ease-out) infinite;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/badge.html",
+     "line": 35,
+     "value": "#111",
+     "text": ".canvas-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; width: 100%; displa"
     },
     {
      "rule": "color_drift",
@@ -4306,10 +4250,52 @@
     },
     {
      "rule": "color_drift",
+     "file": "apps/text/public/ice.html",
+     "line": 25,
+     "value": "#dc2626",
+     "text": "background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);"
+    },
+    {
+     "rule": "color_drift",
      "file": "apps/text/public/json.html",
      "line": 29,
      "value": "#93c5fd",
      "text": ".json-key { color: #93c5fd; }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/peso.html",
+     "line": 66,
+     "value": "#0b0c12",
+     "text": "color: #0b0c12; font-size: 1rem; cursor: pointer;"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/slang.html",
+     "line": 49,
+     "value": "#0b0c12",
+     "text": ".vibe-pill.active { background: var(--accent); color: #0b0c12; border-color: var(--accent); }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/spanish.html",
+     "line": 57,
+     "value": "#0b0c12",
+     "text": ".cat-pill.active { background: var(--accent); color: #0b0c12; border-color: var(--accent); }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/thumbnail.html",
+     "line": 26,
+     "value": "#0b0c12",
+     "text": ".thumb-canvas-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: #0b0c12; display: flex; align-items: center; justify-content: center; }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/title.html",
+     "line": 37,
+     "value": "rgba(192,150,92,0.1)",
+     "text": ".preset-btn:hover, .preset-btn.active { border-color: var(--accent); background: rgba(192,150,92,0.1); }"
     },
     {
      "rule": "color_drift",
@@ -4324,12 +4310,26 @@
      "line": 30,
      "value": "rgba(255, 0, 0, 0.1)",
      "text": ".char-invisible { background: rgba(255, 0, 0, 0.1); }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/watermark.html",
+     "line": 30,
+     "value": "rgba(192,150,92,0.05)",
+     "text": ".drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(192,150,92,0.05); }"
+    },
+    {
+     "rule": "color_drift",
+     "file": "apps/text/public/wordmark.html",
+     "line": 27,
+     "value": "#111",
+     "text": ".wm-preview { padding: 2rem 1.5rem; display: flex; align-items: center; justify-content: center; min-height: 100px; background-image: linear-gradient(45deg, #11"
     }
    ]
   },
   {
    "repo": "OpenVibe.Tours",
-   "commit": "78d9d5ce645d34d856e9a5faee32e1bdb1953087",
+   "commit": "72c48aa1211076a0f70b435501d4fc0184d051b0",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 0,
@@ -4437,7 +4437,7 @@
   },
   {
    "repo": "OpenVibe.Trade",
-   "commit": "9a1f6732f819bb71d8e2255dc9e06ee89c907410",
+   "commit": "60aa19544aa59f8e8029c70405d0c9179b64e80e",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 1,
@@ -4468,7 +4468,7 @@
   },
   {
    "repo": "OpenVibe.VIP",
-   "commit": "52d929860a81b0d35543908feebb3f0d70587402",
+   "commit": "bc4583899e625cdac204e641480460c0d6504396",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 1,
@@ -4548,7 +4548,7 @@
   },
   {
    "repo": "OpenVibe.Vision",
-   "commit": "e0f3a93f0a2aa421f49c90489016d8f406ed430d",
+   "commit": "ccc5c615a40312925f22e2eaa6276a3f0610d174",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 11,
@@ -4726,7 +4726,7 @@
   },
   {
    "repo": "OpenVibe.Watch",
-   "commit": "479f1e0a24e16f916825e1330e94b1f2cb0b6ddb",
+   "commit": "0e4b22afb933d8550014d3f3ef4b7630dcd76b8d",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 1,
@@ -4750,7 +4750,7 @@
   },
   {
    "repo": "OpenVibe.Wiki",
-   "commit": "a908ee1663f292861a7dccc03bcb1b56ed31c5f9",
+   "commit": "b87a839c5d9663bacc56c20affcfd8738ecc628e",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 6,
@@ -4879,7 +4879,7 @@
   },
   {
    "repo": "OpenVibe.Work",
-   "commit": "00612ced1f7eb46ec8355f83166079a91085df18",
+   "commit": "e7085b2d6d5ba48d7a12bd99afd9b837201b3971",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 4,
@@ -4959,7 +4959,7 @@
   },
   {
    "repo": "OpenVibe.Zone",
-   "commit": "46d7a17613abb93f41a966ff3212571b7f2db490",
+   "commit": "6abc3c5566e0629885712de97637cd797aad00ab",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
