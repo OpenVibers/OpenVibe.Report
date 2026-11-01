@@ -32,6 +32,14 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             });
         }
 
+        await check('the home has WebSite and Organization JSON-LD', async () => {
+            const r = await t.get('/');
+            const ld = [...r.text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).flatMap((b) => b['@graph'] || [b]);
+            assert.ok(ld.some((x) => x['@type'] === 'WebSite'), 'WebSite');
+            const org = ld.find((x) => x['@type'] === 'Organization');
+            assert.ok(org && Array.isArray(org.sameAs) && org.sameAs.includes('https://github.com/OpenVibers'), 'Organization');
+        });
+
         await check('a page names its canonical and mounts the Frame for service report', async () => {
             const r = await t.get('/rundown/t/seattle');
             assert.ok(r.text.includes('<link rel="canonical" href="https://openvibe.report/rundown/t/seattle">'));
