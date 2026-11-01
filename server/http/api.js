@@ -9,6 +9,7 @@
  *   GET /api/v1/rundown/t/:slug
  *   GET /api/v1/after-show/:streamId
  *   GET /api/v1/c/:username
+ *   GET /api/v1/design-health, /api/v1/design-health/:site   every site's design health (a snapshot, server/design-health/)
  *
  * A bad parameter is checked here, before the source is asked, and is a 404 problem+json, exactly like a source
  * that answered nothing. Every /api/v1 answer is CORS-open and public for two minutes; the app mounts the 120/min
@@ -24,6 +25,7 @@ const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('.
 const { createServiceAuth, CAPS } = require('../auth');
 const { GROUPS: AI_USAGE_GROUPS, PERSON_GROUPS } = require('../analytics/ai-usage');
 const GROUPS = Object.keys(AI_USAGE_GROUPS);
+const designHealth = require('../data/design-health');
 
 const CACHE = 'public, max-age=120';
 
@@ -67,6 +69,15 @@ function createApi({ network, live, analytics = null, aiUsage = null, config = {
         const stats = analytics ? await analytics.stats(days) : await network.stats(days);
         if (!stats) return notFound(req, res, 'report.stats_not_found', 'The open numbers did not answer for this window.');
         return res.json(stats);
+    });
+
+    // Every site's design health (plan L45 step 6): the snapshot scripts/design-health.js wrote from each site's code.
+    r.get('/design-health', (req, res) => res.json(designHealth.all()));
+    r.get('/design-health/:site', (req, res) => {
+        const site = designHealth.site(req.params.site);
+        if (!site) return notFound(req, res, 'report.design_site_not_found', 'No site by that name in the design health snapshot.');
+        const { generated_at, rules, weights, kept } = designHealth.all();
+        return res.json({ generated_at, rules, weights, kept, site });
     });
 
     r.get('/rundown', async (req, res) => {

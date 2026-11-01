@@ -4,7 +4,7 @@
  * Crawl artifacts for openvibe.report, built with openvibe-shared/seo:
  *
  *   GET /robots.txt      the public pages are crawlable; the API is not
- *   GET /sitemap.xml     /, /stats, /rundown and every /rundown/t/<slug> from the Rundown's topics
+ *   GET /sitemap.xml     /, /stats, /design, /rundown and every /rundown/t/<slug> from the Rundown's topics
  *   GET /llms.txt        a markdown map of the site and its machine-readable answers
  *
  * The sitemap reads topics through the same cached client as the pages, so a crawler is no heavier than a reader
@@ -53,6 +53,7 @@ function createDiscoveryRoutes({ config, live, bench }) {
         const pages = [
             { loc: abs('/'), changefreq: 'daily', priority: 1.0 },
             { loc: abs('/stats'), changefreq: 'daily', priority: 0.9 },
+            { loc: abs('/design'), changefreq: 'weekly', priority: 0.6 },
             { loc: abs('/rundown'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/ai'), changefreq: 'daily', priority: 0.9 },
             ...kinds.filter((k) => k && bench.isKindId(k.id)).map((k) => ({
@@ -76,11 +77,13 @@ function createDiscoveryRoutes({ config, live, bench }) {
                 { title: 'Start here', links: [
                     { title: 'OpenVibe.Report', url: abs('/'), note: 'the Report room' },
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
+                    { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
                     { title: 'The Rundown', url: abs('/rundown'), note: 'what streamers talked about, topic by topic' },
                     { title: 'AI boards', url: abs('/ai'), note: 'Bench ratings, quality and cost across rooms' },
                 ] },
                 { title: 'Machine-readable', links: [
                     { title: 'Open stats (JSON)', url: abs('/api/v1/stats?days=7'), note: '?days=7, 30 or 90' },
+                    { title: 'Design health (JSON)', url: abs('/api/v1/design-health'), note: 'every site; /api/v1/design-health/<site> for one' },
                     { title: 'The Rundown (JSON)', url: abs('/api/v1/rundown') },
                     { title: 'Topics (JSON)', url: abs('/api/v1/rundown/topics') },
                     { title: 'Sitemap', url: abs('/sitemap.xml') },
