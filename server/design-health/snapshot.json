@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-01T11:14:41.112Z",
+ "generated_at": "2026-11-01T11:43:10.685Z",
  "rules": [
   "literal_duration",
   "literal_curve",
@@ -18,7 +18,7 @@
  "sites": [
   {
    "repo": "OpenVibe.Actor",
-   "commit": "ac296db14b66fafbff94a0e3a82e33fbda52f013",
+   "commit": "c3ce087a8db7752b4bbcd9ccd2728f30d0affc83",
    "files_scanned": 12,
    "counts": {
     "literal_duration": 27,
@@ -210,7 +210,7 @@
   },
   {
    "repo": "OpenVibe.Bench",
-   "commit": "d18fd58d82f16de3284255acba49b8ea0999b01c",
+   "commit": "79c085fe32073498118ab4e6609e60b99a45e9ee",
    "files_scanned": 8,
    "counts": {
     "literal_duration": 2,
@@ -290,7 +290,7 @@
   },
   {
    "repo": "OpenVibe.Blog",
-   "commit": "f754247ce16df1a62cb517e4e420d3f2243fbaeb",
+   "commit": "eae2d20bd5a425b5da865561242e413c869fb9af",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 1,
@@ -328,7 +328,7 @@
   },
   {
    "repo": "OpenVibe.Bot",
-   "commit": "ffe8f47f7901d934173a7620a21fbea9b7ab5ae4",
+   "commit": "8082ed74c0056e8d47061f2b532281c1b4d04bab",
    "files_scanned": 13,
    "counts": {
     "literal_duration": 12,
@@ -520,7 +520,7 @@
   },
   {
    "repo": "OpenVibe.Cam",
-   "commit": "0ad257ee0decb99121d649162f58e21cf6891c2d",
+   "commit": "3ef54be41b1b8810e06fa84ec6dd5a6524cdfd77",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -712,7 +712,7 @@
   },
   {
    "repo": "OpenVibe.Casino",
-   "commit": "fbca80eca82d056b389826b85233b7278c2c635d",
+   "commit": "9118048b4b79b61ca12bddbc63dcac5af2cd47e4",
    "files_scanned": 6,
    "counts": {
     "literal_duration": 0,
@@ -728,18 +728,18 @@
   },
   {
    "repo": "OpenVibe.Chat",
-   "commit": "20eb7b56ec9b8261c365056fef38627b9c4f0453",
+   "commit": "b52e9203d0ca8cbf70b331b749d4043e6740c2a3",
    "files_scanned": 16,
    "counts": {
     "literal_duration": 29,
     "literal_curve": 7,
     "spinner": 0,
-    "color_drift": 65,
+    "color_drift": 66,
     "missing_reduced_motion": 0,
-    "total": 101
+    "total": 102
    },
-   "score": 87.75,
-   "findings_total": 101,
+   "score": 87.7,
+   "findings_total": 102,
    "findings": [
     {
      "rule": "literal_duration",
@@ -920,7 +920,7 @@
   },
   {
    "repo": "OpenVibe.Codes",
-   "commit": "302722579e101e3e1dfe468ae875cdb85e4bd781",
+   "commit": "5b66102996add1088393e8dd0b3d910eaf1f2fa2",
    "files_scanned": 8,
    "counts": {
     "literal_duration": 13,
@@ -1112,7 +1112,7 @@
   },
   {
    "repo": "OpenVibe.Community",
-   "commit": "0962b43798e79204632f3c74ee82cfe67056f04f",
+   "commit": "f3af06352107631697aa7fcf0e1fad41138208a4",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 7,
@@ -1304,7 +1304,7 @@
   },
   {
    "repo": "OpenVibe.Coupons",
-   "commit": "60c410db42097b4e8e6352e6ffac0b146d08afa7",
+   "commit": "bc24c2bed830581c1ccd98860bae8e5f8c0ba2d5",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 1,
@@ -1328,7 +1328,7 @@
   },
   {
    "repo": "OpenVibe.Deals",
-   "commit": "73e9cac7b3a1f88e05184013267ddd3bec0eff37",
+   "commit": "8b3633d8c7a0be2c78a1d7f9926fca3a720cc8e1",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 4,
@@ -1387,7 +1387,7 @@
   },
   {
    "repo": "OpenVibe.Design",
-   "commit": "b40d0aa2ab3265977319cc8295e01d83228cfb8e",
+   "commit": "f9ba48f99bb7f314bfe92f0dd05843e72021642d",
    "files_scanned": 41,
    "counts": {
     "literal_duration": 143,
@@ -1579,7 +1579,7 @@
   },
   {
    "repo": "OpenVibe.Domains",
-   "commit": "7b292c87b16648b74b9808f7f9be21c6968a8b61",
+   "commit": "b6f90829cbb1f8716f2c3ec2b0d58f27810021b8",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 6,
@@ -1645,7 +1645,7 @@
   },
   {
    "repo": "OpenVibe.Exchange",
-   "commit": "0921f08c9df602814dbb42eaa3786f334fb1bc48",
+   "commit": "d1e0e0e8b7b46aeaadd29cf90fcb5dbd33d5b142",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 5,
@@ -1725,7 +1725,7 @@
   },
   {
    "repo": "OpenVibe.Food",
-   "commit": "5c31fd571cb36619fda2714a0cb0b784093560bc",
+   "commit": "fc5402cd1782fd3a338c2531775ea6e9e4930fa7",
    "files_scanned": 10,
    "counts": {
     "literal_duration": 4,
@@ -1854,7 +1854,7 @@
   },
   {
    "repo": "OpenVibe.Fun",
-   "commit": "a287ae83a37868dd4a5d472a154eb74ee4e6ec90",
+   "commit": "6996abf72fefd478ed4e1451c663d432fdc83338",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 7,
@@ -1962,7 +1962,7 @@
   },
   {
    "repo": "OpenVibe.Games",
-   "commit": "3b8910cd2dfab9415c56f680b298097aa57bfea1",
+   "commit": "b7979fff6bf22190672bbe7b1b6057195d967b80",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -1978,7 +1978,7 @@
   },
   {
    "repo": "OpenVibe.Help",
-   "commit": "bf94ad1b939d27448c9b037fab8df1f250d0fc3d",
+   "commit": "1f78f597903d385d4673069ed6539848271a76f2",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 2,
@@ -2016,7 +2016,7 @@
   },
   {
    "repo": "OpenVibe.Host",
-   "commit": "6ee9b8afccbe1353c4d94808d57caaa69304de57",
+   "commit": "de4e16313867bd2b30ccbd6649e9bfed2362c844",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 2,
@@ -2152,7 +2152,7 @@
   },
   {
    "repo": "OpenVibe.Inventory",
-   "commit": "bb0f57d6ef10f3a9832cc524d4a82d57102963d3",
+   "commit": "2fbb1c4150f6e5369a09605b8598e9aa521aeb46",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
@@ -2440,7 +2440,7 @@
   },
   {
    "repo": "OpenVibe.MediaHub",
-   "commit": "7a2bef57872feaf52d005d562a8bdcbf53951d51",
+   "commit": "8076bc7305b6f32f5c8694948a10697522a38098",
    "files_scanned": 9,
    "counts": {
     "literal_duration": 13,
@@ -2632,7 +2632,7 @@
   },
   {
    "repo": "OpenVibe.Meme",
-   "commit": "c227e892e228707fc51b80852b3ae83680c22613",
+   "commit": "e591605baded51e02c79d4448229264db3a96a36",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 5,
@@ -2824,33 +2824,19 @@
   },
   {
    "repo": "OpenVibe.Network",
-   "commit": "390bcc1ca2aa5fcd0e391244bb27a6edebd8fecf",
+   "commit": "1f37de66f63fcbf32e4b9bed63c6d99b7a96dd99",
    "files_scanned": 31,
    "counts": {
     "literal_duration": 89,
     "literal_curve": 31,
     "spinner": 0,
     "color_drift": 212,
-    "missing_reduced_motion": 2,
-    "total": 334
+    "missing_reduced_motion": 0,
+    "total": 332
    },
-   "score": 55.4,
-   "findings_total": 334,
+   "score": 59.4,
+   "findings_total": 332,
    "findings": [
-    {
-     "rule": "missing_reduced_motion",
-     "file": "public/css/admin.css",
-     "line": 43,
-     "value": "animation",
-     "text": ".section{display:none;animation:sec-in .2s ease}"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "public/css/login.css",
-     "line": 17,
-     "value": "animation",
-     "text": "animation:orb-drift 20s ease-in-out infinite alternate;"
-    },
     {
      "rule": "literal_duration",
      "file": "public/css/admin.css",
@@ -2881,6 +2867,13 @@
     },
     {
      "rule": "literal_duration",
+     "file": "public/css/admin.css",
+     "line": 67,
+     "value": ".15s",
+     "text": ".btn{padding:8px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap"
+    },
+    {
+     "rule": "literal_duration",
      "file": "public/css/login.css",
      "line": 17,
      "value": "20s",
@@ -2899,6 +2892,13 @@
      "line": 49,
      "value": "30s",
      "text": "animation:grid-scroll 30s linear infinite;"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "public/css/login.css",
+     "line": 63,
+     "value": ".6s",
+     "text": "animation:card-entrance .6s cubic-bezier(.34,1.56,.64,1);"
     },
     {
      "rule": "literal_duration",
@@ -3016,7 +3016,7 @@
   },
   {
    "repo": "OpenVibe.News",
-   "commit": "5c1200cc31425da6aef045cff5cea7bd6c56fca7",
+   "commit": "06d9f98849be566e7c95bc955424619703c3e4e0",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 1,
@@ -3152,7 +3152,7 @@
   },
   {
    "repo": "OpenVibe.Play",
-   "commit": "d43308f86605aa099d43b012d60c7fe069e0aa9d",
+   "commit": "2e537f159ea804ae2d5a71dbd012dcaf7934f587",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
@@ -3168,7 +3168,7 @@
   },
   {
    "repo": "OpenVibe.Quest",
-   "commit": "3c8533e78a10a5d17c97ee4ba631a412865bf93e",
+   "commit": "6789102cdc226e0213759ee1c82d83b63325f074",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 2,
@@ -3255,7 +3255,7 @@
   },
   {
    "repo": "OpenVibe.Rent",
-   "commit": "de271ae4d15931793564c520eb4aa6c46dc0d9c3",
+   "commit": "17906de0e5ef798eab15b19f9aa2f356f6e0dec1",
    "files_scanned": 7,
    "counts": {
     "literal_duration": 4,
@@ -3335,8 +3335,8 @@
   },
   {
    "repo": "OpenVibe.Report",
-   "commit": "dce6c1f9cb0ca4fed8f27e9f4336ff1b579c94f4",
-   "files_scanned": 4,
+   "commit": "2bc4ed3c91c2cde796b39c191be62909209fe521",
+   "files_scanned": 5,
    "counts": {
     "literal_duration": 2,
     "literal_curve": 0,
@@ -3366,7 +3366,7 @@
   },
   {
    "repo": "OpenVibe.Reviews",
-   "commit": "2732d267d97e85bb1c4b858ce4e7199ff13f31d3",
+   "commit": "791467f79a2be2596e5ef918b5c456c129f91137",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -3446,7 +3446,7 @@
   },
   {
    "repo": "OpenVibe.Services",
-   "commit": "248e48f1dc87f5d04e67d7944ac976c4b68ef345",
+   "commit": "622d1e73b277a9374d164af2e4e9f14d6887f2b7",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 0,
@@ -3462,7 +3462,7 @@
   },
   {
    "repo": "OpenVibe.Shoes",
-   "commit": "ccc1f8a02f8dd49e44a1ba0122a0eadab59c0b05",
+   "commit": "d61bdb78db4496d0fdb397b8a4cf3513411da186",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 0,
@@ -3500,7 +3500,7 @@
   },
   {
    "repo": "OpenVibe.Sources",
-   "commit": "ce8f4619ef9e5af96bd8e964419c2efe37f95c56",
+   "commit": "7c49c75b35dc6354e6e48863c64e3362ea6ccc43",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
@@ -3516,7 +3516,7 @@
   },
   {
    "repo": "OpenVibe.Space",
-   "commit": "d9becca7da9443a04f2828cf4aa1599b90ab6188",
+   "commit": "85564a4613b18c4eb9280cafc53e52cf6bc97587",
    "files_scanned": 5,
    "counts": {
     "literal_duration": 3,
@@ -3708,7 +3708,7 @@
   },
   {
    "repo": "OpenVibe.Surf",
-   "commit": "e605c50166437344f97e78283a39d33bce37636e",
+   "commit": "35c01111284336d57de686f15f4d48142167d699",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 9,
@@ -3900,7 +3900,7 @@
   },
   {
    "repo": "OpenVibe.Tips",
-   "commit": "eb708f169ed98840d56f248f07f4e5da998c875c",
+   "commit": "008af8c7aae3ecc0e26e21823092ec0e80181f7a",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 3,
@@ -4001,7 +4001,7 @@
   },
   {
    "repo": "OpenVibe.Today",
-   "commit": "2d77c36fbc70f6aeae7c59645822d5bd48631df6",
+   "commit": "e132bbd614487acb1355eef26f0023df689764d6",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 5,
@@ -4137,95 +4137,46 @@
   },
   {
    "repo": "OpenVibe.Tools",
-   "commit": "1f1ac7afc05d127533887403dd4dbfb6430c3e64",
+   "commit": "dabb06f53f618ddb5b0ab14e2328f71ff7d257c6",
    "files_scanned": 69,
    "counts": {
     "literal_duration": 157,
     "literal_curve": 44,
     "spinner": 0,
     "color_drift": 399,
-    "missing_reduced_motion": 11,
-    "total": 611
+    "missing_reduced_motion": 0,
+    "total": 600
    },
-   "score": 7.8,
-   "findings_total": 611,
+   "score": 29.8,
+   "findings_total": 600,
    "findings": [
     {
-     "rule": "missing_reduced_motion",
+     "rule": "literal_duration",
      "file": "apps/audio/public/css/style.css",
      "line": 213,
-     "value": "animation",
+     "value": ".25s",
      "text": ".option-group { animation: fadeIn .25s ease; }"
     },
     {
-     "rule": "missing_reduced_motion",
+     "rule": "literal_duration",
      "file": "apps/docs/public/css/style.css",
-     "line": 342,
-     "value": "animation",
-     "text": "animation: spin 1.4s ease-out infinite;"
+     "line": 89,
+     "value": ".15s",
+     "text": "transition: all .15s;"
     },
     {
-     "rule": "missing_reduced_motion",
+     "rule": "literal_duration",
      "file": "apps/food/public/css/style.css",
-     "line": 212,
-     "value": "animation",
-     "text": ".spinner { width:24px; height:24px; border: 3px solid var(--green); --spin-c: var(--green); border-radius:50%; animation: spin 1.4s ease-out infinite; margin:0 "
+     "line": 50,
+     "value": "0.2s",
+     "text": "color:var(--text-muted); font-size:14px; cursor:pointer; transition:0.2s; text-decoration:none;"
     },
     {
-     "rule": "missing_reduced_motion",
+     "rule": "literal_duration",
      "file": "apps/gateway/public/audio.html",
      "line": 67,
-     "value": "animation",
+     "value": "0.3s",
      "text": ".showcase-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border-radius: 16px; background: var(--bg-c"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "apps/gateway/public/dev.html",
-     "line": 35,
-     "value": "animation",
-     "text": ".bg-glow::before,.bg-glow::after{content:'';position:absolute;border-radius:50%;filter:blur(120px);opacity:.35;animation:gd 20s ease-in-out infinite alternate}"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "apps/gateway/public/img.html",
-     "line": 67,
-     "value": "animation",
-     "text": ".showcase-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border-radius: 16px; background: var(--bg-c"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "apps/gateway/public/net.html",
-     "line": 74,
-     "value": "animation",
-     "text": "animation: glow-drift 20s ease-in-out infinite alternate;"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "apps/img/public/css/style.css",
-     "line": 337,
-     "value": "animation",
-     "text": "animation: spin 1.4s ease-out infinite;"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "apps/maps/public/css/style.css",
-     "line": 48,
-     "value": "animation",
-     "text": ".splash-content { text-align: center; animation: fadeIn 0.5s ease; }"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "apps/text/public/css/shared.css",
-     "line": 305,
-     "value": "animation",
-     "text": "animation: livePulse 2s ease-in-out infinite;"
-    },
-    {
-     "rule": "missing_reduced_motion",
-     "file": "apps/yt/public/css/style.css",
-     "line": 172,
-     "value": "animation",
-     "text": "animation: spin 1.4s ease-out infinite;"
     },
     {
      "rule": "literal_duration",
@@ -4236,10 +4187,52 @@
     },
     {
      "rule": "literal_duration",
+     "file": "apps/gateway/public/dev.html",
+     "line": 35,
+     "value": "20s",
+     "text": ".bg-glow::before,.bg-glow::after{content:'';position:absolute;border-radius:50%;filter:blur(120px);opacity:.35;animation:gd 20s ease-in-out infinite alternate}"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "apps/gateway/public/img.html",
+     "line": 67,
+     "value": "0.3s",
+     "text": ".showcase-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border-radius: 16px; background: var(--bg-c"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "apps/gateway/public/net.html",
+     "line": 74,
+     "value": "20s",
+     "text": "animation: glow-drift 20s ease-in-out infinite alternate;"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "apps/img/public/css/style.css",
+     "line": 89,
+     "value": ".15s",
+     "text": "transition: all .15s;"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "apps/maps/public/css/style.css",
+     "line": 48,
+     "value": "0.5s",
+     "text": ".splash-content { text-align: center; animation: fadeIn 0.5s ease; }"
+    },
+    {
+     "rule": "literal_duration",
      "file": "apps/text/public/badge.html",
      "line": 38,
      "value": ".2s",
      "text": ".shape-pill { padding: .4rem .9rem; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); font-siz"
+    },
+    {
+     "rule": "literal_duration",
+     "file": "apps/text/public/css/shared.css",
+     "line": 305,
+     "value": "2s",
+     "text": "animation: livePulse 2s ease-in-out infinite;"
     },
     {
      "rule": "literal_duration",
@@ -4298,6 +4291,13 @@
      "text": ".wm-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: all .2s; }"
     },
     {
+     "rule": "literal_duration",
+     "file": "apps/yt/public/css/style.css",
+     "line": 85,
+     "value": ".2s",
+     "text": "transition: border-color .2s, box-shadow .2s;"
+    },
+    {
      "rule": "color_drift",
      "file": "apps/text/public/compare.html",
      "line": 28,
@@ -4329,7 +4329,7 @@
   },
   {
    "repo": "OpenVibe.Tours",
-   "commit": "c04d2bc4e070188f55ede2a11c367c7c0003e7c1",
+   "commit": "78d9d5ce645d34d856e9a5faee32e1bdb1953087",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 0,
@@ -4437,7 +4437,7 @@
   },
   {
    "repo": "OpenVibe.Trade",
-   "commit": "48bcb670dd00d6206e35ae6e81a9263cd0710f64",
+   "commit": "9a1f6732f819bb71d8e2255dc9e06ee89c907410",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 1,
@@ -4468,7 +4468,7 @@
   },
   {
    "repo": "OpenVibe.VIP",
-   "commit": "daab64a5fbe7c4706bcd82f073b5d20cc3f48a34",
+   "commit": "52d929860a81b0d35543908feebb3f0d70587402",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 1,
@@ -4548,7 +4548,7 @@
   },
   {
    "repo": "OpenVibe.Vision",
-   "commit": "45060caa486acaad2b9bd97dc1fac2cc4786e2c1",
+   "commit": "e0f3a93f0a2aa421f49c90489016d8f406ed430d",
    "files_scanned": 4,
    "counts": {
     "literal_duration": 11,
@@ -4726,7 +4726,7 @@
   },
   {
    "repo": "OpenVibe.Watch",
-   "commit": "eb5557e97c5075c757946d2c60a5551541b13f11",
+   "commit": "479f1e0a24e16f916825e1330e94b1f2cb0b6ddb",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 1,
@@ -4750,26 +4750,19 @@
   },
   {
    "repo": "OpenVibe.Wiki",
-   "commit": "ee24a8beabde07168ad0f8cf36f2b6fd8ab2df78",
+   "commit": "a908ee1663f292861a7dccc03bcb1b56ed31c5f9",
    "files_scanned": 2,
    "counts": {
     "literal_duration": 6,
     "literal_curve": 3,
     "spinner": 0,
     "color_drift": 7,
-    "missing_reduced_motion": 1,
-    "total": 17
+    "missing_reduced_motion": 0,
+    "total": 16
    },
-   "score": 95.4,
-   "findings_total": 17,
+   "score": 97.4,
+   "findings_total": 16,
    "findings": [
-    {
-     "rule": "missing_reduced_motion",
-     "file": "public/css/vibe.css",
-     "line": 31,
-     "value": "animation",
-     "text": ".wk-vp-steps .wk-vp-step-now { border-color: var(--wk-accent); color: var(--wk-text); background: color-mix(in srgb, var(--wk-accent) 12%, transparent); animati"
-    },
     {
      "rule": "literal_duration",
      "file": "public/css/vibe.css",
@@ -4886,7 +4879,7 @@
   },
   {
    "repo": "OpenVibe.Work",
-   "commit": "44cba11abad694b8bd895aa2275675760d51f3e8",
+   "commit": "00612ced1f7eb46ec8355f83166079a91085df18",
    "files_scanned": 3,
    "counts": {
     "literal_duration": 4,
@@ -4966,7 +4959,7 @@
   },
   {
    "repo": "OpenVibe.Zone",
-   "commit": "6ac0483c6338c55ecc8bfe355a5263d276c0e9a2",
+   "commit": "46d7a17613abb93f41a966ff3212571b7f2db490",
    "files_scanned": 1,
    "counts": {
     "literal_duration": 0,
