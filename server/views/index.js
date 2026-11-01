@@ -183,7 +183,9 @@ function topicCard(t, i) {
 function streamCard(s) {
     if (!s || !s.stream_id) return '';
     const ep = s.episode && s.episode.title ? s.episode : null;
-    return kit.card({ href: `/after-show/${s.stream_id}`, title: ep ? ep.title : s.title || 'Stream', peek: ep ? (ep.logline || s.title || '') : '', type: 'stream', live: !!s.live, corner: n(s.minutes) ? `${s.minutes} min` : '', who: who(s.user), avatar: s.user && s.user.avatar_url, when: s.started_at ? ts(s.started_at) : null, image: s.thumbnail_url || '', count: n(s.takes_total) ? [s.takes_total, 'takes'] : null });
+    // The card opens the stream's Rundown episode, which every stream in the feed has (it has takes). Its after-show report
+    // exists only for some streams, and the card linked to it for all of them: 404s for most (2026-11-01).
+    return kit.card({ href: `/rundown/e/${encodeURIComponent(s.stream_id)}`, title: ep ? ep.title : s.title || 'Stream', peek: ep ? (ep.logline || s.title || '') : '', type: 'stream', live: !!s.live, corner: n(s.minutes) ? `${s.minutes} min` : '', who: who(s.user), avatar: s.user && s.user.avatar_url, when: s.started_at ? ts(s.started_at) : null, image: s.thumbnail_url || '', count: n(s.takes_total) ? [s.takes_total, 'takes'] : null });
 }
 
 // ── Pages ──
@@ -227,7 +229,7 @@ function home({ stats, rundown, topics } = {}) {
             { value: n(L.streams), label: 'streams so far' },
             { value: n(R.counts && R.counts.takes), label: 'takes written up' },
         ].filter((p) => p.value),
-        rails: streams.length ? [{ id: 'after-show', title: 'After-show reports', more: { href: '/rundown', label: 'The Rundown' }, items: streams }] : [],
+        rails: streams.length ? [{ id: 'episodes', title: 'Latest episodes', more: { href: '/rundown', label: 'The Rundown' }, items: streams }] : [],
         html: leadHTML + topicsBlock,
         scenes: [numbersScene].filter(Boolean),
         explore: { title: 'More on Report', items: [
