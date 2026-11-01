@@ -272,3 +272,50 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-you-next { border-top: 1px solid var(--border, #1f2d47); padding-top: 18px; }
 .rp-you-next h2 { font-size: 1rem; }
 @media (max-width: 560px) { .rp-person { align-items: flex-start; } }
+
+/* Design health (/design, /design/:site; server/views/design.js): a score on a bar, the table's columns, the counted
+   fold, the rules and the findings. Colours come from the theme (--success, --warning, --danger and their -text). */
+.dh-tr { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) repeat(5, minmax(0, .8fr)); }
+.dh-score { display: inline-flex; align-items: center; gap: 10px; width: 100%; min-width: 0; --dh-c: var(--success, var(--room-accent)); }
+.dh-score b { min-width: 2.4em; font-variant-numeric: tabular-nums; }
+.dh-score i { flex: 1 1 auto; min-width: 40px; height: 6px; border-radius: 999px; background: linear-gradient(90deg, var(--dh-c) var(--dh), color-mix(in srgb, var(--text-muted, currentColor) 22%, transparent) var(--dh)); }
+.dh-score.is-ok { --dh-c: var(--warning, var(--room-accent)); }
+.dh-score.is-low { --dh-c: var(--danger, var(--room-accent)); }
+.dh-n { font-variant-numeric: tabular-nums; }
+.dh-n.is-zero { color: var(--text-muted); }
+.dh-n.is-bad { color: var(--danger-text, var(--danger)); font-weight: 800; }
+.dh-fold { margin-top: 12px; }
+.dh-fold > summary { display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); font-weight: 700; cursor: pointer; list-style: none; }
+.dh-fold > summary::-webkit-details-marker { display: none; }
+.dh-fold > summary span { color: var(--text-muted); font-size: .85rem; font-weight: 600; }
+.dh-fold > summary:hover { border-color: var(--room-accent); }
+.dh-fold[open] > summary { margin-bottom: 12px; }
+.dh-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 12px; margin: 0 0 14px; }
+.dh-rules > div { padding: 12px 14px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border); }
+.dh-rules dt { display: flex; justify-content: space-between; gap: 8px; font-weight: 800; }
+.dh-rules dt span { color: var(--text-muted); font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dh-rules dd { margin: 6px 0 0; color: var(--text-secondary); font-size: .92rem; line-height: 1.5; }
+.dh-lede { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.dh-lede .dh-score { width: min(280px, 100%); font-size: 1.4rem; }
+.dh-finds { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.dh-find { display: grid; grid-template-columns: 10.5em minmax(0, 1fr); align-items: baseline; gap: 4px 10px; padding: 10px 14px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border); }
+.dh-rule { justify-self: start; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: .72rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap; }
+.dh-rule--spinner, .dh-rule--missing-reduced-motion { color: var(--danger-text, var(--danger)); border-color: color-mix(in srgb, var(--danger, currentColor) 45%, transparent); }
+.dh-where { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; overflow-wrap: anywhere; }
+.dh-text { grid-column: 2; display: block; overflow-x: auto; padding-top: 2px; color: var(--text-secondary); font-size: .8rem; white-space: pre; }
+.dh-none { display: none; }
+@media (max-width: 699px) {
+    /* A site in two lines: its name and score bar, then only what it has to fix, in words. */
+    .dh-tr { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+    .dh-tr::after { content: ''; order: 2; flex-basis: 100%; }
+    .dh-tr.rp-th { display: none; }
+    .dh-tr > .rp-site { order: 0; flex: 1 1 0; min-width: 0; }
+    .dh-tr > [data-l="Score"] { order: 1; flex: 0 0 auto; width: 132px; }
+    .dh-tr > [data-l]::before { content: none; }
+    .dh-tr > .dh-n, .dh-tr > .dh-none { order: 3; font-size: .82rem; color: var(--text-secondary); }
+    .dh-tr > .dh-n::after { content: ' ' attr(data-s); color: var(--text-muted); }
+    .dh-tr > .dh-n.is-zero { display: none; }
+    .dh-tr > .dh-none { display: inline; color: var(--text-muted); }
+    .dh-find { grid-template-columns: minmax(0, 1fr); }
+    .dh-text { grid-column: 1; }
+}

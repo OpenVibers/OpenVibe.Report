@@ -22,6 +22,8 @@ const express = require('express');
 const views = require('../views');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
 const { twinPath } = require('../agent-pages');
+const designViews = require('../views/design');
+const designHealth = require('../data/design-health');
 
 const CACHE = 'public, max-age=120';
 
@@ -91,6 +93,14 @@ function createPageRoutes(ctx) {
     r.get('/', async (req, res) => send(req, res, (await publicPages.home()).html));
 
     r.get('/developers', (req, res) => send(req, res, publicPages.developers().html));
+
+    // Every site's design health (plan L45 step 6), from the snapshot (server/data/design-health.js).
+    r.get('/design', (req, res) => send(req, res, designViews.designHealth(designHealth.all())));
+    r.get('/design/:site', (req, res) => {
+        const site = designHealth.site(req.params.site);
+        if (!site) return notFound(req, res);
+        return send(req, res, designViews.designSite(designHealth.all(), site));
+    });
 
     r.get('/stats', async (req, res) => {
         const page = await publicPages.stats(normaliseDays(req.query.days));
