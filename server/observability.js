@@ -14,7 +14,7 @@
  */
 const { createReadiness } = require('openvibe-shared/ready');
 
-function createServiceReadiness({ config, fetchImpl = globalThis.fetch, release = null }) {
+function createServiceReadiness({ config, fetchImpl = globalThis.fetch, release = null, store = null }) {
     const healthOf = (name, origin) => ({
         name,
         required: false,
