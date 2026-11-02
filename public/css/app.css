@@ -328,3 +328,17 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
     .dh-find { grid-template-columns: minmax(0, 1fr); }
     .dh-text { grid-column: 1; }
 }
+
+/* ── The home's picture: an after-show report in miniature (MOTION-1, 2026-11-02) ──────────────────────────────────── */
+.rp-motif { width: min(100%, 360px); margin: 0 auto; display: grid; gap: 12px; padding: 16px; border-radius: 18px; border: 1px solid var(--ovk-line, var(--border, rgba(255, 255, 255, .1))); background: var(--ovk-panel, var(--bg-card, #141c2a)); box-shadow: 0 12px 30px rgba(0, 0, 0, .22); }
+.rp-mf-head { display: grid; gap: 2px; }
+.rp-mf-k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ovk-muted, #93a0b4); }
+.rp-mf-head b { font-size: 15px; color: var(--ovk-text, #e8ecf3); }
+.rp-mf-curve { position: relative; padding-top: 18px; }
+.rp-mf-curve .rp-spark { display: block; width: 100%; height: 64px; }
+.rp-mf-peak { position: absolute; top: 0; left: calc(53% - 22px); font-size: 11.5px; font-weight: 700; color: var(--room-strong, var(--ovk-accent, #3b82f6)); }
+.rp-mf-facts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.rp-mf-facts li { display: grid; gap: 1px; padding: 8px 10px; border-radius: 10px; background: var(--ovk-bg, var(--bg-secondary, #0f1522)); }
+.rp-mf-facts b { font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ovk-text, #e8ecf3); }
+.rp-mf-facts span { font-size: 11.5px; color: var(--ovk-muted, #93a0b4); }
+.rp-mf-note { margin: 0; font-size: 12.5px; color: var(--ovk-muted, #93a0b4); }

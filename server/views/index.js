@@ -152,6 +152,21 @@ function spark(points) {
     const line = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
     return `<svg class="rp-spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="rp-spark-area" d="${line} L${W} ${H} L0 ${H}Z"/><path class="rp-spark-line" d="${line}"/></svg>`;
 }
+
+/**
+ * The home's picture (MOTION-1, 2026-11-02: sc.room drew its default motif): an after-show report in miniature, the
+ * thing Report writes for every stream. A sample stream, its viewers minute by minute with the peak, chat, and the top
+ * moment. The numbers are a sample, said as one; the real reports are a tap away.
+ */
+function reportMotif() {
+    const sample = [3, 5, 9, 14, 18, 22, 27, 31, 41, 37, 33, 35, 29, 24, 19, 15].map((v) => ({ n: v }));
+    return `<div class="rp-motif" aria-hidden="true">
+<div class="rp-mf-head"><span class="rp-mf-k">After the show · sample</span><b>Tuesday stream · 2 h 14 m</b></div>
+<div class="rp-mf-curve">${spark(sample)}<span class="rp-mf-peak">peak 41</span></div>
+<ul class="rp-mf-facts"><li><b>1,204</b><span>chat messages</span></li><li><b>186</b><span>people came by</span></li><li><b>01:12</b><span>top moment</span></li></ul>
+<p class="rp-mf-note">“The cat walks in” · the clip with the most replays</p>
+</div>`;
+}
 /** A stream's viewers minute by minute (Live's curve: [time, viewers, chat messages]). */
 function curve(points) {
     const pts = (points || []).filter((p) => Array.isArray(p) && ts(p[0]) != null);
@@ -223,6 +238,7 @@ function home({ stats, rundown, topics } = {}) {
             lede: 'The network\'s numbers, open to everyone. What streamers talked about, written up. Every stream\'s after-show report. Each number with what it counts and when.',
             start: { href: '/stats', label: 'See the numbers' },
             chips: [{ label: 'Last 7 days', href: '/stats?days=7' }, { label: 'Last 30 days', href: '/stats?days=30' }, { label: 'The Rundown', href: '/rundown' }],
+            motif: reportMotif(),
         },
         proof: [
             { value: n(T.pageviews), label: 'page views this week', asOf: stats && stats.generated_at ? day(stats.generated_at) : null },
