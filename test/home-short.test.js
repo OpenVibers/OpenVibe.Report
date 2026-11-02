@@ -19,6 +19,12 @@ const { boot, check, done } = require('./helpers/boot');
             assert.strictEqual(topics.length, chips.length, 'every topic is in the page');
             assert.deepStrictEqual(topics.map((m) => m[1]), chips.map((m) => m[1]), 'each topic knows its chip');
         });
+        await check('the hero draws an after-show report in miniature, not sc.room\'s default motif (MOTION-1)', async () => {
+            const r = await t.get('/');
+            assert.match(r.text, /<div class="rp-motif" aria-hidden="true">/);
+            assert.match(r.text, /After the show · sample[\s\S]*?peak 41[\s\S]*?top moment/);
+            assert.ok(!/class="sc-room-motif"/.test(r.text), 'no default motif');
+        });
         await check('the CSS guard: the chips are hidden and the topics all show until 640 px and where :has() is understood', async () => {
             const r = await t.get('/');
             const page = r.text;
