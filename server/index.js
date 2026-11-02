@@ -23,7 +23,7 @@ function createLifecycle({ server, exit, signals, ctx } = {}) {
         exit,
         signals,
         deadlineMs: 10_000,
-        stop: [() => (jobs ? jobs.stop() : undefined)],
+        stop: [() => (jobs ? jobs.stop() : undefined), () => (ctx && ctx.searchIndex ? ctx.searchIndex.stop() : undefined)],
         close: [() => (store ? store.close() : undefined)],
     });
 }
@@ -39,6 +39,8 @@ async function start() {
     ctx.jobs = allJobs;
     jobs.start();
     aiUsageJobs.start();
+    // The Rundown topic pages in OpenVibe.Search: a sweep a minute after boot and every hour.
+    if (!config.drill && ctx.searchIndex) ctx.searchIndex.start();
 
     // Socket activation (2026-10-31): systemd's .socket unit holds the listener across restarts, so a deploy
     // queues requests in the kernel instead of answering 502. Without the socket unit, the usual listen.
