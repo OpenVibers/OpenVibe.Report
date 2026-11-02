@@ -44,7 +44,8 @@ function describeTopic(t) {
         noindex: !takes,
         title: `${t.title}: The Rundown`,
         summary: [head, count ? `${count} on OpenVibe.Live.` : ''].filter(Boolean).join(' '),
-        body: [t.title, t.headline, t.summary, kind ? `${kind} topic on The Rundown.` : '', count].filter(Boolean).join('\n'),
+        // The snippet reads the summary and body together: the body is what streamers said, not the headline again.
+        body: [t.summary, kind ? `${kind} topic on The Rundown.` : ''].filter(Boolean).join('\n'),
         facets: { ...(t.kind ? { kind: t.kind } : {}), takes, streamers },
         authorship: { mode: 'ai' },
         publishedAt: iso(t.first_seen_at),
