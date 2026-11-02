@@ -82,6 +82,9 @@ function load(env = process.env) {
         // separated for rotation, 32+ characters each); unset makes POST /internal/events answer 503.
         events: {
             secrets: String(env.REPORT_EVENTS_SECRET || '').split(',').map((x) => x.trim()).filter((x) => x.length >= 32),
+            // Report → OpenVibe.Events: the Rundown topic pages' Search documents (server/search-index.js). Unset: they
+            // wait in event_outbox.
+            url: trim(env.REPORT_EVENTS_URL || env.EVENTS_URL || ''),
         },
 
         // The ingest and shadow jobs. REPORT_JOBS=0 turns both off (tests do this by never starting them).

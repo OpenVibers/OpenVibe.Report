@@ -33,6 +33,7 @@ const { createBillingClient } = require('./data/billing');
 const { createBenchClient } = require('./data/bench');
 const { createAnalytics } = require('./analytics');
 const { createAiUsage } = require('./analytics/ai-usage');
+const { createSearchIndex } = require('./search-index');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
 const { createPageRoutes, createPublicPages } = require('./http/pages');
@@ -63,6 +64,8 @@ async function createApp(opts = {}) {
     // The AI ledger (plan L40/L41): the records of every AI call on the network and their roll-ups.
     const aiUsage = opts.aiUsage || createAiUsage({ store, now, log });
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
+    // The Rundown topic pages in OpenVibe.Search (started by server/index.js, never under REPORT_DRILL).
+    const searchIndex = opts.searchIndex || (store ? createSearchIndex({ config, store, live, log }) : null);
     views.configure({ baseUrl: config.baseUrl });
 
     // A person's sign-in (the `report` client, the same id and secret Report already reads Billing with).
@@ -72,7 +75,7 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, searchIndex };
     const app = express();
     app.disable('x-powered-by');
     app.set('trust proxy', config.trustProxy);
