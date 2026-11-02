@@ -136,6 +136,21 @@ const quiet = () => ({ warn() {}, error() {} });
         assert.strictEqual(urls.filter((u) => u.includes('/api/rundown/s/')).length, before);
     });
 
+    await check('live: an expired answer is served at once and refreshed behind the page, one refresh for three readers', async () => {
+        let now = 0;
+        let n = 0;
+        const client = createLiveClient({ config: { liveUrl: 'http://live' }, fetchImpl: async () => jsonResponse({ n: ++n }), now: () => now, log: quiet() });
+        assert.strictEqual((await client.rundown()).n, 1);
+        now += 3 * 60_000;
+        const three = await Promise.all([client.rundown(), client.rundown(), client.rundown()]);
+        assert.deepStrictEqual(three.map((x) => x.n), [1, 1, 1], 'the last answer at once');
+        await client.settled();
+        assert.strictEqual(n, 2, 'one refresh behind the page');
+        assert.strictEqual((await client.rundown()).n, 2, 'the refreshed answer on the next read');
+        now += 60 * 60_000;
+        assert.strictEqual((await client.rundown()).n, 3, 'too old to serve: fetched while the visitor waits');
+    });
+
     await check('the cache keeps 1000 entries and drops the oldest first', async () => {
         let calls = 0;
         const client = createLiveClient({

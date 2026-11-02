@@ -17,6 +17,8 @@
 const { createCache } = require('./cache');
 const { trim, requestJson, isSlug, streamIdOf, isUsername, TIMEOUT_MS } = require('./source');
 
+const SERVE_STALE_MS = 30 * 60_000;
+
 const TTL = {
     rundown: 2 * 60_000,
     topics: 5 * 60_000,
@@ -34,12 +36,24 @@ function createLiveClient({ config = {}, fetchImpl = globalThis.fetch, log = con
     const baseUrl = trim(config.liveUrl || config.liveInternalUrl || 'http://127.0.0.1:3000');
     const cache = createCache({ max: cacheMax, now });
 
-    async function cached(key, path, ttl, label) {
-        const hit = cache.get(key);
-        if (hit !== undefined) return hit;
+    // An answer past its time but expired under SERVE_STALE_MS ago is served at once while one refresh per key runs
+    // behind the page: the visitor after an expiry waited for Live (/rundown at up to 1.9 s at the origin, 11-02). A
+    // failed refresh leaves the stale answer to be served (and refreshed again) until it is too old.
+    const refreshing = new Map();
+    async function load(key, path, ttl, label) {
         const data = await requestJson(`${baseUrl}${path}`, { fetchImpl, log, timeoutMs, label });
         if (data === null) return null;
         return cache.set(key, data, ttl);
+    }
+    async function cached(key, path, ttl, label) {
+        const hit = cache.get(key);
+        if (hit !== undefined) return hit;
+        const stale = cache.peek(key, SERVE_STALE_MS);
+        if (stale !== undefined) {
+            if (!refreshing.has(key)) refreshing.set(key, load(key, path, ttl, label).catch(() => null).finally(() => refreshing.delete(key)));
+            return stale;
+        }
+        return load(key, path, ttl, label);
     }
 
     function rundown() {
@@ -80,7 +94,7 @@ function createLiveClient({ config = {}, fetchImpl = globalThis.fetch, log = con
         return cached(`recaps:channel:${key}`, `/api/recap/channel/${encodeURIComponent(username)}`, TTL.channelRecaps, 'live channel recaps');
     }
 
-    return { rundown, topics, topic, episode, speaker, recap, channelRecaps, cache, baseUrl, ttlMs: TTL };
+    return { rundown, topics, topic, episode, speaker, recap, channelRecaps, cache, baseUrl, ttlMs: TTL, settled: () => Promise.all([...refreshing.values()]) };
 }
 
 module.exports = { createLiveClient, TTL };

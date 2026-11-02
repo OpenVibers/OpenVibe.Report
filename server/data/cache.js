@@ -7,7 +7,9 @@
  *
  *   const cache = createCache({ max: 1000, now: () => Date.now() });
  *   cache.get(key)                 undefined when absent or expired
+ *   cache.peek(key, staleMs)       the value even past its expiry, while it expired under staleMs ago (else undefined)
  *   cache.set(key, value, ttlMs)
+ * An expired entry stays until it is replaced or pushed out, so a client can serve it while it refreshes.
  */
 function createCache({ max = 1000, now = () => Date.now() } = {}) {
     const entries = new Map();
@@ -16,10 +18,7 @@ function createCache({ max = 1000, now = () => Date.now() } = {}) {
     function get(key) {
         const hit = entries.get(key);
         if (!hit) return undefined;
-        if (hit.expiresAt <= clock()) {
-            entries.delete(key);
-            return undefined;
-        }
+        if (hit.expiresAt <= clock()) return undefined;
         // Do not move it to the end: "oldest out" means insertion order, not least-recently-used.
         return hit.value;
     }
@@ -34,8 +33,15 @@ function createCache({ max = 1000, now = () => Date.now() } = {}) {
         return value;
     }
 
+    function peek(key, staleMs = 0) {
+        const hit = entries.get(key);
+        if (!hit || clock() - hit.expiresAt >= Math.max(0, Number(staleMs) || 0)) return undefined;
+        return hit.value;
+    }
+
     return {
         get,
+        peek,
         set,
         delete: (key) => entries.delete(key),
         get size() { return entries.size; },
