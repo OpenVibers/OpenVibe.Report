@@ -179,14 +179,14 @@ function takeRow(t) {
 function topicCard(t, i) {
     if (!t || !t.slug) return '';
     return `<li${i == null ? '' : ` data-i="${i}"`}><a class="rp-topic" href="/rundown/t/${encodeURIComponent(t.slug)}"><span class="rp-kind">${esc(KIND[t.kind] || t.kind || 'Topic')}</span><b>${esc(t.title)}</b>${t.headline ? `<span class="rp-topic-h">${esc(t.headline)}</span>` : ''}`
-        + `<span class="rp-meta">${[n(t.takes) ? `${exact(t.takes)} takes` : '', n(t.streamers) ? `${exact(t.streamers)} streamer${Number(t.streamers) === 1 ? '' : 's'}` : '', t.last_seen_at ? day(t.last_seen_at) : ''].filter(Boolean).map(esc).join(' · ')}</span></a></li>`;
+        + `<span class="rp-meta">${[n(t.takes) ? `${exact(t.takes)} take${Number(t.takes) === 1 ? '' : 's'}` : '', n(t.streamers) ? `${exact(t.streamers)} streamer${Number(t.streamers) === 1 ? '' : 's'}` : '', t.last_seen_at ? day(t.last_seen_at) : ''].filter(Boolean).map(esc).join(' · ')}</span></a></li>`;
 }
 function streamCard(s) {
     if (!s || !s.stream_id) return '';
     const ep = s.episode && s.episode.title ? s.episode : null;
     // The card opens the stream's Rundown episode, which every stream in the feed has (it has takes). Its after-show report
     // exists only for some streams, and the card linked to it for all of them: 404s for most (2026-11-01).
-    return kit.card({ href: `/rundown/e/${encodeURIComponent(s.stream_id)}`, title: ep ? ep.title : s.title || 'Stream', peek: ep ? (ep.logline || s.title || '') : '', type: 'stream', live: !!s.live, corner: n(s.minutes) ? `${s.minutes} min` : '', who: who(s.user), avatar: s.user && s.user.avatar_url, when: s.started_at ? ts(s.started_at) : null, image: s.thumbnail_url || '', count: n(s.takes_total) ? [s.takes_total, 'takes'] : null });
+    return kit.card({ href: `/rundown/e/${encodeURIComponent(s.stream_id)}`, title: ep ? ep.title : s.title || 'Stream', peek: ep ? (ep.logline || s.title || '') : '', type: 'stream', live: !!s.live, corner: n(s.minutes) ? `${s.minutes} min` : '', who: who(s.user), avatar: s.user && s.user.avatar_url, when: s.started_at ? ts(s.started_at) : null, image: s.thumbnail_url || '', count: n(s.takes_total) ? [s.takes_total, Number(s.takes_total) === 1 ? 'take' : 'takes'] : null });
 }
 
 // ── Pages ──
@@ -299,7 +299,7 @@ ${R.counts ? `<p class="rp-counts">${[['topics', R.counts.topics], ['episodes', 
 ${onAir.length ? kit.rail({ id: 'on-air', title: 'On air now', items: onAir }) : ''}
 ${R.lead ? `<section class="rp-lead" aria-labelledby="rp-lead-h"><p class="rp-kicker">Lead</p><h2 id="rp-lead-h">${esc(R.lead.title)}</h2>${R.lead.what ? `<p class="rp-lead-what">${esc(R.lead.what)}</p>` : ''}${R.lead.take ? `<p class="rp-lead-take">${esc(R.lead.take)}</p>` : ''}</section>` : ''}
 ${all.length ? `<section aria-labelledby="rp-t-h"><h2 id="rp-t-h">Topics</h2><ul class="rp-topics">${all.map(topicCard).join('')}</ul></section>` : ''}
-${voices.length ? `<section aria-labelledby="rp-v-h"><h2 id="rp-v-h">Voices</h2><ul class="rp-voices">${voices.map((v) => `<li><a href="/rundown/s/${encodeURIComponent((v.user || {}).username || '')}">${kit.mark({ name: who(v.user), src: v.user && v.user.avatar_url, size: 40 })}<span><b>${esc(who(v.user))}</b><small>${[n(v.topics) ? `${exact(v.topics)} topics` : '', n(v.segments) ? `${exact(v.segments)} takes` : ''].filter(Boolean).join(' · ')}</small></span></a></li>`).join('')}</ul></section>` : ''}
+${voices.length ? `<section aria-labelledby="rp-v-h"><h2 id="rp-v-h">Voices</h2><ul class="rp-voices">${voices.map((v) => `<li><a href="/rundown/s/${encodeURIComponent((v.user || {}).username || '')}">${kit.mark({ name: who(v.user), src: v.user && v.user.avatar_url, size: 40 })}<span><b>${esc(who(v.user))}</b><small>${[n(v.topics) ? `${exact(v.topics)} topic${Number(v.topics) === 1 ? '' : 's'}` : '', n(v.segments) ? `${exact(v.segments)} take${Number(v.segments) === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</small></span></a></li>`).join('')}</ul></section>` : ''}
 ${streams.length ? kit.rail({ id: 'episodes', title: 'Recent streams', items: streams }) : ''}`;
     return layout({ title: 'The Rundown: what streamers talked about', description: 'Topics, takes and crossovers from what streamers said on OpenVibe, written up by AI from the streams themselves.', body, active: '/rundown', path: '/rundown' });
 }
