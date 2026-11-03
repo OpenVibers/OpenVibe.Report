@@ -55,6 +55,20 @@ const { stats, NOW } = require('./fixtures/analytics');
             assert.strictEqual(await t.ctx.store.db.value(`SELECT value::int AS v FROM report_metric_windows WHERE metric = 'pageviews' AND scope = 'network' AND window_days = 7`), 307, 'and Report took it in');
         });
 
+        await check('today is still counting: its day rows are not compared; a finished day still is', async () => {
+            const days = stats.pageviews_daily.map((p) => p.day);
+            const today = new Date(NOW).toISOString().slice(0, 10);
+            assert.strictEqual(days[days.length - 1], today, 'the fixture ends today');
+            const moved = JSON.parse(JSON.stringify(stats));
+            moved.pageviews_daily[moved.pageviews_daily.length - 1].n += 6;   // another window's later snapshot of today
+            const same = await t.ctx.shadow.compare({ days: 7, stats: moved });
+            assert.ok(!same.diffs.some((d) => d.day === today), JSON.stringify(same.diffs));
+            const old = JSON.parse(JSON.stringify(stats));
+            old.pageviews_daily[0].n += 1;
+            const past = await t.ctx.shadow.compare({ days: 7, stats: old });
+            assert.ok(past.diffs.some((d) => d.metric === 'pageviews' && d.day === days[0]), 'a finished day that differs is a difference');
+        });
+
         await check('a Network that does not answer is a run with no differences, never a clean claim', async () => {
             const down = await t.ctx.shadow.compare({ days: 7, stats: null });
             assert.strictEqual(down.status, 'network_unavailable');
