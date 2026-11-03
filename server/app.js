@@ -129,6 +129,17 @@ async function createApp(opts = {}) {
     // ── Static assets: this site's own (content-hashed ?v= → immutable) and the Shared Frame ──
     require('./views').setRelease(release && release.release);
     app.use('/shared', require('openvibe-shared/serve').handler());
+    // Terms, Privacy and DMCA in this site's own words (openvibe-shared/legal, profile 'public'; 11-03: the footer's
+    // legal links answered 404 here). The facts must match the code: change both together.
+    const legal = require('openvibe-shared/legal');
+    app.get(legal.PATHS, legal.handler({
+        "host": "openvibe.report",
+        "name": "OpenVibe.Report",
+        "id": "report",
+        "service": "report",
+        "profile": "public",
+        "what": "The network's numbers open to everyone, what streamers talked about in The Rundown, and every stream's after-show report, each number with its definition and its date."
+    }));
     app.use(express.static(PUBLIC_DIR, {
         index: false,
         redirect: false,
