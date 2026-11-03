@@ -4,20 +4,16 @@ const { boot, check, done } = require('./helpers/boot');
 (async () => {
     const t = await boot();
     try {
-        await check('the topics are one pick block: a chip per topic, the first picked, every topic in the page', async () => {
+        await check('the topics are a rail on a phone: every topic shown, no chips, nothing hidden (the owner, 2026-10-31)', async () => {
             const r = await t.get('/');
             assert.strictEqual(r.status, 200, r.text);
             const page = r.text;
-            const start = page.indexOf('<div class="pick" id="pick-topics">');
-            assert.ok(start > 0, 'the pick block is on the home');
+            const start = page.indexOf('<div class="pick pick--rail" id="pick-topics">');
+            assert.ok(start > 0, 'the topics rail is on the home');
             const block = page.slice(start, start + 8000);
-            assert.match(block, /<div class="pick-row" role="radiogroup" aria-label="What streamers talked about">/);
-            const chips = [...block.matchAll(/<input type="radio" name="pick-topics" id="pk-topics-(\d+)" value="\1"( checked)?><label for="pk-topics-\d+">([^<]+)<\/label>/g)];
-            assert.ok(chips.length >= 1, 'a chip per topic (' + chips.length + ')');
-            assert.deepStrictEqual(chips.filter((m) => m[2]).map((m) => m[1]), [chips[0][1]], 'the first topic is picked');
+            assert.ok(!/type="radio"|pick-row/.test(block), 'no radio chips');
             const topics = [...block.matchAll(/<li data-i="(\d+)"><a class="rp-topic"/g)];
-            assert.strictEqual(topics.length, chips.length, 'every topic is in the page');
-            assert.deepStrictEqual(topics.map((m) => m[1]), chips.map((m) => m[1]), 'each topic knows its chip');
+            assert.ok(topics.length >= 1, 'every topic is in the page (' + topics.length + ')');
         });
         await check('the hero draws an after-show report in miniature, not sc.room\'s default motif (MOTION-1)', async () => {
             const r = await t.get('/');
@@ -25,15 +21,12 @@ const { boot, check, done } = require('./helpers/boot');
             assert.match(r.text, /After the show · sample[\s\S]*?peak 41[\s\S]*?top moment/);
             assert.ok(!/class="sc-room-motif"/.test(r.text), 'no default motif');
         });
-        await check('the CSS guard: the chips are hidden and the topics all show until 640 px and where :has() is understood', async () => {
+        await check('the CSS: on a phone a list is a rail you swipe, and no rule hides an item', async () => {
             const r = await t.get('/');
-            const page = r.text;
-            assert.match(page, /<style>@supports selector\(:has\(\*\)\)\{@media \(max-width:640px\)\{\.pick#pick-topics:has\(#pk-topics-0:checked\) \.pick-list>li\[data-i="0"\]\{display:block\}/, 'the rule that shows the picked topic');
+            assert.ok(!/\.pick#pick-topics:has\(/.test(r.text), 'no per-item rule in the page');
             const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'css', 'app.css'), 'utf8');
-            assert.match(css, /\.pick-row \{ display: none; \}/, 'the chips are hidden by default');
-            assert.match(css, /@supports selector\(:has\(\*\)\) \{ @media \(max-width: 640px\) \{/, 'the phone rules are under :has() and 640 px');
-            assert.match(css, /\.pick-row label \{[^}]*min-height: 44px/, 'a chip is a 44 px target');
-            assert.match(css, /\.pick \.pick-list > li \{ display: none; \}/, 'the topics are hidden on a phone');
+            assert.match(css, /\.pick--rail \.pick-list \{ display: flex;[^}]*overflow-x: auto;[^}]*scroll-snap-type: x mandatory/, 'the list is a rail');
+            assert.ok(!/pick-list > li \{ display: none|pick-pane \{ display: none/.test(css), 'nothing is hidden');
         });
         await check('the parts a reader rarely needs are folds, open in the page and closed on a phone', async () => {
             const r = await t.get('/');
