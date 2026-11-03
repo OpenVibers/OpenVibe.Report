@@ -498,6 +498,15 @@ const JUDGE_SHORT = { human_pairwise: 'blind votes', rubric: 'a rubric', automat
 const ROOM_HOSTS = { chat: 'openvibe.chat', games: 'openvibe.games', search: 'search.openvibe.network', codes: 'openvibe.codes' };
 const roomHost = (room) => { const r = rooms.get(room); return (r && r.host) || ROOM_HOSTS[room] || null; };
 const rowsOf = (read) => (read && read.data && read.data.board && Array.isArray(read.data.board.rows) ? read.data.board.rows : []);
+/**
+ * Whether a board has results: on a ranking (rows carry games), a game has been played (a model entered but never
+ * judged has 0); the quality and cost views carry no games, and any row counts.
+ */
+const played = (rows) => {
+    const list = rows || [];
+    if (!list.some((r) => r && r.games != null)) return list.length > 0;
+    return list.some((r) => (n(r && r.games) || 0) > 0);
+};
 const howRated = (kind) => `Rated by ${JUDGE_SHORT[kind.judge] || 'Bench'}`;
 const METHOD = 'Ratings are Bradley–Terry Elo from Bench, with a 95% interval; a model with fewer than ten games is provisional.';
 
@@ -511,8 +520,10 @@ function emptyFor(kind) {
 function aiIndex({ kinds, boards = [] }) {
     const list = kinds && kinds.data && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
     const items = list.map((kind, i) => ({ kind, rows: rowsOf(boards[i]), available: Boolean(boards[i]) }));
-    const rated = items.filter((x) => x.rows.length).sort((a, b) => gamesOf(b.rows) - gamesOf(a.rows));
-    const waiting = items.filter((x) => !x.rows.length);
+    // A board is rated once a game is played. Bench lists a model as soon as it has an entry, at the starting 1000
+    // with 0 games: that is no leader (11-03, every board on /ai named gpt-5-nano "leader" with 0 games).
+    const rated = items.filter((x) => played(x.rows)).sort((a, b) => gamesOf(b.rows) - gamesOf(a.rows));
+    const waiting = items.filter((x) => !played(x.rows));
     const leaders = rated.length ? kit.table({
         caption: 'Leaders', columns: [
             { key: 'job', label: 'Job', primary: true, html: true }, { key: 'leader', label: 'Leader', html: true },
@@ -559,7 +570,7 @@ function aiBoard({ kindId, kind, tab, board, cost, kinds }) {
     const rows = rowsOf(board);
     let content;
     if (!board) content = kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'This board comes back as soon as Bench answers.' });
-    else if (!rows.length) content = emptyFor(kind);
+    else if (!played(rows)) content = emptyFor(kind);
     else if (tab === 'pareto') {
         const points = paretoRows(board, cost);
         content = paretoChart(points) + (points.length ? kit.table({ caption: 'The numbers', columns: [{ key: 'm', label: 'Model', primary: true, html: true }, { key: 'q', label: 'Quality', num: true, html: true }, { key: 'c', label: 'Cost per solved', num: true, html: true }],
@@ -579,7 +590,7 @@ function aiBoard({ kindId, kind, tab, board, cost, kinds }) {
         }) }) + `<p class="rp-fine">${esc(METHOD)}</p>`;
     }
     const head = kit.head({ title: name, sub: kind ? `${roomName(kind.room)} · ${howRated(kind)}` : 'Bench results', back: { href: '/ai', label: 'AI boards' },
-        tabs: rows.length ? kit.tabs({ base: aiPath(kindId), items: TABS, active: tab, label: 'Board view' }) : '' });
+        tabs: played(rows) ? kit.tabs({ base: aiPath(kindId), items: TABS, active: tab, label: 'Board view' }) : '' });
     const body = head + benchState(kinds, board, cost) + `<section aria-label="${esc(TABS.find((t) => t.key === tab)?.label || 'Board')}">${content}</section>${datasetLink(kindId)}`;
     return layout({ title: `${name}: AI board`, description: `${name}: which AI does it best, and what it costs.`, body, active: '/ai', path: aiPath(kindId), agent: true });
 }
