@@ -68,8 +68,8 @@ function createDiscoveryRoutes({ config, live, bench }) {
         res.type('application/xml').set('Cache-Control', CACHE).send(seo.sitemapXml(pages));
     });
 
-    r.get('/llms.txt', (_req, res) => {
-        res.type('text/plain').set('Cache-Control', CACHE).send(seo.llmsTxt({
+    // The site as llms.txt describes it, shared by /llms.txt and /llms-full.txt (SEO-33).
+    const llmsSite = () => ({
             name: SITE_NAME,
             summary: 'Every number on OpenVibe, honest: the network\'s open stats, The Rundown of what streamers talked about, and every stream\'s after-show report.',
             details: 'The numbers and the write-ups are read from OpenVibe.Network and OpenVibe.Live, cached in this process for a few minutes, and shown as the sources answer them. Nothing here is about a person.',
@@ -93,6 +93,19 @@ function createDiscoveryRoutes({ config, live, bench }) {
                     { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'the network and its open stats' },
                     { title: 'OpenVibe.Live', url: 'https://openvibe.live', note: 'the streams, The Rundown and the after-show reports' },
                 ] },
+            ],
+        });
+    r.get('/llms.txt', (_req, res) => {
+        res.type('text/plain').set('Cache-Control', CACHE).send(seo.llmsTxt(llmsSite()));
+    });
+    // The same, in full (SEO-33): what the site is, then every page llms.txt lists with what it holds.
+    r.get('/llms-full.txt', (_req, res) => {
+        const d = llmsSite();
+        res.type('text/plain').set('Cache-Control', CACHE).send(seo.llmsFull({
+            site: d.name, summary: d.summary, base: abs('/'),
+            sections: [
+                { title: 'About', pages: [{ title: d.name, url: abs('/'), text: [d.summary, d.details].filter(Boolean).join('\n\n') }] },
+                ...(d.sections || []).map((x) => ({ title: x.title, pages: (x.links || []).map((l) => ({ title: l.title, url: l.url, text: l.note || '' })) })),
             ],
         }));
     });
