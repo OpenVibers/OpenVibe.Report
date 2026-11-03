@@ -329,3 +329,11 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-mf-facts b { font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ovk-text, #e8ecf3); }
 .rp-mf-facts span { font-size: 11.5px; color: var(--ovk-muted, #93a0b4); }
 .rp-mf-note { margin: 0; font-size: 12.5px; color: var(--ovk-muted, #93a0b4); }
+/* On a phone the room draws its picture behind the hero's text at a quarter of its strength. For an abstract motif
+   that is a backdrop; this one is a card of words and numbers, and it ran through the headline and the lede (11-03:
+   "OpenVibe, honest" over "2 h 14 m"). Under 640 px it sits below the hero instead, whole: what Report writes for
+   every stream, in miniature. */
+@media (max-width: 640px) {
+  .sc-room-hero .sc-room-pic:has(.rp-motif) { position: static; inset: auto; z-index: auto; width: auto; opacity: 1; transform: none; margin: 24px 0 0; pointer-events: none; }
+  .sc-room-hero .rp-motif { width: 100%; }
+}
