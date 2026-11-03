@@ -55,6 +55,16 @@ const STATUS_UPDATED = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ST
             ]) assert.ok(r.text.includes(`(${link})`), `missing link ${link}`);
         });
 
+        await check('llms-full.txt (SEO-33): the site in full, every page llms.txt lists with what it holds', async () => {
+            const r = await t.get('/llms-full.txt');
+            assert.strictEqual(r.status, 200);
+            assert.match(r.headers.get('content-type') || '', /^text\/plain/);
+            assert.ok(r.text.startsWith('# OpenVibe.Report'));
+            assert.ok(r.text.length > 500, `${r.text.length} characters`);
+            assert.match(r.text, /## About\n\n### OpenVibe\.Report\n\nURL: https:\/\/openvibe\.report\/\n\nEvery number on OpenVibe, honest/);
+            assert.match(r.text, /### Design health\n\nURL: https:\/\/openvibe\.report\/design\n\nhow closely each site follows/);
+        });
+
         await check('a topics source that answers nothing still leaves the three static sitemap pages', async () => {
             const empty = await boot({ data: { topics: null } });
             try {
