@@ -83,12 +83,15 @@ function createDiscoveryRoutes({ config, live, bench }) {
                     { title: 'The Rundown', url: abs('/rundown'), html: true, note: 'what streamers talked about, topic by topic' },
                     { title: 'AI boards', url: abs('/ai'), note: 'Bench ratings, quality and cost across rooms' },
                 ] },
+                // A JSON API is what an agent came for, not something to skip (AGT-5 review).
+                { title: 'API', links: [
+                    { title: 'Open stats (JSON)', url: abs('/api/v1/stats?days=7'), note: '?days=7, 30 or 90' },
+                    { title: 'Design health (JSON)', url: abs('/api/v1/design-health'), note: 'every site; /api/v1/design-health/<site> for one' },
+                    { title: 'The Rundown (JSON)', url: abs('/api/v1/rundown') },
+                    { title: 'Topics (JSON)', url: abs('/api/v1/rundown/topics') },
+                ] },
             ],
             optional: [
-                { title: 'Open stats (JSON)', url: abs('/api/v1/stats?days=7'), note: '?days=7, 30 or 90' },
-                { title: 'Design health (JSON)', url: abs('/api/v1/design-health'), note: 'every site; /api/v1/design-health/<site> for one' },
-                { title: 'The Rundown (JSON)', url: abs('/api/v1/rundown') },
-                { title: 'Topics (JSON)', url: abs('/api/v1/rundown/topics') },
                 { title: 'Sitemap', url: abs('/sitemap.xml') },
                 { title: 'Full text for language models', url: abs('/llms-full.txt') },
                 { title: 'Release metadata (JSON)', url: abs('/release.json') },
