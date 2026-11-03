@@ -337,3 +337,19 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
   .sc-room-hero .sc-room-pic:has(.rp-motif) { position: static; inset: auto; z-index: auto; width: auto; opacity: 1; transform: none; margin: 24px 0 0; pointer-events: none; }
   .sc-room-hero .rp-motif { width: 100%; }
 }
+
+/* On a phone a fold is a card row (11-03): its heading, what it holds counted on the right, no browser triangle; open,
+   its content sits inside the card. A wider screen shows the section as before. */
+@media (max-width: 640px) {
+  .rp-fold-block { border: 1px solid var(--border, #1f2d47); border-radius: 14px; background: var(--bg-card, #131c2e); }
+  .rp-fold-block > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 4px 16px; cursor: pointer; list-style: none; }
+  .rp-fold-block > summary::-webkit-details-marker { display: none; }
+  .rp-fold-block > summary::marker { content: ''; }
+  .rp-fold-block > summary h2 { margin: 0; padding: 0; border: 0; font-size: 1.12rem; }
+  .rp-fold-block > summary span { flex: none; color: var(--text-muted, #7386a3); font-weight: 600; font-size: .86rem; white-space: nowrap; }
+  .rp-fold-block > summary:focus-visible { outline: 2px solid var(--accent, #3b82f6); outline-offset: -2px; border-radius: 14px; }
+  /* The content sits 16px inside the card, whatever spacing its own section had for a page without a card. */
+  .rp-fold-block > summary ~ * { margin-left: 0 !important; margin-right: 0 !important; padding-left: 16px !important; padding-right: 16px !important; }
+  .rp-fold-block > summary + * { margin-top: 0 !important; padding-top: 4px !important; }
+  .rp-fold-block[open] { padding-bottom: 12px; }
+}
