@@ -4,12 +4,14 @@
  * The two background jobs (server/index.js starts them; tests never do):
  *
  *   ingest   pull Network's open stats into Report's tables every REPORT_INGEST_INTERVAL_MS and at boot
- *   shadow   compare the same window from Network and Report every REPORT_SHADOW_INTERVAL_MS and at boot
+ *   shadow   compare the same window from Network and Report every REPORT_SHADOW_INTERVAL_MS and at boot: one
+ *            Network answer is taken in and compared, so a rolling number that moved between two reads (the last
+ *            24 hours' requests, today's pageviews) is not a difference
  *
  * Neither job runs when REPORT_JOBS=0. A failed pass logs one short line and leaves the last good data in place;
  * the next pass retries. Overlapping passes in one process are skipped.
  */
-function createAnalyticsJobs({ config = {}, analytics = null, shadow = null, log = console } = {}) {
+function createAnalyticsJobs({ config = {}, analytics = null, shadow = null, network = null, log = console } = {}) {
     const cfg = config.jobs || {};
     const timers = [];
     let ingestBusy = false;
@@ -33,7 +35,17 @@ function createAnalyticsJobs({ config = {}, analytics = null, shadow = null, log
         if (!shadow || shadowBusy) return null;
         shadowBusy = true;
         try {
-            const out = await shadow.compare({ days: cfg.shadowWindowDays || 7 });
+            const days = cfg.shadowWindowDays || 7;
+            // One Network answer for both sides: taken in first, then compared. Two reads minutes apart never agree on the
+            // rolling numbers, so most passes were "differences" that were only the clock (11-03: 382 of 579 passes in a
+            // week, 46-58 numbers each, while the equal passes fell between them). A number Report does not reproduce from
+            // that same answer is still a difference.
+            let stats;
+            if (network && typeof network.stats === 'function' && analytics) {
+                stats = await network.stats(days);
+                if (stats) await analytics.ingestStats(stats);
+            }
+            const out = await shadow.compare(stats ? { days, stats } : { days });
             if (out && out.status === 'differences') log.warn(`[OpenVibe.Report] shadow: ${out.differences} difference(s) over ${cfg.shadowWindowDays || 7} days`);
             return out;
         } catch (err) {

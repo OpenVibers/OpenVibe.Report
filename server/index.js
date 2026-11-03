@@ -32,7 +32,7 @@ async function start() {
     const { app, ctx } = await createApp();
     const { config } = ctx;
 
-    const jobs = createAnalyticsJobs({ config, analytics: ctx.analytics, shadow: ctx.shadow, log: ctx.log });
+    const jobs = createAnalyticsJobs({ config, analytics: ctx.analytics, shadow: ctx.shadow, network: ctx.network, log: ctx.log });
     // The AI meter's job (plan L40/L41): the daily roll-ups, off under drill mode.
     const aiUsageJobs = createAiUsageJobs({ config, store: ctx.store, now: ctx.now, log: ctx.log });
     const allJobs = { ...jobs, stop: async () => { jobs.stop(); aiUsageJobs.stop(); } };
