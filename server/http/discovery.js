@@ -73,26 +73,27 @@ function createDiscoveryRoutes({ config, live, bench }) {
             name: SITE_NAME,
             summary: 'Every number on OpenVibe, honest: the network\'s open stats, The Rundown of what streamers talked about, and every stream\'s after-show report.',
             details: 'The numbers and the write-ups are read from OpenVibe.Network and OpenVibe.Live, cached in this process for a few minutes, and shown as the sources answer them. Nothing here is about a person.',
+            markdown: true,
+            base: site,
             sections: [
                 { title: 'Start here', links: [
                     { title: 'OpenVibe.Report', url: abs('/'), note: 'the Report room' },
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
-                    { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
-                    { title: 'The Rundown', url: abs('/rundown'), note: 'what streamers talked about, topic by topic' },
+                    { title: 'Design health', url: abs('/design'), html: true, note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
+                    { title: 'The Rundown', url: abs('/rundown'), html: true, note: 'what streamers talked about, topic by topic' },
                     { title: 'AI boards', url: abs('/ai'), note: 'Bench ratings, quality and cost across rooms' },
                 ] },
-                { title: 'Machine-readable', links: [
-                    { title: 'Open stats (JSON)', url: abs('/api/v1/stats?days=7'), note: '?days=7, 30 or 90' },
-                    { title: 'Design health (JSON)', url: abs('/api/v1/design-health'), note: 'every site; /api/v1/design-health/<site> for one' },
-                    { title: 'The Rundown (JSON)', url: abs('/api/v1/rundown') },
-                    { title: 'Topics (JSON)', url: abs('/api/v1/rundown/topics') },
-                    { title: 'Sitemap', url: abs('/sitemap.xml') },
-                    { title: 'Release metadata (JSON)', url: abs('/release.json') },
-                ] },
-                { title: 'Elsewhere', links: [
-                    { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'the network and its open stats' },
-                    { title: 'OpenVibe.Live', url: 'https://openvibe.live', note: 'the streams, The Rundown and the after-show reports' },
-                ] },
+            ],
+            optional: [
+                { title: 'Open stats (JSON)', url: abs('/api/v1/stats?days=7'), note: '?days=7, 30 or 90' },
+                { title: 'Design health (JSON)', url: abs('/api/v1/design-health'), note: 'every site; /api/v1/design-health/<site> for one' },
+                { title: 'The Rundown (JSON)', url: abs('/api/v1/rundown') },
+                { title: 'Topics (JSON)', url: abs('/api/v1/rundown/topics') },
+                { title: 'Sitemap', url: abs('/sitemap.xml') },
+                { title: 'Full text for language models', url: abs('/llms-full.txt') },
+                { title: 'Release metadata (JSON)', url: abs('/release.json') },
+                { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'the network and its open stats' },
+                { title: 'OpenVibe.Live', url: 'https://openvibe.live', note: 'the streams, The Rundown and the after-show reports' },
             ],
         });
     r.get('/llms.txt', (_req, res) => {
