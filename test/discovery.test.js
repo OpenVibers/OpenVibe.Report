@@ -49,11 +49,19 @@ const STATUS_UPDATED = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ST
             for (const link of [
                 'https://openvibe.report/index.md',
                 'https://openvibe.report/stats.md',
-                'https://openvibe.report/rundown',
+                'https://openvibe.report/rundown.md',
+                'https://openvibe.report/design.md',
                 'https://openvibe.report/api/v1/stats?days=7',
                 'https://openvibe.report/sitemap.xml',
             ]) assert.ok(r.text.includes(`(${link})`), `missing link ${link}`);
             assert.ok(r.text.includes('\n## Optional\n'), 'llms.txt has an Optional section');
+            // 11-03: /design and /rundown have the twins llms.txt links, and their pages name them.
+            for (const p of ['/design', '/rundown']) {
+                const twin = await t.get(`${p}.md`);
+                assert.strictEqual(twin.status, 200, `${p}.md`);
+                assert.match(twin.headers.get('content-type') || '', /^text\/markdown/);
+                assert.match((await t.get(p)).headers.get('link') || '', /text\/markdown/, `${p} names its twin`);
+            }
         });
 
         await check('llms-full.txt (SEO-33): the site in full, every page llms.txt lists with what it holds', async () => {

@@ -79,8 +79,8 @@ function createDiscoveryRoutes({ config, live, bench }) {
                 { title: 'Start here', links: [
                     { title: 'OpenVibe.Report', url: abs('/'), note: 'the Report room' },
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
-                    { title: 'Design health', url: abs('/design'), html: true, note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
-                    { title: 'The Rundown', url: abs('/rundown'), html: true, note: 'what streamers talked about, topic by topic' },
+                    { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
+                    { title: 'The Rundown', url: abs('/rundown'), note: 'what streamers talked about, topic by topic' },
                     { title: 'AI boards', url: abs('/ai'), note: 'Bench ratings, quality and cost across rooms' },
                 ] },
                 // A JSON API is what an agent came for, not something to skip (AGT-5 review).

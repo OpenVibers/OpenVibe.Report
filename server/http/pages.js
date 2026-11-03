@@ -68,7 +68,14 @@ function createPublicPages({ network, live, bench, analytics = null }) {
         return { html: views.aiModel({ model, summary: await bench.modelSummary(model) }) };
     }
 
-    return { home, stats, developers, aiIndex, aiBoard, aiModel };
+    function design() { return { html: designViews.designHealth(designHealth.all()) }; }
+
+    async function rundown() {
+        const [r, topics] = await Promise.all([live.rundown(), live.topics()]);
+        return { html: views.rundown({ rundown: r, topics }) };
+    }
+
+    return { home, stats, developers, design, rundown, aiIndex, aiBoard, aiModel };
 }
 
 function createPageRoutes(ctx) {
