@@ -14,7 +14,7 @@ const appIcon = require('openvibe-shared/app-icon');
 const kit = require('openvibe-shared/kit');
 const seo = require('openvibe-shared/seo');
 // The short home (the owner's rule, 2026-10-30): pick blocks and folds.
-const { pickList, pickListRules, foldAround } = require('./short');
+const { pickList, foldAround } = require('./short');
 // A short name for a chip: the title, cut where it stops saying anything.
 const clip = (s, n = 40) => { const x = String(s == null ? '' : s); return x.length > n ? `${x.slice(0, n - 1).trimEnd()}…` : x; };
 const sc = require('openvibe-shared/showcase');
@@ -273,7 +273,6 @@ function home({ stats, rundown, topics } = {}) {
         title: null, body: out, active: '/', path: '/', agent: true,
         jsonLd: [seo.jsonLd.website({ name: 'OpenVibe.Report', url: 'https://openvibe.report/', description: "The network's numbers open to everyone, what streamers talked about in The Rundown, and every stream's after-show report." }), seo.jsonLd.organization()],
         // The rule that shows the picked topic of the pick list: one per topic, written for this page.
-        inlineStyles: [`@supports selector(:has(*)){@media (max-width:640px){${pickListRules('topics', trending.length)}}}`],
     });
 }
 
