@@ -5,7 +5,8 @@
 // marks the pages that advertise a twin.
 const { normaliseDays } = require('./data/source');
 
-const twinPath = (path) => /^\/(?:|stats|developers|ai|ai\/[^/]+|ai\/models\/[^/]+)$/.test(String(path || '/'));
+// /design and /rundown since 11-03: llms.txt listed them as HTML pages with no twin.
+const twinPath = (path) => /^\/(?:|stats|developers|design|rundown|ai|ai\/[^/]+|ai\/models\/[^/]+)$/.test(String(path || '/'));
 
 function createAgentPages({ publicPages, bench }) {
     async function renderPublicPage(path, { query } = {}) {
@@ -14,6 +15,8 @@ function createAgentPages({ publicPages, bench }) {
         const kind = /^\/ai\/([^/]+)$/.exec(path);
         if (path === '/') page = await publicPages.home();
         else if (path === '/developers') page = publicPages.developers();
+        else if (path === '/design') page = publicPages.design();
+        else if (path === '/rundown') page = await publicPages.rundown();
         else if (path === '/stats') page = await publicPages.stats(normaliseDays(query && query.get('days')));
         else if (path === '/ai') page = await publicPages.aiIndex();
         else if (model) page = await publicPages.aiModel(decodeURIComponent(model[1]));
