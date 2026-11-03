@@ -7,6 +7,10 @@
  * The two sides are normalized with the same function the ingest uses (metricRowsFromStats), so an equal answer
  * compares equal; a changed number, a missing one or an extra stale one is a difference. Billing is not in the
  * shadow: Report quotes Billing directly and never keeps a second copy of money.
+ *
+ * Today's day rows are not compared: the day is still counting, and Network answers each window from its own cache,
+ * so its 7-day and 90-day answers name different numbers for today, minutes apart; the one Report kept last is not
+ * a difference (11-03: the only three left, today's pageviews, 340 against 346). Every finished day is compared.
  */
 const crypto = require('crypto');
 const { metricRowsFromStats } = require('./ingest');
@@ -73,10 +77,12 @@ function createShadow({ store, network, now = () => Date.now(), log = console })
                     network_json: networkJson, report_json: reportJson ? reportJson.value : null,
                 });
             }
+            const today = new Date(now()).toISOString().slice(0, 10);
             for (const key of keys) {
                 const net = networkRows.find((r) => keyOf(r) === key) || null;
                 const rep = reportByKey.get(key) || null;
                 if (!net && !rep) continue;
+                if ((net || rep).kind === 'day' && (net || rep).day === today) continue;   // still counting (see above)
                 // Only compare a stored number whose metric Network actually reports in this window; an unrelated
                 // stored scope is not a shadow difference.
                 if (!net && !netKeys.has(key) && !networkRows.some((r) => r.metric === (rep && rep.metric))) continue;
