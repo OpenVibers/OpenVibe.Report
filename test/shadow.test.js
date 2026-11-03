@@ -43,6 +43,18 @@ const { stats, NOW } = require('./fixtures/analytics');
             assert.strictEqual(body.diffs[0].metric, 'pageviews');
         });
 
+        await check('the job compares the one Network answer it took in: a number that moved between two reads is no difference', async () => {
+            const { createAnalyticsJobs } = require('../server/jobs/analytics');
+            let reads = 0;
+            // A rolling number moves on every read, as the last 24 hours' requests and today's pageviews do.
+            const network = { stats: async () => { reads++; const s = JSON.parse(JSON.stringify(stats)); s.totals.pageviews = 300 + reads * 7; return s; } };
+            const jobs = createAnalyticsJobs({ config: { jobs: { shadowWindowDays: 7 } }, analytics: t.ctx.analytics, shadow: t.ctx.shadow, network, log: { warn() {}, error() {} } });
+            const run = await jobs.runShadow();
+            assert.strictEqual(run.status, 'equal', JSON.stringify(run.diffs));
+            assert.strictEqual(reads, 1, 'one read of Network serves both sides');
+            assert.strictEqual(await t.ctx.store.db.value(`SELECT value::int AS v FROM report_metric_windows WHERE metric = 'pageviews' AND scope = 'network' AND window_days = 7`), 307, 'and Report took it in');
+        });
+
         await check('a Network that does not answer is a run with no differences, never a clean claim', async () => {
             const down = await t.ctx.shadow.compare({ days: 7, stats: null });
             assert.strictEqual(down.status, 'network_unavailable');
