@@ -47,12 +47,13 @@ const STATUS_UPDATED = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ST
             assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=3600');
             assert.ok(r.text.startsWith('# OpenVibe.Report'));
             for (const link of [
-                'https://openvibe.report/',
-                'https://openvibe.report/stats',
+                'https://openvibe.report/index.md',
+                'https://openvibe.report/stats.md',
                 'https://openvibe.report/rundown',
                 'https://openvibe.report/api/v1/stats?days=7',
                 'https://openvibe.report/sitemap.xml',
             ]) assert.ok(r.text.includes(`(${link})`), `missing link ${link}`);
+            assert.ok(r.text.includes('\n## Optional\n'), 'llms.txt has an Optional section');
         });
 
         await check('llms-full.txt (SEO-33): the site in full, every page llms.txt lists with what it holds', async () => {
