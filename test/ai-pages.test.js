@@ -117,6 +117,26 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         } finally { await fresh.close(); }
     });
 
+    await check('a model entered but never judged is no leader: 0 games reads as no votes yet', async () => {
+        const unplayed = await boot({
+            fetchImpl: async (url, opts) => {
+                const u = new URL(String(url));
+                if (u.port !== '5230') return source(url, opts);
+                if (u.pathname === '/api/v1/kinds') return jsonResponse({ count: 1, kinds: [{ id: 'design.page', room: 'design', name: 'Page', judge: 'human_pairwise' }] });
+                if (u.pathname.startsWith('/api/v1/boards/')) return jsonResponse({ board: { rows: [{ subject: 'gpt-5-nano-2025-08-07', elo: 1000, games: 0, provisional: true }] } });
+                return jsonResponse({}, 404);
+            },
+            env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' },
+        });
+        try {
+            const r = await unplayed.get('/ai');
+            assert.ok(r.text.includes('No model is rated yet') && !r.text.includes('<caption>Leaders</caption>'), 'no leaders table');
+            assert.ok(!r.text.includes('gpt-5-nano-2025-08-07'), 'the unjudged model is named nowhere as a leader');
+            const b = await unplayed.get('/ai/design.page');
+            assert.ok(b.text.includes('No votes yet') && b.text.includes('Vote on Design') && !b.text.includes('class="ovk-tabs'), 'the board asks for votes');
+        } finally { await unplayed.close(); }
+    });
+
     await check('an initial Bench outage still renders an AI page', async () => {
         const empty = await boot({ fetchImpl: async (url, opts) => String(url).includes(':5230') ? Promise.reject(new Error('offline')) : source(url, opts), env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' } });
         try {
