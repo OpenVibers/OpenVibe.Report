@@ -29,7 +29,7 @@ const designHealth = require('../data/design-health');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, analytics = null, aiUsage = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, analytics = null, aiUsage = null, aiExchange = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
 
@@ -167,6 +167,27 @@ function createApi({ network, live, analytics = null, aiUsage = null, config = {
             if (err instanceof RangeError) return problem(req, res, 422, 'ai.invalid', err.message);
             log.error('[OpenVibe.Report] the personal AI usage rows failed:', err && err.message ? String(err.message).slice(0, 200) : err);
             return problem(req, res, 500, 'report.ai_usage_failed', 'Your AI usage could not be read.');
+        }
+    });
+
+    // The AI Exchange (plan G-P9): Billing's settlements, summed by day, resolved model and provider access. Only
+    // when REPORT_AI_EXCHANGE is on, and only for the staff gate the AI meter already uses. Aggregates only: no
+    // person, no project, no prompt. Report never sets a rate, a price or a balance.
+    r.get('/ai/exchange', async (req, res) => {
+        if (!config.aiExchange || !config.aiExchange.enabled) return notFound(req, res, 'route.not_found', 'No such API route.');
+        if (!aiExchange) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const v = await serviceAuth.authenticate(req);
+        if (!v.ok) return problem(req, res, v.status, v.code, v.detail);
+        if (!serviceAuth.hasCap(v.claims, CAPS.aiUsageRead)) {
+            return problem(req, res, 403, 'capability.denied', 'report.ai_usage.read is not granted to this token.');
+        }
+        try {
+            const body = await aiExchange.analytics({ from: req.query.from || null, to: req.query.to || null });
+            return res.set('Cache-Control', 'no-store').json(body);
+        } catch (err) {
+            if (err instanceof RangeError) return problem(req, res, 422, 'ai.invalid', err.message);
+            log.error('[OpenVibe.Report] the AI Exchange aggregates failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return problem(req, res, 500, 'report.ai_exchange_failed', 'The AI Exchange aggregates could not be read.');
         }
     });
 

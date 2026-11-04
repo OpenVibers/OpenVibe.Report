@@ -19,8 +19,10 @@
  * Markdown twin render the very same page; `agent: true` in those views adds the discovery links.
  */
 const express = require('express');
+const contracts = require('openvibe-contracts');
 const views = require('../views');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
+const { createServiceAuth, CAPS } = require('../auth');
 const { twinPath } = require('../agent-pages');
 const designViews = require('../views/design');
 const designHealth = require('../data/design-health');
@@ -82,6 +84,8 @@ function createPageRoutes(ctx) {
     const { live, bench } = ctx;
     const r = express.Router();
     const publicPages = ctx.publicPages || createPublicPages(ctx);
+    // The staff gate Report already uses for the AI meter: a Network service token with report.ai_usage.read.
+    const staffAuth = createServiceAuth({ config: ctx.config, now: ctx.now });
     // A path ending in .md is a Markdown twin (server/agent-pages.js), never a page parameter.
     r.use((req, res, next) => (req.path.endsWith('.md') ? next('router') : next()));
 
@@ -121,6 +125,26 @@ function createPageRoutes(ctx) {
         const page = await publicPages.aiModel(req.params.model);
         if (!page) return notFound(req, res);
         return send(req, res, page.html, 200, 'no-store');
+    });
+
+    // The AI Exchange's daily aggregates (plan G-P9), staff-only, behind REPORT_AI_EXCHANGE. Report reads Billing's
+    // settlements; it never changes a rate, a price or a balance. The page is private and never cached.
+    r.get('/ai/exchange', async (req, res) => {
+        if (!ctx.config.aiExchange || !ctx.config.aiExchange.enabled) return notFound(req, res);
+        if (!ctx.aiExchange) return contracts.http.sendProblem(res, 503, 'report.no_database', { detail: 'Report has no database in this process.', ctx: req.ov });
+        const v = await staffAuth.authenticate(req);
+        if (!v.ok) return contracts.http.sendProblem(res, v.status, v.code, { detail: v.detail, ctx: req.ov });
+        if (!staffAuth.hasCap(v.claims, CAPS.aiUsageRead)) {
+            return contracts.http.sendProblem(res, 403, 'capability.denied', { detail: 'report.ai_usage.read is not granted to this token.', ctx: req.ov });
+        }
+        try {
+            const body = await ctx.aiExchange.analytics({ from: req.query.from || null, to: req.query.to || null });
+            return send(req, res, views.aiExchange(body), 200, 'private, no-store');
+        } catch (err) {
+            if (err instanceof RangeError) return contracts.http.sendProblem(res, 422, 'ai.invalid', { detail: err.message, ctx: req.ov });
+            ctx.log.error('[OpenVibe.Report] the AI Exchange page failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return contracts.http.sendProblem(res, 500, 'report.ai_exchange_failed', { detail: 'The AI Exchange aggregates could not be read.', ctx: req.ov });
+        }
     });
 
     r.get('/ai/:kind', async (req, res) => {

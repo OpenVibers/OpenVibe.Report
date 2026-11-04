@@ -11,16 +11,21 @@
  * writes: a redelivered event id changes nothing. A stats snapshot is keyed by its own content hash, so polling
  * the same numbers again is a no-op while new numbers replace the stored ones.
  *
- * Billing events are consciously not ingested: Report reads money from Billing's API, never from an event.
+ * Billing's money is read from Billing's API, never derived here. The one exception is the AI Exchange's
+ * settlement aggregates (plan G-P9), behind REPORT_AI_EXCHANGE: the raw settlement is not stored, only its
+ * aggregates (day, model, provider access) and its settlement id for idempotency. With the flag off, a settlement
+ * delivery is ignored before anything is written.
  */
 const crypto = require('crypto');
 const { createPgInbox } = require('openvibe-sdk/events');
 const { normaliseDays } = require('../data/source');
+const { isSettlementTopic } = require('./ai-exchange');
 
 const INBOX = 'report-events';
 const STATS_INBOX = 'network-stats';
 const DAY = 86_400_000;
-const ALLOWED_TOPICS = new Set(['live.stream.ended', 'live.stream.started', 'network.frame.hit', 'network.frame.day', 'frame.hit', 'ai.call.recorded']);
+const ALLOWED_TOPICS = new Set(['live.stream.ended', 'live.stream.started', 'network.frame.hit', 'network.frame.day', 'frame.hit', 'ai.call.recorded',
+    'billing.credit.settled', 'billing.credit.settlement', 'billing.credit-settlement']);
 
 const hashOf = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -268,7 +273,7 @@ async function recordStream(t, event, payload, occurredAt, source) {
 }
 
 /** One Events envelope → the tables. Returns { duplicate, outcome }. */
-async function recordEvent(store, event, { now = () => Date.now() } = {}) {
+async function recordEvent(store, event, { now = () => Date.now(), aiExchange = false } = {}) {
     if (!store || !store.db) throw new TypeError('recordEvent needs an open Report store');
     const e = event && typeof event === 'object' ? event : {};
     const eventId = String(e.event_id || e.id || '');
@@ -279,6 +284,8 @@ async function recordEvent(store, event, { now = () => Date.now() } = {}) {
     const rawOccurred = e.occurred_at || e.timestamp || (e.payload && (e.payload.ended_at || e.payload.at)) || new Date(now()).toISOString();
     const occurredMs = Date.parse(String(rawOccurred));
     const occurredAt = Number.isFinite(occurredMs) ? new Date(occurredMs).toISOString() : null;
+    // The flag is off: nothing about a settlement is read or written, not even its event id.
+    if (isSettlementTopic(topic) && !aiExchange) return { duplicate: false, outcome: 'ignored:flag' };
     if (!ALLOWED_TOPICS.has(topic)) {
         // Today's billing and traffic events are not analytics facts Report may derive: a seen id changes nothing.
         const inbox = createPgInbox(store.db, { table: 'report_inbox', now });
@@ -288,13 +295,19 @@ async function recordEvent(store, event, { now = () => Date.now() } = {}) {
     const payload = e.payload && typeof e.payload === 'object' ? e.payload : {};
     const inbox = createPgInbox(store.db, { table: 'report_inbox', now });
     const r = await inbox.once(INBOX, eventId, async (t) => {
-        await t.prepare(`INSERT INTO report_events (event_id, source, topic, occurred_at, payload) VALUES (?, ?, ?, ?, ?::jsonb) ON CONFLICT (event_id) DO NOTHING`)
-            .run(eventId, source, topic, occurredAt, JSON.stringify(payload));
+        // A settlement carries a person, a project and money. Report may keep its aggregates and its idempotency
+        // key, never the raw payload: no per-person rows and no prompt or answer text.
+        if (!isSettlementTopic(topic)) {
+            await t.prepare(`INSERT INTO report_events (event_id, source, topic, occurred_at, payload) VALUES (?, ?, ?, ?, ?::jsonb) ON CONFLICT (event_id) DO NOTHING`)
+                .run(eventId, source, topic, occurredAt, JSON.stringify(payload));
+        }
         await t.prepare('UPDATE report_inbox SET source = ?, topic = ?, payload_hash = ? WHERE consumer = ? AND event_id = ?')
             .run(source, topic, hashOf(payload), INBOX, eventId);
         if (topic === 'live.stream.ended') return await recordStream(t, e, payload, occurredAt, source);
         // The AI meter (L40/L41): one record per AI call, stored once by the system and the run (or turn).
         if (topic === 'ai.call.recorded') return await require('./ai-usage').recordUsage(t, payload, { occurredAt, source });
+        // AI Exchange (G-P9): Billing's settlement, counted once by settlement id.
+        if (isSettlementTopic(topic)) return await require('./ai-exchange').recordSettlement(t, payload, { occurredAt, now: now() });
         if (topic === 'network.frame.hit' || topic === 'network.frame.day' || topic === 'frame.hit') return await recordFrame(t, topic, payload, occurredAt, source);
         return 'event:recorded';
     });

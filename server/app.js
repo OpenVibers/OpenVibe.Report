@@ -33,6 +33,7 @@ const { createBillingClient } = require('./data/billing');
 const { createBenchClient } = require('./data/bench');
 const { createAnalytics } = require('./analytics');
 const { createAiUsage } = require('./analytics/ai-usage');
+const { createAiExchange } = require('./analytics/ai-exchange');
 const { createSearchIndex } = require('./search-index');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
@@ -60,9 +61,12 @@ async function createApp(opts = {}) {
     const live = opts.live || createLiveClient({ config, fetchImpl, log, now });
     const billing = opts.billing || createBillingClient({ config, fetchImpl, log, now });
     const bench = opts.bench || createBenchClient({ config, fetchImpl, log, now });
-    const analytics = opts.analytics || createAnalytics({ config, store, network, billing, now, log });
+    const exchangeOn = Boolean(config.aiExchange && config.aiExchange.enabled);
+    const analytics = opts.analytics || createAnalytics({ config, store, network, billing, now, log, aiExchange: exchangeOn });
     // The AI ledger (plan L40/L41): the records of every AI call on the network and their roll-ups.
     const aiUsage = opts.aiUsage || createAiUsage({ store, now, log });
+    // AI Exchange analytics (G-P9, flag off): Billing's settlements, aggregated. No database, no ledger.
+    const aiExchange = opts.aiExchange !== undefined ? opts.aiExchange : (exchangeOn ? createAiExchange({ store, now, log }) : null);
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     // The Rundown topic pages in OpenVibe.Search (started by server/index.js, never under REPORT_DRILL).
     const searchIndex = opts.searchIndex || (store ? createSearchIndex({ config, store, live, log }) : null);
@@ -75,7 +79,7 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, searchIndex };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, aiExchange, searchIndex };
     const app = express();
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts
     // (openvibe-contracts); the operations they mark internal-only are left out.
@@ -189,7 +193,7 @@ async function createApp(opts = {}) {
         legacyHeaders: false,
         handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
     }));
-    app.use('/api/v1', createApi({ network, live, analytics, aiUsage, config, now, log }));
+    app.use('/api/v1', createApi({ network, live, analytics, aiUsage, aiExchange, config, now, log }));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 
     // ── Crawl artifacts, then the pages ─────────────────────

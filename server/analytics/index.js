@@ -14,7 +14,7 @@
 const query = require('./query');
 const ingest = require('./ingest');
 
-function createAnalytics({ config = {}, store = null, network = null, billing = null, now = () => Date.now(), log = console } = {}) {
+function createAnalytics({ config = {}, store = null, network = null, billing = null, now = () => Date.now(), log = console, aiExchange = false } = {}) {
     const source = config.source === 'report' ? 'report' : 'network';
 
     function warn(what, err) {
@@ -40,7 +40,7 @@ function createAnalytics({ config = {}, store = null, network = null, billing = 
         source, store, billing, network,
         stats, channel, metrics,
         reportStats: (days, opts = {}) => (store ? query.reportStats(store, days, { now, ...opts }) : null),
-        recordEvent: (event, opts = {}) => (store ? ingest.recordEvent(store, event, { now, ...opts }) : Promise.resolve({ duplicate: false, outcome: 'no_database' })),
+        recordEvent: (event, opts = {}) => (store ? ingest.recordEvent(store, event, { now, aiExchange, ...opts }) : Promise.resolve({ duplicate: false, outcome: 'no_database' })),
         ingestStats: (payload, opts = {}) => (store ? ingest.ingestStats(store, payload, { now, ...opts }) : Promise.resolve({ ok: false, reason: 'no_database' })),
         ingestNetwork: (opts = {}) => (store && network ? ingest.ingestNetwork(store, network, { now, ...opts }) : Promise.resolve({ ok: false, reason: 'no_database' })),
         log,
