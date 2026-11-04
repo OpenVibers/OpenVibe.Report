@@ -161,6 +161,7 @@ async function boot(opts = {}) {
     const store = opts.store || (testdatabase ? createStore(testdatabase.db, { now: opts.now }) : null);
     const built = await createApp({
         config,
+        env,
         store,
         fetchImpl,
         log,

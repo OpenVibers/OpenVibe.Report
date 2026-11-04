@@ -34,6 +34,7 @@ const { createBenchClient } = require('./data/bench');
 const { createAnalytics } = require('./analytics');
 const { createAiUsage } = require('./analytics/ai-usage');
 const { createAiExchange } = require('./analytics/ai-exchange');
+const createAiExchangeConfig = require('./ai-exchange-config').create;
 const { createSearchIndex } = require('./search-index');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
@@ -61,12 +62,15 @@ async function createApp(opts = {}) {
     const live = opts.live || createLiveClient({ config, fetchImpl, log, now });
     const billing = opts.billing || createBillingClient({ config, fetchImpl, log, now });
     const bench = opts.bench || createBenchClient({ config, fetchImpl, log, now });
-    const exchangeOn = Boolean(config.aiExchange && config.aiExchange.enabled);
-    const analytics = opts.analytics || createAnalytics({ config, store, network, billing, now, log, aiExchange: exchangeOn });
+    // D11 owner settings (report.ai_exchange): the switch is read through the store, env pins winning. Report can
+    // run without a database (a network-only front): then there is no store and the env value is all there is.
+    const exchangeConfig = store ? await createAiExchangeConfig({ db: store.db, config, env: opts.env || process.env, now, log, onActivate: opts.onConfigActivate }) : null;
+    if (exchangeConfig) Object.defineProperty(config.aiExchange, 'enabled', { enumerable: true, configurable: true, get: () => exchangeConfig.get('enabled') });
+    const analytics = opts.analytics || createAnalytics({ config, store, network, billing, now, log, aiExchange: () => Boolean(config.aiExchange && config.aiExchange.enabled) });
     // The AI ledger (plan L40/L41): the records of every AI call on the network and their roll-ups.
     const aiUsage = opts.aiUsage || createAiUsage({ store, now, log });
     // AI Exchange analytics (G-P9, flag off): Billing's settlements, aggregated. No database, no ledger.
-    const aiExchange = opts.aiExchange !== undefined ? opts.aiExchange : (exchangeOn ? createAiExchange({ store, now, log }) : null);
+    const aiExchange = opts.aiExchange !== undefined ? opts.aiExchange : (store ? createAiExchange({ store, now, log }) : null);
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     // The Rundown topic pages in OpenVibe.Search (started by server/index.js, never under REPORT_DRILL).
     const searchIndex = opts.searchIndex || (store ? createSearchIndex({ config, store, live, log }) : null);
@@ -79,8 +83,9 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, aiExchange, searchIndex };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig };
     const app = express();
+    if (exchangeConfig) exchangeConfig.mount(app);
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts
     // (openvibe-contracts); the operations they mark internal-only are left out.
     app.get('/openapi.json', (_req, res) => {
