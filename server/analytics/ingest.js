@@ -25,7 +25,7 @@ const INBOX = 'report-events';
 const STATS_INBOX = 'network-stats';
 const DAY = 86_400_000;
 const ALLOWED_TOPICS = new Set(['live.stream.ended', 'live.stream.started', 'network.frame.hit', 'network.frame.day', 'frame.hit', 'ai.call.recorded',
-    'billing.credit.settled', 'billing.credit.settlement', 'billing.credit-settlement']);
+    'billing.credit.settled']);
 
 const hashOf = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));

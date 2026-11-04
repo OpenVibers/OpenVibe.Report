@@ -20,7 +20,7 @@ OpenVibe.Report is the analytics authority in shadow:
   PostgreSQL tables (migrations/).
 - It **computes** the same numbers Network answers, site-wide, per site and per channel, by UTC day.
 - It **quotes money from OpenVibe.Billing** through Billing's read API; it never derives a price, fee or amount.
-- It **shadows the AI Exchange** behind `REPORT_AI_EXCHANGE` (off): Billing's `billing.credit-settlement@1`
+- It **shadows the AI Exchange** behind `REPORT_AI_EXCHANGE` (off): Billing's `billing.credit.settled@1`
   settlements are summed by UTC day, resolved exact model id and provider access. The raw settlement is not stored,
   and Report never sets a rate, a price or a balance.
 - It **shadows**: a job compares the same window from Network and from Report's tables and records every difference
@@ -38,7 +38,7 @@ OpenVibe.Live in both modes.
 | **OpenVibe.Live** — after-show reports | `GET /api/recap/:streamId`, `GET /api/recap/channel/:username` | `/after-show/:streamId`, `/c/:username` |
 | **OpenVibe.Bench** | `GET /api/v1/kinds`, `/api/v1/boards/:kind?type=elo\|pareto\|cost`, `/api/v1/models/:model` | `/ai`, `/ai/:kind`, `/ai/models/:model` |
 | **OpenVibe.Billing** | `GET /api/v1/stats`, `GET /api/v1/transactions?subject=…` | the revenue read for a channel; network money counts |
-| **OpenVibe.Billing** — settlements, through Events | `billing.credit-settlement@1` on `POST /internal/events` (only with `REPORT_AI_EXCHANGE=1`) | the AI Exchange aggregates and the staff page/API |
+| **OpenVibe.Billing** — settlements, through Events | `billing.credit.settled@1` on `POST /internal/events` (only with `REPORT_AI_EXCHANGE=1`) | the AI Exchange aggregates and the staff page/API |
 
 A source that does not answer is null, after one short log line; the page (or API route) becomes a 404. The service
 never invents a zero and never throws a source error at the reader.
@@ -51,8 +51,9 @@ never invents a zero and never throws a source error at the reader.
 - **The AI meter** in `migrations/0002_ai_usage.sql` and `0003_ai_usage_surface.sql`: `report_ai_usage` (raw calls,
   kept 90 days) and `report_ai_usage_days`; the consumer is `server/analytics/ai-usage.js`.
 - **The AI Exchange aggregates** in `migrations/0005_ai_exchange.sql`: `report_ai_exchange_days` (day, model,
-  provider access, requests, the four token counts, exact nano-USD retail/supply/margin) and
-  `report_ai_exchange_seen` (settlement ids already counted). The consumer is `server/analytics/ai-exchange.js`.
+  provider access, requests, sandbox requests, the four token counts, exact nano-USD retail/shortfall/supply/margin),
+  `report_ai_exchange_seen` (settlement ids already counted) and `report_ai_exchange_rejected` (invalid payloads).
+  The consumer is `server/analytics/ai-exchange.js`.
 - **The computation** in `server/analytics/`: `ingest.js` (idempotent writes), `query.js` (Network's stats shape and
   a channel's creator analytics), `shadow.js` (the comparison), `ai-exchange.js` (the Exchange aggregates).
 - **The jobs** in `server/jobs/analytics.js`: ingest every five minutes (7, 30 and 90-day windows) and shadow every
@@ -85,7 +86,7 @@ All server-rendered in `server/views/index.js`; every dynamic value goes through
 | `/ai` | benchmark kinds grouped by room, with leaders and game counts |
 | `/ai/:kind` | Elo, Pareto quality against cost per solved, and cost per solved tables |
 | `/ai/models/:model` | a model's ratings and entries across kinds |
-| `/ai/exchange` | **staff only**, with `REPORT_AI_EXCHANGE=1`: Billing's settlements by day, model and access, a daily chart and the exact amounts. Needs a service token with `report.ai_usage.read` |
+| `/ai/exchange` | **staff only**, with `REPORT_AI_EXCHANGE=1`: Billing's settlements by day, model and access, a daily chart and the exact amounts. Needs a signed-in person whose staff role holds `staff.site.view` |
 
 A bad path parameter (slug, stream id, username) or a source that answered nothing renders `views.notFound()` with
 status 404. Pages are `Cache-Control: public, max-age=120`.
@@ -108,8 +109,9 @@ GET /api/v1/c/:username
 A bad parameter or a missing source answer is a 404 `application/problem+json` body built with
 `openvibe-contracts` `http.sendProblem`. The public API is read-only; other methods get 405.
 
-The AI Exchange read is the staff exception (with `REPORT_AI_EXCHANGE=1`): a Network service token with the same
-`report.ai_usage.read` capability the AI meter uses, never cached, no person or project in the answer.
+The AI Exchange JSON read is the staff exception (with `REPORT_AI_EXCHANGE=1`): a Network service token with the
+same `report.ai_usage.read` capability the AI meter uses, never cached, no person or project in the answer. The
+HTML page is gated by the signed-in person's staff role (`staff.site.view`) instead, like the other staff pages.
 
 ```
 GET /api/v1/ai/exchange?from=YYYY-MM-DD&to=YYYY-MM-DD   the Exchange aggregates, staff only
@@ -138,10 +140,12 @@ nginx refuses `/internal/` from outside; the app also checks the socket is loopb
   keyed by the answer's content hash. Polling the same numbers again is a no-op.
 - Every delivery is claimed in `report_inbox` (openvibe-sdk/events `createPgInbox`) in the same transaction as its
   writes.
-- `billing.credit-settlement@1` (with `REPORT_AI_EXCHANGE=1`) → `report_ai_exchange_days`, keyed by day, model and
-  provider access, and `report_ai_exchange_seen` by settlement id. Replaying the same settlement under a new event id
-  counts once. The raw settlement (subject, project, money) is never stored. With the flag off, the delivery is
-  ignored before anything is written.
+- `billing.credit.settled` (with `REPORT_AI_EXCHANGE=1`) → `report_ai_exchange_days`, keyed by day, model and
+  provider access, and `report_ai_exchange_seen` by settlement id. The payload is validated against
+  `billing.credit.settled@1`; an invalid one is counted in `report_ai_exchange_rejected` and never aggregated.
+  Replaying the same settlement under a new event id counts once. A sandbox settlement only increments
+  `sandbox_requests`. The raw settlement is never stored. With the flag off, the delivery is ignored before anything
+  is written.
 - Billing's other money still comes from Billing's read API, never from an event.
 
 ## Configuration
@@ -167,7 +171,7 @@ Every value comes from the environment (production: `/etc/openvibe/report.env`).
 | `OV_OAUTH_CLIENT_ID` / `OV_OAUTH_CLIENT_SECRET` | `report` / unset | Report's client-credentials token for `openvibe.billing` |
 | `REPORT_BILLING_TOKEN` | unset | an explicit Billing bearer token for an operator run |
 | `REPORT_EVENTS_SECRET` | unset | the HMAC secret for `POST /internal/events` (32+ chars, comma list for rotation) |
-| `REPORT_AI_EXCHANGE` | `0` | `1` consumes Billing's `billing.credit-settlement@1` events into the AI Exchange aggregates and opens `/ai/exchange` and `GET /api/v1/ai/exchange`; off consumes nothing |
+| `REPORT_AI_EXCHANGE` | `0` | `1` consumes Billing's `billing.credit.settled` events into the AI Exchange aggregates and opens `/ai/exchange` and `GET /api/v1/ai/exchange`; off consumes nothing |
 | `REPORT_JOBS` | `1` | `0` turns the ingest and shadow jobs off |
 | `REPORT_JOBS_ON_BOOT` | `1` | run both jobs once shortly after boot |
 | `REPORT_INGEST_INTERVAL_MS` | `300000` | how often the ingest job runs |
@@ -189,8 +193,8 @@ Most tests stub both sources and pass `store: null`, so they need no database. T
 `test/helpers/db.js` (`createTestDb` from openvibe-sdk/testing) with a migrated PGlite, or the PostgreSQL containers
 with `REPORT_TEST_STORE=pg`. They cover ingest idempotency, every metric against a fixture's expected numbers, the
 shadow job's difference and clean run, `GET /internal/shadow`, the source flag, the Billing revenue read with a stub,
-the AI Exchange aggregation/replay/BigInt/staff-gate/flag-off cases, and the existing pages/API/health/crawl
-behaviour.
+the AI Exchange aggregation/validation/replay/BigInt/sandbox/staff-gate/flag-off cases, and the existing
+pages/API/health/crawl behaviour.
 
 `node --check` is run over `server/`, `test/` and `public/` by CI (`.github/workflows/ci.yml`, the shared
 OpenVibe.Shared test workflow).
@@ -223,12 +227,13 @@ When `DATABASE_URL` is configured, the database check is included and is require
 ## Security
 
 Every source text is escaped before it reaches HTML. Path parameters are checked against fixed patterns before any
-request. Report holds no accounts and no cookies. Its database has public channel facts and counts only; event
-payloads with money or personal data are not stored. `/internal/` is loopback-only, and `POST /internal/events`
-verifies the Events v2 HMAC. See [SECURITY.md](SECURITY.md).
+request. Report's own sign-in serves `/you` and the staff page, which reads the signed-in person's staff role. Its
+database has public channel facts, the AI meter and aggregate AI Exchange numbers; a raw settlement (a person, a
+project, money) is never stored. `/internal/` is loopback-only, and `POST /internal/events` verifies the Events v2
+HMAC. See [SECURITY.md](SECURITY.md).
 
 <!-- versions:start -->
-- openvibe-contracts: v0.275.0
+- openvibe-contracts: v0.287.0
 - openvibe-sdk: v0.82.0
 - openvibe-shared: v4.109.2
 - openvibe-publishing: v1.5.0

@@ -22,7 +22,6 @@ const express = require('express');
 const contracts = require('openvibe-contracts');
 const views = require('../views');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
-const { createServiceAuth, CAPS } = require('../auth');
 const { twinPath } = require('../agent-pages');
 const designViews = require('../views/design');
 const designHealth = require('../data/design-health');
@@ -84,8 +83,6 @@ function createPageRoutes(ctx) {
     const { live, bench } = ctx;
     const r = express.Router();
     const publicPages = ctx.publicPages || createPublicPages(ctx);
-    // The staff gate Report already uses for the AI meter: a Network service token with report.ai_usage.read.
-    const staffAuth = createServiceAuth({ config: ctx.config, now: ctx.now });
     // A path ending in .md is a Markdown twin (server/agent-pages.js), never a page parameter.
     r.use((req, res, next) => (req.path.endsWith('.md') ? next('router') : next()));
 
@@ -127,16 +124,14 @@ function createPageRoutes(ctx) {
         return send(req, res, page.html, 200, 'no-store');
     });
 
-    // The AI Exchange's daily aggregates (plan G-P9), staff-only, behind REPORT_AI_EXCHANGE. Report reads Billing's
-    // settlements; it never changes a rate, a price or a balance. The page is private and never cached.
+    // The AI Exchange's daily aggregates (plan G-P9), staff-only, behind REPORT_AI_EXCHANGE. The gate is the signed-in
+    // person's staff role (`staff.site.view`, the capability that covers analytics and money state), the same
+    // openvibe-contracts staff map other staff pages use. The page is private and never cached.
     r.get('/ai/exchange', async (req, res) => {
         if (!ctx.config.aiExchange || !ctx.config.aiExchange.enabled) return notFound(req, res);
+        if (!req.user) return send(req, res, views.staffOnly({ signedIn: false }), 401, 'private, no-store');
+        if (!contracts.staff.can(req.user, 'staff.site.view')) return send(req, res, views.staffOnly({ signedIn: true }), 403, 'private, no-store');
         if (!ctx.aiExchange) return contracts.http.sendProblem(res, 503, 'report.no_database', { detail: 'Report has no database in this process.', ctx: req.ov });
-        const v = await staffAuth.authenticate(req);
-        if (!v.ok) return contracts.http.sendProblem(res, v.status, v.code, { detail: v.detail, ctx: req.ov });
-        if (!staffAuth.hasCap(v.claims, CAPS.aiUsageRead)) {
-            return contracts.http.sendProblem(res, 403, 'capability.denied', { detail: 'report.ai_usage.read is not granted to this token.', ctx: req.ov });
-        }
         try {
             const body = await ctx.aiExchange.analytics({ from: req.query.from || null, to: req.query.to || null });
             return send(req, res, views.aiExchange(body), 200, 'private, no-store');

@@ -79,7 +79,7 @@ function load(env = process.env) {
         drill: env.REPORT_DRILL === '1' || env.REPORT_DRILL === 'true',
 
         // AI Exchange analytics (plan G-P9, behind REPORT_AI_EXCHANGE, off). When on, Report consumes Billing's
-        // billing.credit-settlement@1 events into aggregates by day, model and provider access; off, a settlement
+        // billing.credit.settled events into aggregates by day, model and provider access; off, a settlement
         // delivery is ignored before anything is written.
         aiExchange: {
             enabled: bool(env.REPORT_AI_EXCHANGE, false),
