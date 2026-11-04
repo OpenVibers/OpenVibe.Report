@@ -58,8 +58,12 @@ function capabilityGuard({ serviceAuth, log }) {
 }
 
 async function create({ db, config, env = process.env, log = console, now = () => Date.now(), onActivate = null }) {
+    // REPORT_AI_EXCHANGE has always accepted anything but 0/false/no/off; the shared store's boolean pin reads true/1.
+    const storeEnv = { ...env };
+    const rawReportFlag = String(storeEnv.REPORT_AI_EXCHANGE || '');
+    if (rawReportFlag && !/^(0|false|no|off)$/i.test(rawReportFlag)) storeEnv.REPORT_AI_EXCHANGE = '1';
     const store = await shared.createConfigStore({
-        db, service: SERVICE, namespace: NAMESPACE, schema: SCHEMA, defaults: DEFAULTS, env, log,
+        db, service: SERVICE, namespace: NAMESPACE, schema: SCHEMA, defaults: DEFAULTS, env: storeEnv, log,
         onActivate: async (values) => { if (onActivate) await onActivate(values); },
         onChange: ({ namespace, keys, actor: who, revision }) => {
             log.info(`[config] ${SERVICE} ${namespace} revision ${revision} by ${who && who.id ? `${who.type}:${who.id}` : 'unknown'}: ${keys.join(', ')}`);
