@@ -19,6 +19,7 @@
  * Markdown twin render the very same page; `agent: true` in those views adds the discovery links.
  */
 const express = require('express');
+const contracts = require('openvibe-contracts');
 const views = require('../views');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
 const { twinPath } = require('../agent-pages');
@@ -121,6 +122,24 @@ function createPageRoutes(ctx) {
         const page = await publicPages.aiModel(req.params.model);
         if (!page) return notFound(req, res);
         return send(req, res, page.html, 200, 'no-store');
+    });
+
+    // The AI Exchange's daily aggregates (plan G-P9), staff-only, behind REPORT_AI_EXCHANGE. The gate is the signed-in
+    // person's staff role (`staff.site.view`, the capability that covers analytics and money state), the same
+    // openvibe-contracts staff map other staff pages use. The page is private and never cached.
+    r.get('/ai/exchange', async (req, res) => {
+        if (!ctx.config.aiExchange || !ctx.config.aiExchange.enabled) return notFound(req, res);
+        if (!req.user) return send(req, res, views.staffOnly({ signedIn: false }), 401, 'private, no-store');
+        if (!contracts.staff.can(req.user, 'staff.site.view')) return send(req, res, views.staffOnly({ signedIn: true }), 403, 'private, no-store');
+        if (!ctx.aiExchange) return contracts.http.sendProblem(res, 503, 'report.no_database', { detail: 'Report has no database in this process.', ctx: req.ov });
+        try {
+            const body = await ctx.aiExchange.analytics({ from: req.query.from || null, to: req.query.to || null });
+            return send(req, res, views.aiExchange(body), 200, 'private, no-store');
+        } catch (err) {
+            if (err instanceof RangeError) return contracts.http.sendProblem(res, 422, 'ai.invalid', { detail: err.message, ctx: req.ov });
+            ctx.log.error('[OpenVibe.Report] the AI Exchange page failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return contracts.http.sendProblem(res, 500, 'report.ai_exchange_failed', { detail: 'The AI Exchange aggregates could not be read.', ctx: req.ov });
+        }
     });
 
     r.get('/ai/:kind', async (req, res) => {

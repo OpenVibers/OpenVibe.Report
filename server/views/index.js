@@ -613,8 +613,84 @@ function aiModel({ model, summary }) {
     return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark jobs: ratings, games and cost.`, body, active: '/ai', path: modelPath(model), agent: true });
 }
 
+// ── The AI Exchange (plan G-P9): Billing's settlements, summed by day, model and access ────────────────────────
+// Money is integer nano-USD and stays exact: this formatter works in BigInt, never in floats, and the title carries
+// the exact nano-USD the authority sent.
+function usdNano(v) {
+    if (v == null) return '\u2014';
+    let n;
+    try { n = BigInt(String(v)); } catch { return '\u2014'; }
+    const neg = n < 0n;
+    const abs = neg ? -n : n;
+    const whole = abs / 1_000_000_000n;
+    const frac = (abs % 1_000_000_000n).toString().padStart(9, '0').replace(/0+$/, '');
+    const digits = frac.length < 2 ? `${frac}00`.slice(0, 2) : frac;
+    const group = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return `${neg ? '-' : ''}$${group}.${digits}`;
+}
+const nanoCell = (v) => (v == null ? '\u2014' : `<span title="${esc(String(v))} nano-USD from Billing">${esc(usdNano(v))}</span>`);
+
+function aiExchange({ range = {}, rows = [], daily = [], totals = {}, rejected = {} } = {}) {
+    const t = totals || {};
+    const tokens = t.tokens || {};
+    const tokenTotal = (n(tokens.input) || 0) + (n(tokens.cached_read) || 0) + (n(tokens.cache_write) || 0) + (n(tokens.output) || 0);
+    const rejectedCount = Number(rejected && rejected.count) || 0;
+    const tiles = `<div class="rp-tiles rp-tiles-sm">
+${tile('Settlements', exact(t.requests))}
+${tile('Sandbox', exact(t.sandbox_requests), 'not money')}
+${tile('Tokens', esc(bigNum(tokenTotal)))}
+${tile('Retail', esc(usdNano(t.retail_nano_usd)))}
+${tile('Shortfall', esc(usdNano(t.shortfall_nano_usd)), 'owed, not collected')}
+${tile('Supply', esc(usdNano(t.supply_nano_usd)))}
+${tile('Margin', esc(usdNano(t.margin_nano_usd)), 'retail minus supply')}
+${rejectedCount ? tile('Rejected', exact(rejectedCount), 'invalid payloads') : ''}
+</div>`;
+    const table = rows.length ? kit.table({
+        caption: 'By day, model and provider access',
+        columns: [
+            { key: 'day', label: 'Day', primary: true },
+            { key: 'model', label: 'Model' },
+            { key: 'access', label: 'Access' },
+            { key: 'requests', label: 'Requests', num: true, fmt: 'int' },
+            { key: 'sandbox_requests', label: 'Sandbox', num: true, fmt: 'int' },
+            { key: 'input', label: 'Input', num: true, fmt: 'int' },
+            { key: 'cached_read', label: 'Cache read', num: true, fmt: 'int' },
+            { key: 'cache_write', label: 'Cache write', num: true, fmt: 'int' },
+            { key: 'output', label: 'Output', num: true, fmt: 'int' },
+            { key: 'retail', label: 'Retail', num: true, html: true },
+            { key: 'shortfall', label: 'Shortfall', num: true, html: true },
+            { key: 'supply', label: 'Supply', num: true, html: true },
+            { key: 'margin', label: 'Margin', num: true, html: true },
+        ],
+        rows: rows.map((r) => ({
+            day: r.day, model: r.model, access: r.provider_access, requests: r.requests, sandbox_requests: r.sandbox_requests,
+            input: r.tokens.input, cached_read: r.tokens.cached_read, cache_write: r.tokens.cache_write, output: r.tokens.output,
+            retail: nanoCell(r.retail_nano_usd), shortfall: nanoCell(r.shortfall_nano_usd), supply: nanoCell(r.supply_nano_usd),
+            margin: nanoCell(r.margin_nano_usd),
+        })),
+    }) : `<p class="rp-fine">No settlements in this range. The table fills as Billing posts settlements; with ${esc('REPORT_AI_EXCHANGE')} off, nothing is consumed.</p>`;
+    const head = kit.head({ title: 'AI Exchange', sub: 'What Billing settled, by day, model and provider access', sticky: false });
+    const body = head
+        + `<p class="rp-lede">Aggregates only: no person, no project, no prompt. Report reads the authorities and never sets a rate, a price or a balance. Retail is what was collected, shortfall is what is owed but not collected, supply is what the route cost, and the margin is retail minus supply. Sandbox settlements are counted apart and are never money.</p>
+<p class="rp-fine">${esc(range.from || '')} to ${esc(range.to || '')}${range.days ? ` \u00b7 ${esc(range.days)} days` : ''}. Money is exact integer nano-USD from Billing; the exact amount is in each cell's title.</p>
+${tiles}
+${daily.length > 1 ? `<section aria-labelledby="rp-ex-chart"><h2 id="rp-ex-chart">Settlements a day</h2>${bars(daily.map((d) => ({ day: d.day, n: d.requests })), 'Settlements a day', { h: 110 })}</section>` : ''}
+<section aria-labelledby="rp-ex-table"><h2 id="rp-ex-table">The daily table</h2>${table}</section>
+<p class="rp-meta"><a href="/api/v1/ai/exchange">As JSON</a></p>`;
+    return layout({ title: 'AI Exchange analytics', description: 'Billing settlements aggregated by day, model and provider access.', robots: 'noindex, nofollow', body, active: '/ai', path: '/ai/exchange' });
+}
+
+/** The page a person sees when the staff gate refuses them: signed out asks for a sign-in, signed in says why. */
+function staffOnly({ signedIn = false } = {}) {
+    const text = signedIn
+        ? 'Your OpenVibe.Network account does not hold staff.site.view. This page reads the network\'s AI Exchange analytics; ask an admin if you need it.'
+        : 'This page is for OpenVibe.Network staff. Sign in with an account that holds staff.site.view.';
+    const action = signedIn ? '' : '<p class="rp-meta"><a href="/auth/login?next=/ai/exchange">Sign in</a></p>';
+    return layout({ title: 'Staff only', description: 'Staff only.', robots: 'noindex, nofollow', body: `<header class="rp-page-h"><p class="rp-kicker">OpenVibe.Report</p><h1>Staff only</h1><p class="rp-lede">${esc(text)}</p>${action}</header>` });
+}
+
 function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { home, stats, rundown, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
