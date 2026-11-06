@@ -53,7 +53,7 @@ function body(over = {}) {
             assert.ok(text.includes('Done'), 'the outcome is a status chip');
             assert.ok(text.includes('worked 42 min'), 'how long it worked');
             assert.ok(text.includes('$0.31'), 'what it cost');
-            assert.ok(text.includes('12 passed, 0 failed'), 'the tests');
+            assert.ok(text.includes('12 of 12 tests passing') && text.includes('rp-proof-tests is-ok'), 'the tests, as one chip');
             assert.ok(text.includes('med_01JAN2C3D4E5F6G7H8J9K0MNPS'), 'the screenshots');
             assert.ok(text.includes('Looks good'), 'the review in one line');
             assert.ok(text.includes('The notes'), 'the notes are folded');

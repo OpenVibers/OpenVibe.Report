@@ -370,16 +370,18 @@ function sessionReport({ report: rep, signedIn = false } = {}) {
     if (!rep) return notFound();
     const out = reportOutcome(rep);
     const proof = rep.proof || {};
-    const tests = proof.tests ? proof.tests.passed + ' passed, ' + proof.tests.failed + ' failed' : '';
+    const total = proof.tests ? (Number(proof.tests.passed) || 0) + (Number(proof.tests.failed) || 0) : 0;
+    const tests = proof.tests ? (Number(proof.tests.passed) || 0) + ' of ' + total + ' tests passing' : '';
+    const testsOk = proof.tests ? !(Number(proof.tests.failed) > 0) : false;
     const shots = proof.screenshots || [];
     const watch = (rep.outputs || []).filter((o) => o.kind === 'vod' || o.kind === 'clip');
     const made = (rep.outputs || []).filter((o) => o.kind !== 'vod' && o.kind !== 'clip');
     const steps = rep.timeline || [];
     let body = '<header class="rp-page-h"><p class="rp-kicker">Session report · ' + esc(rep.source) + '</p><h1>'
-        + esc(rep.task.title) + '</h1><p class="rp-meta"><span class="rp-kind ' + out.cls + '">' + esc(out.label)
-        + '</span> · ' + AI + ' · worked ' + esc(worked(rep))
-        + (rep.cost_usd != null ? ' · $' + esc(String(rep.cost_usd)) : '')
-        + (rep.models && rep.models.length ? ' · ' + esc(rep.models.join(', ')) : '') + '</p></header>';
+        + esc(rep.task.title) + '</h1><p class="rp-sr-meta"><span class="rp-kind ' + out.cls + '">' + esc(out.label)
+        + '</span>' + AI + '<span>worked ' + esc(worked(rep)) + '</span>'
+        + (rep.cost_usd != null ? '<span>$' + esc(String(rep.cost_usd)) + '</span>' : '')
+        + (rep.models && rep.models.length ? '<span>' + esc(rep.models.join(', ')) + '</span>' : '') + '</p></header>';
     body += '<section aria-labelledby="rp-sum-h"><h2 id="rp-sum-h">What was asked</h2><p class="rp-lede">'
         + esc(rep.summary) + '</p>'
         + '</section>';
@@ -389,25 +391,27 @@ function sessionReport({ report: rep, signedIn = false } = {}) {
                 + (o.state ? ' (' + esc(o.state) + ')' : '') + '</a></li>').join('') + '</ul></section>';
     }
     body += '<section aria-labelledby="rp-pr-h"><h2 id="rp-pr-h">The proof</h2>'
-        + (tests ? '<p class="rp-meta">Tests: ' + esc(tests) + '</p>' : '')
-        + (shots.length ? '<ul class="rp-chips">' + shots.map((s) => {
+        + (tests ? '<p class="rp-proof-tests ' + (testsOk ? 'is-ok' : 'is-bad') + '">' + esc(tests) + '</p>' : '')
+        + (shots.length ? '<ul class="rp-shots" aria-label="Screenshots">' + shots.map((s, i) => {
             const u = shotURL(s);
-            return u
-                ? '<li><img src="' + esc(u) + '" alt="A screenshot of the work" width="160" loading="lazy" decoding="async" style="display:block;max-width:100%;height:auto"></li>'
-                : '<li>' + esc(s) + '</li>';
+            return u ? '<li><a href="' + esc(u) + '"><img src="' + esc(u) + '" alt="Screenshot ' + (i + 1) + '" width="200" height="125" loading="lazy" decoding="async"></a></li>' : '';
         }).join('') + '</ul>' : '')
-        + (proof.review ? '<p class="rp-summary"><b>' + esc(proof.review.verdict) + '</b>'
+        + (proof.review ? '<div class="rp-review"><p><b>Review:</b> ' + esc(proof.review.verdict) + '</p>'
             + (proof.review.notes ? '<details class="rp-fold"><summary>The notes</summary><p>' + esc(proof.review.notes) + '</p></details>' : '')
-            + '</p>' : '')
+            + '</div>' : '')
         + (!tests && !shots.length && !proof.review ? '<p class="rp-meta">No proof was recorded for this session.</p>' : '')
         + '</section>';
     if (steps.length || rep.stopped_because) {
         body += '<section aria-labelledby="rp-tl-h"><h2 id="rp-tl-h">How it went</h2>'
             + (rep.stopped_because ? '<p class="rp-summary">It stopped: ' + esc(rep.stopped_because) + '</p>' : '')
-            + '<ol class="rp-takes">'
-            + steps.map((s) => '<li><b>' + esc(s.title) + '</b>' + (s.detail ? '<span style="display:block">' + esc(s.detail) + '</span>' : '')
-                + '<span class="rp-meta">' + esc(s.status)
-                + (s.tests ? ' · ' + s.tests.passed + ' passed, ' + s.tests.failed + ' failed' : '') + '</span></li>').join('')
+            + '<ol class="rp-steps">'
+            + steps.map((s) => {
+                const st = ['passed', 'failed', 'skipped', 'started'].includes(s.status) ? s.status : 'started';
+                return '<li class="is-' + st + '"><span class="rp-step-dot" aria-hidden="true"></span><div><p><b>' + esc(s.title) + '</b> <span class="rp-step-st">'
+                    + esc(st === 'started' ? 'running' : st)
+                    + (s.tests ? ' · ' + (Number(s.tests.passed) || 0) + ' of ' + ((Number(s.tests.passed) || 0) + (Number(s.tests.failed) || 0)) + ' passing' : '') + '</span></p>'
+                    + (s.detail ? '<p class="rp-step-detail">' + esc(s.detail) + '</p>' : '') + '</div></li>';
+            }).join('')
             + '</ol></section>';
     }
     if (watch.length) {

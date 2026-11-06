@@ -353,3 +353,22 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
   .rp-fold-block > summary + * { margin-top: 0 !important; padding-top: 4px !important; }
   .rp-fold-block[open] { padding-bottom: 12px; }
 }
+/* Session reports (S3): one wrapping meta row, the tests as a chip, screenshots as a strip, steps with status dots. */
+.rp-sr-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 6px 0 0; color: var(--text-secondary, #9aa4b2); font-size: .9rem; }
+.rp-proof-tests { display: inline-flex; margin: 0 0 12px; padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
+.rp-proof-tests.is-ok { background: color-mix(in srgb, #22c55e 16%, transparent); color: #4ade80; }
+.rp-proof-tests.is-bad { background: color-mix(in srgb, #ef4444 16%, transparent); color: #f87171; }
+.rp-shots { list-style: none; margin: 0 0 12px; padding: 0 0 4px; display: flex; gap: 10px; overflow-x: auto; position: relative; }
+.rp-shots img { display: block; width: 200px; height: 125px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border, #233047); background: var(--bg-card, #111827); }
+.rp-review p { margin: 0 0 6px; }
+.rp-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.rp-steps li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-left: 2px solid var(--border, #233047); margin-left: 6px; padding-left: 0; }
+.rp-steps li > div { min-width: 0; }
+.rp-steps p { margin: 0; overflow-wrap: anywhere; }
+.rp-step-dot { width: 10px; height: 10px; margin: 6px 0 0 -6px; border-radius: 999px; background: #3b82f6; box-shadow: 0 0 0 3px var(--bg-primary, #0b1220); }
+.rp-steps li.is-passed .rp-step-dot { background: #22c55e; }
+.rp-steps li.is-failed .rp-step-dot { background: #ef4444; }
+.rp-steps li.is-skipped .rp-step-dot { background: #6b7280; }
+.rp-step-st { color: var(--text-secondary, #9aa4b2); font-size: .82rem; font-weight: 500; }
+.rp-steps li.is-failed .rp-step-st { color: #f87171; }
+.rp-step-detail { color: var(--text-secondary, #9aa4b2); font-size: .9rem; }
