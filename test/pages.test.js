@@ -32,6 +32,21 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             });
         }
 
+        await check('the CSP allows the Live and Community thumbnails on the pages that show them', async () => {
+            for (const path of ['/', '/rundown']) {
+                const r = await t.get(path);
+                const csp = r.headers.get('content-security-policy') || '';
+                const imgSrc = csp.split(';').map((directive) => directive.trim()).find((directive) => directive.startsWith('img-src '));
+                assert.ok(imgSrc, `${path}: no img-src directive`);
+                const origins = imgSrc.split(/\s+/).slice(1);
+                for (const origin of ['https://openvibe.live', 'https://openvibe.community']) {
+                    assert.ok(origins.includes(origin), `${path}: img-src does not allow ${origin}`);
+                }
+                // The fix names those two origins; it does not open img-src to every https origin.
+                assert.ok(!origins.some((origin) => origin === '*' || origin === 'https:'), `${path}: img-src is wider than the two origins`);
+            }
+        });
+
         await check('the home has WebSite and Organization JSON-LD', async () => {
             const r = await t.get('/');
             const ld = [...r.text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).flatMap((b) => b['@graph'] || [b]);
