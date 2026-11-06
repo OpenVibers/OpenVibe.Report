@@ -44,6 +44,14 @@ function createApi({ network, live, analytics = null, aiUsage = null, aiExchange
         return next();
     });
 
+    // The session-report routes are the one place where the answer depends on who is asking, so they may not sit
+    // under the public default above: signed in is always private, no-store (the same rule the page keeps), and only
+    // a signed-out reader's copy of an Everyone report is the shared cache's.
+    r.use(['/session-reports', '/session-reports/:id'], (req, res, next) => {
+        res.set('Cache-Control', req.user ? 'private, no-store' : CACHE);
+        next();
+    });
+
     // The personal routes: private and never cached, even when they refuse the caller, and their own limit.
     const personalLimit = rateLimit({
         windowMs: 60_000,

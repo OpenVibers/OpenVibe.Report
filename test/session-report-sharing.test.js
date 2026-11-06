@@ -126,16 +126,20 @@ function identityNetwork() {
             assert.ok(page.text.includes('Only you can open this report'), 'the owner sees the audience');
         });
 
-        await check('Everyone: the page and the API open for all four viewers, cached and indexed', async () => {
+        await check('Everyone: the page and the API open for all four viewers, cached only for a signed-out reader', async () => {
             const id = await write({ task: { title: 'Everyone one', ref: 'tsk_everyone' }, visibility: 'public' });
             assert.strictEqual(await audienceOf(id), 'public');
             for (const [who, headers] of [['owner', cookie(asOwner)], ['friend', cookie(asFriend)], ['stranger', cookie(asStranger)], ['signed out', {}]]) {
                 const page = await t.get('/s/' + id, { headers });
                 assert.strictEqual(page.status, 200, `the page opens for the ${who}`);
-                assert.strictEqual(page.headers.get('cache-control'), 'public, max-age=120', `the ${who} page is public`);
+                // Only the signed-out copy may enter a shared cache: a signed-in page carries that reader's own parts,
+                // and Cloudflare on our zones ignores Vary and Authorization.
+                const expected = who === 'signed out' ? 'public, max-age=120' : 'private, no-store';
+                assert.strictEqual(page.headers.get('cache-control'), expected, `the ${who} page's cache policy`);
                 assert.match(page.text, /<meta name="robots" content="index, follow">/);
                 const api = await t.get('/api/v1/session-reports/' + id, { headers });
                 assert.strictEqual(api.status, 200, `the API answers the ${who}`);
+                assert.strictEqual(api.headers.get('cache-control'), expected, `the ${who} API answer's cache policy`);
                 assert.strictEqual(api.json().audience, 'public');
             }
             const ownerPage = await t.get('/s/' + id, { headers: cookie(asOwner) });
@@ -144,6 +148,40 @@ function identityNetwork() {
             const strangerPage = await t.get('/s/' + id, { headers: cookie(asStranger) });
             assert.ok(strangerPage.text.includes(`data-url="https://openvibe.report/s/${id}"`), 'everyone else gets the link part of the sheet');
             assert.ok(!strangerPage.text.includes('data-kind="session-report"'), 'and never the access part');
+        });
+
+        await check('a shared cache never receives the owner\'s copy of a public report', async () => {
+            const id = await write({ task: { title: 'Shared with a few', ref: 'tsk_shared_cache' }, visibility: 'public' });
+            await setShare(id, { audience: 'people', members: [{ name: 'friend', role: 'viewer' }] });
+            await setShare(id, { audience: 'public' });
+            const friend = await db.maybe('SELECT subject FROM share_members WHERE resource_id = $1', [id]);
+            const friendId = friend && friend.subject && friend.subject.id;
+            assert.strictEqual(friendId, FRIEND, 'the report is shared with someone, so the owner\'s page has a list to leak');
+
+            // The owner's page names the Share sheet's kind and id and says who else may open it: a shared cache must
+            // never store it, whatever header the reader's own browser would accept.
+            const ownerPage = await t.get('/s/' + id, { headers: cookie(asOwner) });
+            assert.strictEqual(ownerPage.status, 200);
+            assert.strictEqual(ownerPage.headers.get('cache-control'), 'private, no-store', 'the owner\'s page is private, no-store');
+            assert.ok(ownerPage.text.includes('data-kind="session-report"') && ownerPage.text.includes(`data-id="${id}"`));
+            assert.ok(ownerPage.text.includes('Everyone can open this report'));
+
+            // The signed-out copy is the only one a shared cache may keep, and it carries none of that.
+            const anon = await t.get('/s/' + id);
+            assert.strictEqual(anon.status, 200);
+            assert.strictEqual(anon.headers.get('cache-control'), 'public, max-age=120', 'a signed-out reader\'s copy is the cacheable one');
+            assert.ok(!anon.text.includes('data-kind="session-report"'), 'no access sheet for a signed-out reader');
+            assert.ok(!anon.text.includes(`data-id="${id}"`), 'and never the owner\'s report id as a sheet target');
+            assert.ok(!/can open this report/.test(anon.text), 'no audience line, so no member count');
+            assert.ok(!anon.text.includes(FRIEND), 'and no member id anywhere in the page');
+            assert.ok(!/You and \d+ other/.test(anon.text) && !/You and \d+ people/.test(anon.text), 'and no "You and N" line');
+            // The signed-in reader who is not the owner gets their own private copy too: the page is never the owner's.
+            assert.strictEqual((await t.get('/s/' + id, { headers: cookie(asStranger) })).headers.get('cache-control'), 'private, no-store');
+            // The list and the owner's own page are private as well.
+            assert.strictEqual((await t.get('/api/v1/session-reports', { headers: cookie(asOwner) })).headers.get('cache-control'), 'private, no-store');
+            assert.strictEqual((await t.get('/api/v1/session-reports')).headers.get('cache-control'), 'public, max-age=120', 'a signed-out list is the public one');
+            assert.strictEqual((await t.get('/you', { headers: cookie(asOwner) })).headers.get('cache-control'), 'private, no-store');
+            assert.strictEqual((await t.get('/rundown')).headers.get('cache-control'), 'public, max-age=120', 'the Rundown carries only public cards, so it stays cacheable');
         });
 
         await check('Anyone with the link: opens for all four, never listed, cached private and not indexed', async () => {

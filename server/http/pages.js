@@ -173,8 +173,11 @@ function createPageRoutes(ctx) {
         const audience = await sharing.audienceOf(rep);
         const isOwner = Boolean(viewer && viewer.subject.id === rep.owner);
         const members = isOwner ? await sharing.memberSubjects(rep.id) : [];
-        // A report the reader may open but nobody else should find: never indexed, never cached in a shared cache.
-        const cacheControl = audience === 'public' ? CACHE : 'private, no-store';
+        // Only a signed-out visitor's copy of a public report may be stored by a shared cache. A signed-in reader's
+        // page carries their own parts — above all the owner's, which names the Share sheet's kind and id and the
+        // people the report is shared with — and Cloudflare on our zones does not honour Vary or Authorization, so a
+        // public header there could hand the owner's page to the next visitor. Signed in is always private, no-store.
+        const cacheControl = audience === 'public' && !viewer ? CACHE : 'private, no-store';
         return send(req, res, views.sessionReport({ report: rep, signedIn: Boolean(viewer), isOwner, audience, members }), 200, cacheControl);
     });
 
