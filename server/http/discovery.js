@@ -32,7 +32,7 @@ function siteUpdated() {
     }
 }
 
-function createDiscoveryRoutes({ config, live, bench }) {
+function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
     const r = express.Router();
     const site = String(config.baseUrl || 'https://openvibe.report').replace(/\/+$/, '');
     const abs = (p) => `${site}${p}`;
@@ -46,7 +46,7 @@ function createDiscoveryRoutes({ config, live, bench }) {
     });
 
     r.get('/sitemap.xml', async (_req, res) => {
-        const [data, ai] = await Promise.all([live.topics(), bench.kinds()]);
+        const [data, ai, reports] = await Promise.all([live.topics(), bench.kinds(), sessionReports ? sessionReports.listPublic({ limit: 500 }) : []]);
         const topics = (data && Array.isArray(data.topics)) ? data.topics : [];
         const kinds = (ai && Array.isArray(ai.data.kinds)) ? ai.data.kinds : [];
         const lastmod = siteUpdated();
@@ -56,6 +56,7 @@ function createDiscoveryRoutes({ config, live, bench }) {
             { loc: abs('/design'), changefreq: 'weekly', priority: 0.6 },
             { loc: abs('/rundown'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/ai'), changefreq: 'daily', priority: 0.9 },
+            ...reports.map((rep) => ({ loc: abs('/s/' + encodeURIComponent(rep.id)), changefreq: 'daily', priority: 0.6 })),
             ...kinds.filter((k) => k && bench.isKindId(k.id)).map((k) => ({
                 loc: abs(`/ai/${encodeURIComponent(k.id)}`), changefreq: 'daily', priority: 0.7,
             })),

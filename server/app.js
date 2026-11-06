@@ -36,6 +36,8 @@ const { createAiUsage } = require('./analytics/ai-usage');
 const { createAiExchange } = require('./analytics/ai-exchange');
 const createAiExchangeConfig = require('./ai-exchange-config').create;
 const { createSearchIndex } = require('./search-index');
+const { createSessionReports } = require('./session-reports');
+const { createSessionReportRoutes } = require('./http/session-reports');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
 const { createPageRoutes, createPublicPages } = require('./http/pages');
@@ -72,8 +74,10 @@ async function createApp(opts = {}) {
     // AI Exchange analytics (G-P9, flag off): Billing's settlements, aggregated. No database, no ledger.
     const aiExchange = opts.aiExchange !== undefined ? opts.aiExchange : (store ? createAiExchange({ store, now, log }) : null);
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
+    // The report of every agent session (Agent Streams S3): one table, one route, one page.
+    const sessionReports = opts.sessionReports || (store ? createSessionReports({ store, config, log }) : null);
     // The Rundown topic pages in OpenVibe.Search (started by server/index.js, never under REPORT_DRILL).
-    const searchIndex = opts.searchIndex || (store ? createSearchIndex({ config, store, live, log }) : null);
+    const searchIndex = opts.searchIndex || (store ? createSearchIndex({ config, store, live, sessionReports, log }) : null);
     views.configure({ baseUrl: config.baseUrl });
 
     // A person's sign-in (the `report` client, the same id and secret Report already reads Billing with).
@@ -83,7 +87,7 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports };
     const app = express();
     if (exchangeConfig) exchangeConfig.mount(app);
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts
@@ -183,6 +187,9 @@ async function createApp(opts = {}) {
     // ── Sign-in (/auth/login, /callback, /fedcm, /logout, /me, /refresh); req.user on every later route ──
     app.use('/auth', sso.router(express));
     app.use(sso.optionalAuth());
+
+    // ── The door for the first-party services that ran an agent session (Codes, Actor, Live) ──
+    if (sessionReports) app.use('/internal', createSessionReportRoutes({ config, sessionReports, log, verify: opts.verifyServiceToken }));
 
     // ── Loopback-only operator and Events routes ────────────
     app.use('/internal', createInternalRoutes({ analytics, shadow, config, now, log }));

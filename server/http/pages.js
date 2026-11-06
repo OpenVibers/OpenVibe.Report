@@ -29,7 +29,7 @@ const designHealth = require('../data/design-health');
 const CACHE = 'public, max-age=120';
 
 /** The pages the agent layer twins: their data, then the view. Each returns { html } or null (nothing to show). */
-function createPublicPages({ network, live, bench, analytics = null }) {
+function createPublicPages({ sessionReports, network, live, bench, analytics = null }) {
     const numbers = (days) => (analytics ? analytics.stats(days) : network.stats(days));
 
     async function home() {
@@ -72,15 +72,18 @@ function createPublicPages({ network, live, bench, analytics = null }) {
     function design() { return { html: designViews.designHealth(designHealth.all()) }; }
 
     async function rundown() {
-        const [r, topics] = await Promise.all([live.rundown(), live.topics()]);
-        return { html: views.rundown({ rundown: r, topics }) };
+        const [r, topics, reports] = await Promise.all([
+            live.rundown(), live.topics(),
+            sessionReports ? sessionReports.listPublicToday({ limit: 24 }) : [],
+        ]);
+        return { html: views.rundown({ rundown: r, topics, reports }) };
     }
 
     return { home, stats, developers, design, rundown, aiIndex, aiBoard, aiModel };
 }
 
 function createPageRoutes(ctx) {
-    const { live, bench } = ctx;
+    const { live, bench, sessionReports } = ctx;
     const r = express.Router();
     const publicPages = ctx.publicPages || createPublicPages(ctx);
     // A path ending in .md is a Markdown twin (server/agent-pages.js), never a page parameter.
@@ -149,9 +152,23 @@ function createPageRoutes(ctx) {
     });
 
     r.get('/rundown', async (req, res) => {
-        const [rundown, topics] = await Promise.all([live.rundown(), live.topics()]);
+        const [rundown, topics, reports] = await Promise.all([
+            live.rundown(), live.topics(),
+            sessionReports ? sessionReports.listPublicToday({ limit: 24 }) : [],
+        ]);
         if (!rundown || !topics) return notFound(req, res);
-        return send(req, res, views.rundown({ rundown, topics }));
+        return send(req, res, views.rundown({ rundown, topics, reports }));
+    });
+
+    // One agent session's report (Agent Streams S3). A private report is the owner's alone, an unlisted one opens
+    // for anyone with the link, a public one opens for everyone.
+    r.get('/s/:id', async (req, res) => {
+        const id = String(req.params.id || '');
+        const rep = sessionReports ? await sessionReports.get(id) : null;
+        if (!rep) return notFound(req, res);
+        const viewer = req.user ? String(req.user.sub || req.user.id || '') : '';
+        if (rep.visibility === 'private' && viewer !== rep.owner) return notFound(req, res);
+        return send(req, res, views.sessionReport({ report: rep, signedIn: Boolean(viewer) }));
     });
 
     r.get('/rundown/t/:slug', async (req, res) => {
