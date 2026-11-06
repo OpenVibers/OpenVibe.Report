@@ -303,7 +303,7 @@ ${A && A.daily && A.daily.length > 1 ? `<section aria-labelledby="rp-acc-h"><h2 
     return layout({ title: `Every site's numbers, ${days} days`, description: 'Page views, people, streams and how fast each OpenVibe service answers, open to everyone.', body, active: '/stats', path: `/stats${Number(days) === 30 ? '' : `?days=${Number(days)}`}`, agent: true });
 }
 
-function rundown({ rundown: R = {}, topics } = {}) {
+function rundown({ rundown: R = {}, topics, reports } = {}) {
     const all = ((topics && topics.topics) || []).slice(0, 24);
     const onAir = (R.on_air || []).map(streamCard).filter(Boolean);
     const voices = (R.voices || []).slice(0, 12);
@@ -315,8 +315,102 @@ ${onAir.length ? kit.rail({ id: 'on-air', title: 'On air now', items: onAir }) :
 ${R.lead ? `<section class="rp-lead" aria-labelledby="rp-lead-h"><p class="rp-kicker">Lead</p><h2 id="rp-lead-h">${esc(R.lead.title)}</h2>${R.lead.what ? `<p class="rp-lead-what">${esc(R.lead.what)}</p>` : ''}${R.lead.take ? `<p class="rp-lead-take">${esc(R.lead.take)}</p>` : ''}</section>` : ''}
 ${all.length ? `<section aria-labelledby="rp-t-h"><h2 id="rp-t-h">Topics</h2><ul class="rp-topics">${all.map(topicCard).join('')}</ul></section>` : ''}
 ${voices.length ? `<section aria-labelledby="rp-v-h"><h2 id="rp-v-h">Voices</h2><ul class="rp-voices">${voices.map((v) => `<li><a href="/rundown/s/${encodeURIComponent((v.user || {}).username || '')}">${kit.mark({ name: who(v.user), src: v.user && v.user.avatar_url, size: 40 })}<span><b>${esc(who(v.user))}</b><small>${[n(v.topics) ? `${exact(v.topics)} topic${Number(v.topics) === 1 ? '' : 's'}` : '', n(v.segments) ? `${exact(v.segments)} take${Number(v.segments) === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</small></span></a></li>`).join('')}</ul></section>` : ''}
-${streams.length ? kit.rail({ id: 'episodes', title: 'Recent streams', items: streams }) : ''}`;
+${streams.length ? kit.rail({ id: 'episodes', title: 'Recent streams', items: streams }) : ''}
+${reports && reports.length ? reportsSection(reports) : ''}`;
     return layout({ title: 'The Rundown: what streamers talked about', description: 'Topics, takes and crossovers from what streamers said on OpenVibe, written up by AI from the streams themselves.', body, active: '/rundown', path: '/rundown' });
+}
+
+
+// Agent Streams S3: the report of one agent session (report.session@1). Seven parts, in the order a reader wants
+// them: what it was and how it ended, what was asked, what came out, the proof, the steps, what to watch, what to do.
+function reportOutcome(rep) {
+    if (rep.outcome === 'done') return { label: 'Done', cls: 'is-done' };
+    if (rep.outcome === 'failed') return { label: 'Failed', cls: 'is-failed' };
+    return { label: 'Stopped', cls: 'is-stopped' };
+}
+
+function worked(rep) {
+    const m = Math.round((Number(rep.worked_seconds) || 0) / 60);
+    if (!m) return 'under a minute';
+    if (m < 60) return m + ' min';
+    const h = Math.floor(m / 60);
+    return h + ' h ' + (m % 60) + ' min';
+}
+
+function reportCard(rep) {
+    const out = reportOutcome(rep);
+    return '<li class="rp-report"><a href="/s/' + encodeURIComponent(rep.id) + '"><span class="rp-kind">' + esc(out.label)
+        + '</span><b>' + esc(rep.task.title) + '</b><span class="rp-report-s">' + esc(rep.summary) + '</span>'
+        + '<span class="rp-meta">' + AI + ' · ' + esc(worked(rep))
+        + (rep.cost_usd != null ? ' · $' + esc(String(rep.cost_usd)) : '') + '</span></a></li>';
+}
+
+// The Rundown's new section: what agents built today. The fold is counted ("More (N)"), never a silent cut.
+function reportsSection(reports) {
+    const all = (reports || []).slice(0, 24);
+    const shown = all.slice(0, 8);
+    const rest = all.slice(8);
+    return '<section aria-labelledby="rp-ag-h"><div class="rp-head-row"><h2 id="rp-ag-h">What agents built today</h2>'
+        + '<span class="rp-counts"><b>' + exact(all.length) + '</b> report' + (all.length === 1 ? '' : 's') + '</span></div>'
+        + '<ul class="rp-topics">' + shown.map(reportCard).join('') + '</ul>'
+        + (rest.length ? '<details class="rp-fold"><summary>More (' + exact(rest.length) + ')</summary><ul class="rp-topics">'
+            + rest.map(reportCard).join('') + '</ul></details>' : '')
+        + '</section>';
+}
+
+function sessionReport({ report: rep, signedIn = false } = {}) {
+    if (!rep) return notFound();
+    const out = reportOutcome(rep);
+    const proof = rep.proof || {};
+    const tests = proof.tests ? proof.tests.passed + ' passed, ' + proof.tests.failed + ' failed' : '';
+    const shots = proof.screenshots || [];
+    const watch = (rep.outputs || []).filter((o) => o.kind === 'vod' || o.kind === 'clip');
+    const made = (rep.outputs || []).filter((o) => o.kind !== 'vod' && o.kind !== 'clip');
+    const steps = rep.timeline || [];
+    let body = '<header class="rp-page-h"><p class="rp-kicker">Session report · ' + esc(rep.source) + '</p><h1>'
+        + esc(rep.task.title) + '</h1><p class="rp-meta"><span class="rp-kind ' + out.cls + '">' + esc(out.label)
+        + '</span> · ' + AI + ' · worked ' + esc(worked(rep))
+        + (rep.cost_usd != null ? ' · $' + esc(String(rep.cost_usd)) : '')
+        + (rep.models && rep.models.length ? ' · ' + esc(rep.models.join(', ')) : '') + '</p></header>';
+    body += '<section aria-labelledby="rp-sum-h"><h2 id="rp-sum-h">What was asked</h2><p class="rp-lede">'
+        + esc(rep.summary) + '</p>'
+        + (rep.stopped_because ? '<p class="rp-summary">It stopped: ' + esc(rep.stopped_because) + '</p>' : '') + '</section>';
+    if (made.length) {
+        body += '<section aria-labelledby="rp-out-h"><h2 id="rp-out-h">What came out</h2><ul class="rp-chips">'
+            + made.map((o) => '<li><a href="' + (o.url ? esc(o.url) : '#') + '">' + esc(o.title)
+                + (o.state ? ' (' + esc(o.state) + ')' : '') + '</a></li>').join('') + '</ul></section>';
+    }
+    body += '<section aria-labelledby="rp-pr-h"><h2 id="rp-pr-h">The proof</h2>'
+        + (tests ? '<p class="rp-meta">Tests: ' + esc(tests) + '</p>' : '')
+        + (shots.length ? '<ul class="rp-chips">' + shots.map((s) => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '')
+        + (proof.review ? '<p class="rp-summary"><b>' + esc(proof.review.verdict) + '</b>'
+            + (proof.review.notes ? '<details class="rp-fold"><summary>The notes</summary><p>' + esc(proof.review.notes) + '</p></details>' : '')
+            + '</p>' : '')
+        + (!tests && !shots.length && !proof.review ? '<p class="rp-meta">No proof was recorded for this session.</p>' : '')
+        + '</section>';
+    if (steps.length) {
+        body += '<section aria-labelledby="rp-tl-h"><h2 id="rp-tl-h">The steps</h2><ol class="rp-takes">'
+            + steps.map((s) => '<li><b>' + esc(s.title) + '</b>' + (s.detail ? '<span>' + esc(s.detail) + '</span>' : '')
+                + '<span class="rp-meta">' + esc(s.status)
+                + (s.tests ? ' · ' + s.tests.passed + ' passed, ' + s.tests.failed + ' failed' : '') + '</span></li>').join('')
+            + '</ol></section>';
+    }
+    if (watch.length) {
+        body += '<section aria-labelledby="rp-wa-h"><h2 id="rp-wa-h">Watch</h2><ul class="rp-chips">'
+            + watch.map((o) => '<li><a href="' + (o.url ? esc(o.url) : '#') + '">' + esc(o.title) + '</a></li>').join('')
+            + '</ul></section>';
+    }
+    body += '<section aria-labelledby="rp-ac-h"><h2 id="rp-ac-h">What to do</h2><p class="rp-act">'
+        + '<a class="rp-btn" href="/s/' + encodeURIComponent(rep.id) + '">Share this report</a>'
+        + (signedIn ? ' <a class="rp-btn is-quiet" href="https://openvibe.codes/t/new?from=' + encodeURIComponent(rep.id) + '">Do this again</a>' : '')
+        + '</p></section>';
+    return layout({
+        title: rep.task.title + ': the session report',
+        description: rep.summary,
+        body,
+        active: '/rundown',
+        path: '/s/' + rep.id,
+    });
 }
 
 function topic({ topic: d } = {}) {
@@ -693,4 +787,4 @@ function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { home, stats, rundown, sessionReport, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };

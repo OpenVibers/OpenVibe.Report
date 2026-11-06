@@ -53,7 +53,23 @@ function describeTopic(t) {
     };
 }
 
-function createSearchIndex({ config, store, live, log = console, outbox = null }) {
+/** One session report -> what its Report page says, as search-feed's document description. */
+function describeSession(rep) {
+    const outputs = (rep.outputs || []).map((o) => o.title).filter(Boolean);
+    return {
+        listed: true,
+        noindex: false,
+        title: rep.task.title + ': the session report',
+        summary: rep.summary,
+        body: [rep.summary, outputs.length ? 'What came out: ' + outputs.join(', ') + '.' : ''].filter(Boolean).join('\n'),
+        facets: { source: rep.source, outcome: rep.outcome },
+        authorship: { mode: 'ai' },
+        publishedAt: rep.created_at || null,
+        updatedAt: rep.created_at || null,
+    };
+}
+
+function createSearchIndex({ config, store, live, sessionReports = null, log = console, outbox = null }) {
     const db = store.db;
     const out = outbox || createServiceOutbox({
         db, source: 'report', eventsUrl: (config.events && config.events.url) || null, networkInternalUrl: config.networkInternalUrl,
@@ -73,6 +89,18 @@ function createSearchIndex({ config, store, live, log = console, outbox = null }
     const feed = createSearchFeed({
         owner: 'report', db, outbox: out, baseUrl: config.baseUrl, now: store.now, log,
         types: {
+            // The public session reports (Agent Streams S3). Only the public ones: a private or unlisted report is
+            // never in a search index.
+            session: {
+                page: (row) => '/s/' + row.id,
+                document: describeSession,
+                rows: async (after, limit) => (sessionReports ? await sessionReports.listPublic({ limit: 500 }) : [])
+                    .filter((r) => r.id > String(after || '')).slice(0, limit),
+                exists: async (ids) => {
+                    const have = new Set((sessionReports ? await sessionReports.listPublic({ limit: 500 }) : []).map((r) => r.id));
+                    return ids.filter((id) => have.has(id));
+                },
+            },
             topic: {
                 page: (row) => `/rundown/t/${row.id}`,
                 document: describeTopic,
@@ -111,4 +139,4 @@ function createSearchIndex({ config, store, live, log = console, outbox = null }
     return { feed, outbox: out, sweep, start, stop, status: () => out.status() };
 }
 
-module.exports = { createSearchIndex, describeTopic, EVENT_TYPES };
+module.exports = { createSearchIndex, describeTopic, describeSession, EVENT_TYPES };

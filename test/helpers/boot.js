@@ -171,6 +171,7 @@ async function boot(opts = {}) {
         sso: opts.sso,
         shadow: opts.shadow,
         ...(opts.aiUsage ? { aiUsage: opts.aiUsage } : {}),
+        ...(opts.verifyServiceToken ? { verifyServiceToken: opts.verifyServiceToken } : {}),
         releaseEnv: { ...process.env, RELEASE_COMMIT: '0000000' },
     });
     const server = await new Promise((resolve) => {
