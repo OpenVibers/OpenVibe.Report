@@ -366,7 +366,7 @@ function reportsSection(reports) {
         + '</section>';
 }
 
-function sessionReport({ report: rep, signedIn = false } = {}) {
+function sessionReport({ report: rep, signedIn = false, isOwner = false, audience = 'private', members = [] } = {}) {
     if (!rep) return notFound();
     const out = reportOutcome(rep);
     const proof = rep.proof || {};
@@ -419,17 +419,35 @@ function sessionReport({ report: rep, signedIn = false } = {}) {
             + watch.map((o) => '<li><a href="' + (o.url ? esc(o.url) : '#') + '">' + esc(o.title) + '</a></li>').join('')
             + '</ul></section>';
     }
+    // The one sheet (openvibe-shared/ov-share.js, loaded on the first press). For the owner, "Who can open it" is the
+    // access part, which calls the SDK's router at /api/v1/session-report/<id>/share; everyone else just sends the link.
+    const shareButton = '<button type="button" class="rp-btn" data-ov-share-sheet data-title="' + esc(rep.task.title) + '"'
+        + (isOwner ? ' data-kind="session-report" data-id="' + esc(rep.id) + '"'
+            : ' data-url="' + esc(canon('/s/' + rep.id)) + '"') + '>Share</button>';
     body += '<section aria-labelledby="rp-ac-h"><h2 id="rp-ac-h">What to do</h2><p class="rp-act">'
-        + '<a class="rp-btn" href="/s/' + encodeURIComponent(rep.id) + '">Share this report</a>'
+        + shareButton
         + (signedIn ? ' <a class="rp-btn is-quiet" href="https://openvibe.codes/t/new?from=' + encodeURIComponent(rep.id) + '">Do this again</a>' : '')
-        + '</p></section>';
+        + '</p>'
+        + (isOwner ? '<p class="rp-meta">' + esc(sharingChip(audience, members)) + ' can open this report. '
+            + '<a href="/you">Change the default for new reports</a>.</p>' : '')
+        + '</section>';
     return layout({
         title: rep.task.title + ': the session report',
         description: rep.summary,
         body,
         active: '/rundown',
         path: '/s/' + rep.id,
+        // Only a report in Everyone is for search and crawlers; a link, a list of people and Only me are not.
+        robots: audience === 'public' ? 'index, follow' : 'noindex, nofollow',
     });
+}
+
+/** The four audiences in the words the sheet uses ("Everyone", "Anyone with the link", "Specific people", "Only me"). */
+function sharingChip(audience, members = []) {
+    if (audience === 'public') return 'Everyone';
+    if (audience === 'link') return 'Anyone with the link';
+    if (audience === 'people') return members.length === 1 ? 'You and 1 other person' : `You and ${members.length} people`;
+    return 'Only you';
 }
 
 function topic({ topic: d } = {}) {
@@ -539,7 +557,7 @@ ${lines.slice(1).map((l) => `<p class="rp-fine">${esc(l)}</p>`).join('')}
 </section>`;
 }
 
-function you({ user, days = 30, stats = null, recaps = null, speaker = null, ai = null } = {}) {
+function you({ user, days = 30, stats = null, recaps = null, speaker = null, ai = null, reports = null, defaultAudience = 'private' } = {}) {
     const name = String(user.display_name || user.username || 'you');
     const username = String(user.username || '');
     const T = (stats && stats.totals) || {};
@@ -562,9 +580,30 @@ ${(sp.episodes || []).length ? `<p class="rp-meta">${plural(sp.episodes.length, 
 </section>` : '';
     const body = `<header class="rp-page-h rp-person">${kit.mark({ name, src: user.avatar_url || '', size: 64 })}<div><p class="rp-kicker">Your numbers</p><h1>${esc(name)}</h1>
 <p class="rp-lede rp-you-say">${esc(youSentence({ name, days, stats, speaker }))}</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></div></header>
-${streams}${money}${youAi(ai, days)}${rundown}
+${streams}${money}${youAi(ai, days)}${youReports(reports, defaultAudience)}${rundown}
 <section aria-labelledby="rp-you-next" class="rp-you-next"><h2 id="rp-you-next">Coming here</h2><p class="rp-fine">Your agents' work and what your computers ran. Only you see this page.</p></section>`;
     return layout({ title: 'Your numbers', description: 'Your own numbers across OpenVibe: streams, money and The Rundown, in one place.', body, active: '/you', robots: 'noindex, nofollow' });
+}
+
+/**
+ * Your session reports, and the default for the ones you make from now on (design 2026-11-06, rule 1: "New reports:
+ * Only me ▾" on the person's own page). Each report's Share sheet still changes just that one.
+ */
+function youReports(reports = null, defaultAudience = 'private') {
+    if (!reports) return '';
+    const list = Array.isArray(reports) ? reports : [];
+    const options = ['public', 'link', 'people', 'private'].map((a) => `<option value="${esc(a)}"${a === defaultAudience ? ' selected' : ''}>${esc(sharingChip(a, 0).replace('Only you', 'Only me'))}</option>`).join('');
+    const rows = list.slice(0, 20).map((r) => `<li><a href="/s/${encodeURIComponent(r.id)}">${esc(r.task.title)}</a>`
+        + `<span class="rp-meta">${esc(sharingChip(r.audience || 'private', []))}</span></li>`).join('');
+    return `<section aria-labelledby="rp-you-sr"><h2 id="rp-you-sr">Your session reports</h2>
+<form class="rp-share-default" method="post" action="/api/v1/me/session-reports/default" data-ov-default-share>
+<label for="rp-you-def">New reports:</label>
+<select id="rp-you-def" name="audience">${options}</select>
+<button type="submit" class="rp-btn is-quiet">Save</button>
+</form>
+<p class="rp-fine">Each report's Share button changes just that one. Changing this never changes a report you already made.</p>
+${rows ? `<ul class="rp-chips rp-you-reports">${rows}</ul>` : '<p class="rp-meta">No reports yet. When an agent finishes a session, its report lands here.</p>'}
+</section>`;
 }
 
 function youSignedOut() {
@@ -806,4 +845,4 @@ function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, sessionReport, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { home, stats, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };

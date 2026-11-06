@@ -26,10 +26,11 @@ const { createServiceAuth, CAPS } = require('../auth');
 const { GROUPS: AI_USAGE_GROUPS, PERSON_GROUPS } = require('../analytics/ai-usage');
 const GROUPS = Object.keys(AI_USAGE_GROUPS);
 const designHealth = require('../data/design-health');
+const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, analytics = null, aiUsage = null, aiExchange = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
 
@@ -113,6 +114,35 @@ function createApi({ network, live, analytics = null, aiUsage = null, aiExchange
         const recaps = await live.channelRecaps(username);
         if (!recaps) return notFound(req, res, 'report.channel_not_found', 'No such channel.');
         return res.json(recaps);
+    });
+
+    // ── Session reports (Agent Streams S3), in the sharing system's four audiences ─────────────────────
+    //
+    // The share row decides through canView, exactly as the page does: a report of Specific people is a 404 for a
+    // signed-in person who is not on the list, and for everyone signed out. A report that is not in Everyone is never
+    // cached in a shared cache; its answer is private and never stored.
+    r.get('/session-reports/:id', async (req, res) => {
+        if (!sessionReports) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const rep = await sessionReports.get(String(req.params.id || ''));
+        if (!rep) return notFound(req, res, 'report.session_not_found', 'No such report.');
+        const viewer = sharing.viewerOf(req.user);
+        if (!(await sharing.canView(viewer, rep))) return notFound(req, res, 'report.session_not_found', 'No such report.');
+        const audience = await sharing.audienceOf(rep);
+        if (audience !== 'public') res.set('Cache-Control', 'private, no-store');
+        return res.json({ ...rep, audience });
+    });
+
+    // The reports a reader may see: Everyone's, plus the caller's own (a list never shows a hidden item, not even as a
+    // count). The public part is what the Rundown's section and the sitemap read.
+    r.get('/session-reports', async (req, res) => {
+        if (!sessionReports) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const viewer = sharing.viewerOf(req.user);
+        const publicOnes = await sessionReports.listPublic({ limit: 50 });
+        const mine = viewer ? (await sessionReports.listForOwner(viewer.subject.id, { limit: 50 })).filter((r) => !publicOnes.some((p) => p.id === r.id)) : [];
+        if (viewer) res.set('Cache-Control', 'private, no-store');
+        return res.json({
+            reports: [...publicOnes.map((r) => ({ ...r, audience: 'public' })), ...mine],
+        });
     });
 
     // ── The AI meter (plan L40 and L41) ─────────────────────────────────────────────
