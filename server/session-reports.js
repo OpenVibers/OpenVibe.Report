@@ -147,15 +147,58 @@ function rowToReport(row) {
     };
 }
 
-function createSessionReports({ store, config, log = console }) {
+function createSessionReports({ store, config, log = console, sharing = null }) {
     const db = store && store.db;
     const base = String((config && config.baseUrl) || 'https://openvibe.report').replace(/\/+$/, '');
     const urlFor = (id) => `${base}/s/${id}`;
+    const shares = sharing || require('./sharing');
 
-    /** Store the report. Idempotent per (source, task ref): a repeat answers the report that is already there. */
+    /**
+     * The owner's default audience for new reports (their own page sets it). No row is Only me, which is the S3
+     * default; the writing service's own visibility names one when it has a reason to.
+     */
+    async function defaultAudience(owner) {
+        if (!db || !owner) return null;
+        try {
+            const row = await db.prepare('SELECT audience FROM report_session_defaults WHERE owner_subject = ?').get(String(owner));
+            return row && shares.AUDIENCES.includes(row.audience) ? row.audience : null;
+        } catch { return null; }
+    }
+
+    /** Set the owner's default for the reports they make from now on. */
+    async function setDefaultAudience(owner, audience) {
+        if (!db) throw new Error('no database');
+        if (!shares.AUDIENCES.includes(audience)) throw new Error('unknown audience');
+        await db.prepare(`INSERT INTO report_session_defaults (owner_subject, audience, updated_at) VALUES (?, ?, now())
+            ON CONFLICT (owner_subject) DO UPDATE SET audience = excluded.audience, updated_at = now()`).run(String(owner), audience);
+        return audience;
+    }
+
+    /**
+     * The audience a new report of this owner starts with: what the writing service named, else the owner's default,
+     * else Only me.
+     *
+     * A service naming Everyone or the link means it: that is the report's own audience. A service naming `private`
+     * has made no choice (it is the S3 default every writer sends), so the person's own default decides — "New
+     * reports: Only me ▾" on /you is theirs to change, and a tool that writes a report must not overrule it.
+     * The old column is written from the answer, so an older release reads the same thing.
+     */
+    async function startingAudience(owner, named) {
+        if (named === 'public' || named === 'unlisted') return shares.audienceFor(named);
+        const own = await defaultAudience(owner);
+        return own || 'private';
+    }
+
+    /**
+     * Store the report. Idempotent per (source, task ref): a repeat answers the report that is already there.
+     * The share row is registered in the same request as the write, with the audience the report starts with; a
+     * report that already has one keeps it (the owner's choice in the sheet is never overruled by a repeat write).
+     */
     async function write(body) {
         if (!db) throw new Error('no database');
         const clean = cleanBody(body);
+        const audience = await startingAudience(clean.owner, body && body.visibility);
+        clean.visibility = shares.visibilityFor(audience);
         const id = 'rps_' + contracts.ids.ulid();
         try {
             await db.prepare(`INSERT INTO report_sessions
@@ -168,6 +211,9 @@ function createSessionReports({ store, config, log = console }) {
                     clean.summary, JSON.stringify(clean.timeline), JSON.stringify(clean.outputs), JSON.stringify(clean.proof),
                     clean.cost_usd, JSON.stringify(clean.models), JSON.stringify(clean.highlights),
                     clean.stream ? JSON.stringify(clean.stream) : null, clean.visibility);
+            // The sharing row is the access authority from now on; the column above is what an older release reads.
+            // A failure here never loses the report: it is written, and the backfill registers it on the next pass.
+            await shares.register(id, clean.owner, clean.visibility);
             return { id, url: urlFor(id), created: true };
         } catch (err) {
             const again = await db.prepare('SELECT id FROM report_sessions WHERE source = ? AND task_ref = ?')
@@ -220,13 +266,36 @@ function createSessionReports({ store, config, log = console }) {
         });
     }
 
-    /** The public reports, newest first. Only these are ever listed, indexed or in the sitemap. */
-    async function listPublic({ limit = 24 } = {}) {
+    /**
+     * The public reports, newest first. Only these are ever listed, indexed or in the sitemap.
+     *
+     * "Public" is the sharing system's answer, not the column's: a report whose owner moved it to Specific people or
+     * Only me after it was written is out of every list the moment they save, even before a backfill touches its
+     * column — and one the owner opened to Everyone is listed even if its column still says private. The column is the
+     * fallback for a report that has no share row yet (an old release, a row the backfill has not reached), which is
+     * what keeps an N-1 read correct.
+     */
+    async function listPublic({ limit = 24, after = null } = {}) {
         if (!db) return [];
-        const rows = await db.prepare(
-            `SELECT * FROM report_sessions WHERE visibility = 'public' ORDER BY created_at DESC, id DESC LIMIT ?`)
-            .all(Math.max(1, Math.min(200, Number(limit) || 24)));
+        const cap = Math.max(1, Math.min(500, Number(limit) || 24));
+        const base = `SELECT r.* FROM report_sessions r
+             LEFT JOIN shares s ON s.service = 'report' AND s.kind = 'session-report' AND s.resource_id = r.id
+             WHERE COALESCE(s.audience, CASE r.visibility
+                     WHEN 'public' THEN 'public' WHEN 'unlisted' THEN 'link' ELSE 'private' END) = 'public'`;
+        const rows = after == null
+            ? await db.prepare(`${base} ORDER BY r.id ASC LIMIT ?`).all(cap)
+            : await db.prepare(`${base} AND r.id > ? ORDER BY r.id ASC LIMIT ?`).all(String(after), cap);
         return rows.map(rowToReport);
+    }
+
+    /**
+     * The public reports, newest first, for a page. (The sitemap and Search read listPublic's id order, which is the
+     * cursor its paging needs.)
+     */
+    async function listPublicNewest({ limit = 24 } = {}) {
+        const all = await listPublic({ limit: 500 });
+        return all.sort((a, b) => (String(b.created_at || '') < String(a.created_at || '') ? -1 : String(b.created_at || '') > String(a.created_at || '') ? 1 : (a.id < b.id ? 1 : -1)))
+            .slice(0, Math.max(1, Math.min(200, Number(limit) || 24)));
     }
 
     /** The public reports written today (the Rundown's "What agents built today"). */
@@ -235,6 +304,22 @@ function createSessionReports({ store, config, log = console }) {
         const d = now();
         const day = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
         return all.filter((r) => String(r.created_at || '').slice(0, 10) === day).slice(0, limit);
+    }
+
+    /** A person's own reports, newest first (their page and their default's "apply to all"). */
+    async function listForOwner(owner, { limit = 24 } = {}) {
+        if (!db || !owner) return [];
+        const rows = await db.prepare(
+            'SELECT * FROM report_sessions WHERE owner = ? ORDER BY created_at DESC, id DESC LIMIT ?')
+            .all(String(owner), Math.max(1, Math.min(200, Number(limit) || 24)));
+        return rows.map(rowToReport);
+    }
+
+    /** One report with the audience it has now (the page's chip and the owner's Share button). */
+    async function getWithAudience(id) {
+        const rep = await get(id);
+        if (!rep) return null;
+        return { ...rep, audience: await shares.audienceOf(rep) };
     }
 
     /**
@@ -250,7 +335,10 @@ function createSessionReports({ store, config, log = console }) {
         return id ? { id, url: urlFor(id) } : null;
     }
 
-    return { write, writeStream, get, listPublic, listPublicToday, attachStream, urlFor };
+    return {
+        write, writeStream, get, getWithAudience, listPublic, listPublicToday, listForOwner, attachStream, urlFor,
+        defaultAudience, setDefaultAudience, startingAudience,
+    };
 }
 
 module.exports = { createSessionReports, cleanBody, scrub, scrubDeep, rowToReport, ID_RE };

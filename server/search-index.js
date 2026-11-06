@@ -111,6 +111,19 @@ function createSearchIndex({ config, store, live, sessionReports = null, log = c
     });
     const timers = [];
 
+    /**
+     * One report's Search copy, brought level with its audience now (the share store's onAudienceChange calls this, in
+     * the same transaction as the audience change): in Everyone is a document, anything else a tombstone. Rule 4 says a
+     * report that leaves Everyone leaves search at once, not at the next hourly sweep.
+     */
+    async function syncReport(id, audience, t = null) {
+        const rep = await sessionReports.get(String(id));
+        const handle = t || store.db;
+        if (!rep) return await feed.remove(handle, 'session', String(id));
+        if (audience !== 'public') return await feed.remove(handle, 'session', String(id));
+        return await feed.sync(handle, 'session', rep);
+    }
+
     async function sweep() {
         const res = await feed.sweep();
         const r = res.topic;
@@ -136,7 +149,12 @@ function createSearchIndex({ config, store, live, sessionReports = null, log = c
         out.stop();
     }
 
-    return { feed, outbox: out, sweep, start, stop, status: () => out.status() };
+    return { feed, outbox: out, sweep, syncReport, start, stop, status: () => out.status() };
 }
 
-module.exports = { createSearchIndex, describeTopic, describeSession, EVENT_TYPES };
+/** The feed the app built, for modules that need to sync one row outside a sweep (server/sharing.js). */
+let _instance = null;
+function instance() { return _instance; }
+function setInstance(index) { _instance = index; return index; }
+
+module.exports = { createSearchIndex, describeTopic, describeSession, EVENT_TYPES, instance, setInstance };

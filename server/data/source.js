@@ -58,6 +58,37 @@ async function requestJson(url, { fetchImpl = globalThis.fetch, log = console, l
     }
 }
 
+/**
+ * The same GET, but the caller also needs the answer's status and its Cache-Control: the after-show reports are only
+ * held when Live said `public`, and a 404 has to be told apart from a failure so the cache can be emptied. Answers
+ * `{ status, data, cacheControl }` with status 0 when the request never got an answer (the data is null then).
+ */
+async function requestJsonMeta(url, { fetchImpl = globalThis.fetch, log = console, label = 'source', timeoutMs = TIMEOUT_MS } = {}) {
+    let res;
+    try {
+        const signal = typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+            ? AbortSignal.timeout(timeoutMs)
+            : undefined;
+        res = await fetchImpl(url, { headers: { Accept: 'application/json' }, signal });
+    } catch (err) {
+        warn(log, `${label} failed: ${reasonOf(err)}`);
+        return { status: 0, data: null, cacheControl: '' };
+    }
+
+    if (!res || !res.ok) {
+        if (!res || res.status !== 404) warn(log, `${label} failed: HTTP ${res ? res.status : 'no response'}`);
+        return { status: res ? Number(res.status) || 0 : 0, data: null, cacheControl: (res && res.headers && res.headers.get && res.headers.get('cache-control')) || '' };
+    }
+
+    const cacheControl = (res.headers && res.headers.get && res.headers.get('cache-control')) || '';
+    try {
+        return { status: res.status, data: await res.json(), cacheControl };
+    } catch (err) {
+        warn(log, `${label} failed: ${reasonOf(err)}`);
+        return { status: res.status, data: null, cacheControl };
+    }
+}
+
 /** ?days=7|30|90; anything else is 30, exactly as OpenVibe.Network's own route reads it. */
 function normaliseDays(value) {
     const raw = Array.isArray(value) ? value[0] : value;
@@ -78,4 +109,4 @@ function streamIdOf(value) {
 const isStreamId = (value) => streamIdOf(value) !== null;
 const isUsername = (value) => typeof value === 'string' && USERNAME_RE.test(value);
 
-module.exports = { TIMEOUT_MS, trim, warn, requestJson, normaliseDays, isSlug, streamIdOf, isStreamId, isUsername };
+module.exports = { TIMEOUT_MS, trim, warn, requestJson, requestJsonMeta, normaliseDays, isSlug, streamIdOf, isStreamId, isUsername };

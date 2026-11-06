@@ -25,6 +25,7 @@ const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('.
 const { twinPath } = require('../agent-pages');
 const designViews = require('../views/design');
 const designHealth = require('../data/design-health');
+const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
@@ -160,15 +161,24 @@ function createPageRoutes(ctx) {
         return send(req, res, views.rundown({ rundown, topics, reports }));
     });
 
-    // One agent session's report (Agent Streams S3). A private report is the owner's alone, an unlisted one opens
-    // for anyone with the link, a public one opens for everyone.
+    // One agent session's report (Agent Streams S3), in the sharing system's four audiences (design 2026-11-06): the
+    // share row decides, through canView, and nobody else learns whether it exists — a report of Specific people is a
+    // 404 for a signed-in person who is not on the list, and for everyone signed out.
     r.get('/s/:id', async (req, res) => {
         const id = String(req.params.id || '');
         const rep = sessionReports ? await sessionReports.get(id) : null;
         if (!rep) return notFound(req, res);
-        const viewer = req.user ? String(req.user.sub || req.user.id || '') : '';
-        if (rep.visibility === 'private' && viewer !== rep.owner) return notFound(req, res);
-        return send(req, res, views.sessionReport({ report: rep, signedIn: Boolean(viewer) }));
+        const viewer = sharing.viewerOf(req.user);
+        if (!(await sharing.canView(viewer, rep))) return notFound(req, res);
+        const audience = await sharing.audienceOf(rep);
+        const isOwner = Boolean(viewer && viewer.subject.id === rep.owner);
+        const members = isOwner ? await sharing.memberSubjects(rep.id) : [];
+        // Only a signed-out visitor's copy of a public report may be stored by a shared cache. A signed-in reader's
+        // page carries their own parts — above all the owner's, which names the Share sheet's kind and id and the
+        // people the report is shared with — and Cloudflare on our zones does not honour Vary or Authorization, so a
+        // public header there could hand the owner's page to the next visitor. Signed in is always private, no-store.
+        const cacheControl = audience === 'public' && !viewer ? CACHE : 'private, no-store';
+        return send(req, res, views.sessionReport({ report: rep, signedIn: Boolean(viewer), isOwner, audience, members }), 200, cacheControl);
     });
 
     r.get('/rundown/t/:slug', async (req, res) => {
@@ -210,13 +220,17 @@ function createPageRoutes(ctx) {
         // Your AI (plan L40/L41): the ledger's own rows for this person, read in-process, never by a query value.
         const subject = typeof user.subject_id === 'string' ? user.subject_id.trim() : '';
         const from = new Date((ctx.now ? ctx.now() : Date.now()) - (days - 1) * 86400000).toISOString().slice(0, 10);
-        const [stats, recaps, speaker, ai] = await Promise.all([
+        const [stats, recaps, speaker, ai, reports] = await Promise.all([
             ctx.analytics && typeof ctx.analytics.channel === 'function' ? ctx.analytics.channel(user.username, days).catch(() => null) : null,
             Promise.resolve(live.channelRecaps(user.username)).catch(() => null),
             Promise.resolve(live.speaker(user.username)).catch(() => null),
             subject && ctx.aiUsage ? ctx.aiUsage.forPerson({ subject, from, group: 'day' }).catch(() => null) : null,
+            subject && sessionReports ? sessionReports.listForOwner(subject, { limit: 20 }).catch(() => null) : null,
         ]);
-        return send(req, res, views.you({ user, days, stats, recaps, speaker, ai }), 200, 'private, no-store');
+        // Their own reports, each with the audience it has now, and the default for the next one.
+        const withAudience = reports ? await Promise.all(reports.map(async (r) => ({ ...r, audience: await sharing.audienceOf(r) }))) : null;
+        const defaultAudience = subject && sessionReports ? (await sessionReports.defaultAudience(subject)) || 'private' : 'private';
+        return send(req, res, views.you({ user, days, stats, recaps, speaker, ai, reports: withAudience, defaultAudience }), 200, 'private, no-store');
     });
 
     r.get('/c/:username', async (req, res) => {

@@ -38,6 +38,7 @@ const createAiExchangeConfig = require('./ai-exchange-config').create;
 const { createSearchIndex } = require('./search-index');
 const { createSessionReports } = require('./session-reports');
 const { createSessionReportRoutes } = require('./http/session-reports');
+const sharing = require('./sharing');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
 const { createPageRoutes, createPublicPages } = require('./http/pages');
@@ -50,6 +51,29 @@ const { PUBLIC_DIR, assetVersion } = require('./assets');
 
 const VERSION = require('../package.json').version;
 const PAGE_CACHE = 'public, max-age=120';
+
+/**
+ * The Share sheet's access part (openvibe-sdk/share's router), built on the first request rather than at load (the
+ * database opens at boot). It sees only /api/v1/<kind>/<id>/share, /api/v1/shared-with-me and /api/v1/share/people;
+ * anything else falls through to Report's own read API.
+ *
+ * The caller is the signed-in person (Report's own sso session, cookie or bearer). `describe` names a report for the
+ * sheet, and the share store itself refuses anyone who is not its owner: a 404 that says nothing about the report.
+ */
+function shareRouterFor({ log }) {
+    let built;
+    return function shareRouter(req, res, next) {
+        if (!req.path.startsWith('/api/v1/')) return next();
+        if (built === undefined) {
+            built = sharing.router({
+                authenticate: async (request) => sharing.viewerOf(request.user),
+                describe: (ref) => sharing.describe(ref),
+            }) || null;
+        }
+        if (!built) return next();
+        return built(req, res, next);
+    };
+}
 
 /** opts: config, store, fetchImpl, log, now, network, live, billing, analytics, shadow, sso, releaseEnv */
 async function createApp(opts = {}) {
@@ -76,8 +100,13 @@ async function createApp(opts = {}) {
     const shadow = opts.shadow || (store ? createShadow({ store, network, now, log }) : null);
     // The report of every agent session (Agent Streams S3): one table, one route, one page.
     const sessionReports = opts.sessionReports || (store ? createSessionReports({ store, config, log }) : null);
+    // The sharing system (openvibe-sdk/share, share.v1): a report's four audiences live in its share row, the owner's
+    // Share sheet changes it, and every read path asks canView (server/sharing.js). Built before the session-report
+    // writer, so the first write registers its row.
+    if (store) sharing.init({ store, network: opts.shareNetwork || null, events: opts.shareEvents || null, notify: opts.shareNotify || null });
     // The Rundown topic pages in OpenVibe.Search (started by server/index.js, never under REPORT_DRILL).
     const searchIndex = opts.searchIndex || (store ? createSearchIndex({ config, store, live, sessionReports, log }) : null);
+    if (searchIndex) require('./search-index').setInstance(searchIndex);
     views.configure({ baseUrl: config.baseUrl });
 
     // A person's sign-in (the `report` client, the same id and secret Report already reads Billing with).
@@ -188,6 +217,34 @@ async function createApp(opts = {}) {
     app.use('/auth', sso.router(express));
     app.use(sso.optionalAuth());
 
+    // ── The sharing system's HTTP surface (the Share sheet's access part), at /api/v1/<kind>/<id>/share ──
+    // Mounted after sign-in, before the read API, so its paths are never read as one of Report's. Absent when the
+    // pinned openvibe-sdk predates `share`: then only the old column's three levels work, and a report nobody may open
+    // is a 404 — fail closed.
+    app.use(shareRouterFor({ log }));
+    // The owner's default for the reports they make from now on (their own page, /you). Signed in only, same-origin
+    // only, and it changes nothing about a report that already exists — the sheet changes those one by one.
+    app.post('/api/v1/me/session-reports/default', express.json({ limit: '2kb' }), async (req, res) => {
+        res.set('Cache-Control', 'private, no-store');
+        const viewer = sharing.viewerOf(req.user);
+        if (!viewer) return contracts.http.sendProblem(res, 401, 'auth.sign_in_required', { detail: 'Sign in to change your default.', ctx: req.ov });
+        if (!req.headers['x-requested-with'] && !['same-origin', 'same-site'].includes(String(req.headers['sec-fetch-site'] || ''))) {
+            return contracts.http.sendProblem(res, 403, 'share.csrf', { detail: 'Cross-site request refused', ctx: req.ov });
+        }
+        const audience = String((req.body && req.body.audience) || '');
+        if (!sharing.AUDIENCES.includes(audience)) {
+            return contracts.http.sendProblem(res, 422, 'ai.invalid', { detail: 'audience must be one of ' + sharing.AUDIENCES.join(', '), ctx: req.ov });
+        }
+        if (!sessionReports) return contracts.http.sendProblem(res, 503, 'report.no_database', { detail: 'Report has no database in this process.', ctx: req.ov });
+        try {
+            await sessionReports.setDefaultAudience(viewer.subject.id, audience);
+            return res.json({ audience, visibility: sharing.visibilityFor(audience) });
+        } catch (err) {
+            log.error('[OpenVibe.Report] the session report default failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return contracts.http.sendProblem(res, 500, 'report.default_failed', { detail: 'Your default could not be saved.', ctx: req.ov });
+        }
+    });
+
     // ── The door for the first-party services that ran an agent session (Codes, Actor, Live) ──
     if (sessionReports) app.use('/internal', createSessionReportRoutes({ config, sessionReports, log, verify: opts.verifyServiceToken }));
 
@@ -207,7 +264,7 @@ async function createApp(opts = {}) {
         legacyHeaders: false,
         handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
     }));
-    app.use('/api/v1', createApi({ network, live, analytics, aiUsage, aiExchange, config, now, log }));
+    app.use('/api/v1', createApi({ network, live, analytics, aiUsage, aiExchange, sessionReports, config, now, log }));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 
     // ── Crawl artifacts, then the pages ─────────────────────

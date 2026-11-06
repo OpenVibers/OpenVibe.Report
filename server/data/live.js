@@ -15,7 +15,7 @@
  * a 404 without asking Live.
  */
 const { createCache } = require('./cache');
-const { trim, requestJson, isSlug, streamIdOf, isUsername, TIMEOUT_MS } = require('./source');
+const { trim, requestJson, requestJsonMeta, isSlug, streamIdOf, isUsername, TIMEOUT_MS } = require('./source');
 
 const SERVE_STALE_MS = 30 * 60_000;
 
@@ -25,8 +25,10 @@ const TTL = {
     topic: 5 * 60_000,
     episode: 5 * 60_000,
     speaker: 5 * 60_000,
-    recap: 10 * 60_000,
-    channelRecaps: 5 * 60_000,
+    // An after-show report follows its stream's Rundown episode: Live decides who sees it, and its streamer may make
+    // it private at any moment. Report holds one a minute at most, and never past what Live said (see sharedRecap).
+    recap: 60_000,
+    channelRecaps: 60_000,
 };
 
 /**
@@ -82,16 +84,39 @@ function createLiveClient({ config = {}, fetchImpl = globalThis.fetch, log = con
         return cached(`rundown:speaker:${key}`, `/api/rundown/s/${encodeURIComponent(username)}`, TTL.speaker, 'live speaker');
     }
 
+    /**
+     * An after-show report, held for a minute and only when Live marked the answer public.
+     *
+     * Report shows these as Live decided them (the streamer's Rundown episode is the audience), so it must never widen
+     * one: an answer Live did not mark `public` - a per-person view, a no-store - is returned to this reader and not
+     * kept. A 404 is a miss, not an answer: the entry is emptied, so a report its streamer just made private leaves at
+     * once instead of being served from a copy for the rest of the minute, and the next read asks Live again. No stale
+     * copy is ever served here (cached() does that for the Rundown's own lists, which nobody hides): one failure is
+     * null, and the page says what it always says when Live cannot answer.
+     */
+    async function sharedRecap(key, path, ttl, label) {
+        const hit = cache.get(key);
+        if (hit !== undefined) return hit;
+        cache.delete(key);
+        const res = await requestJsonMeta(`${baseUrl}${path}`, { fetchImpl, log, timeoutMs, label });
+        if (res.status === 404) {
+            cache.delete(key);
+            return null;
+        }
+        if (!res.data || !/\bpublic\b/i.test(String(res.cacheControl || ''))) return null;
+        return cache.set(key, res.data, ttl);
+    }
+
     function recap(streamId) {
         const id = streamIdOf(streamId);
         if (!id) return null;
-        return cached(`recap:${id}`, `/api/recap/${id}`, TTL.recap, 'live recap');
+        return sharedRecap(`recap:${id}`, `/api/recap/${id}`, TTL.recap, 'live recap');
     }
 
     function channelRecaps(username) {
         if (!isUsername(username)) return null;
         const key = username.toLowerCase();
-        return cached(`recaps:channel:${key}`, `/api/recap/channel/${encodeURIComponent(username)}`, TTL.channelRecaps, 'live channel recaps');
+        return sharedRecap(`recaps:channel:${key}`, `/api/recap/channel/${encodeURIComponent(username)}`, TTL.channelRecaps, 'live channel recaps');
     }
 
     return { rundown, topics, topic, episode, speaker, recap, channelRecaps, cache, baseUrl, ttlMs: TTL, settled: () => Promise.all([...refreshing.values()]) };

@@ -27,6 +27,11 @@ function jsonResponse(body, status = 200) {
     return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
+/** An after-show answer as OpenVibe.Live sends it: Cache-Control public, which is what lets Report hold it. */
+function recapResponse(body, cacheControl = 'public, max-age=60') {
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json', 'cache-control': cacheControl } });
+}
+
 function defaults() {
     return {
         stats: {
@@ -125,10 +130,12 @@ function stubFetch(data = {}, { health = { network: true, live: true } } = {}) {
         if (m) return answers.episode == null ? jsonResponse({ error: 'not found' }, 404) : jsonResponse(answers.episode);
         m = /^\/api\/rundown\/s\/([^/]+)$/.exec(p);
         if (m) return answers.speaker == null ? jsonResponse({ error: 'not found' }, 404) : jsonResponse(answers.speaker);
+        // Live marks the after-show reports public (its recap routes set `public, max-age=60`); Report holds one only
+        // when it does. A 404 here is Live answering "no such report", exactly as the real route does.
         m = /^\/api\/recap\/channel\/([^/]+)$/.exec(p);
-        if (m) return answers.channel == null ? jsonResponse({ error: 'not found' }, 404) : jsonResponse(answers.channel);
+        if (m) return answers.channel == null ? jsonResponse({ error: 'not found' }, 404) : recapResponse(answers.channel);
         m = /^\/api\/recap\/(\d+)$/.exec(p);
-        if (m) return answers.recap == null ? jsonResponse({ error: 'not found' }, 404) : jsonResponse(answers.recap);
+        if (m) return answers.recap == null ? jsonResponse({ error: 'not found' }, 404) : recapResponse(answers.recap);
 
         return jsonResponse({ error: 'no stub for ' + p }, 404);
     };
@@ -172,6 +179,7 @@ async function boot(opts = {}) {
         shadow: opts.shadow,
         ...(opts.aiUsage ? { aiUsage: opts.aiUsage } : {}),
         ...(opts.verifyServiceToken ? { verifyServiceToken: opts.verifyServiceToken } : {}),
+        ...(opts.shareNetwork ? { shareNetwork: opts.shareNetwork } : {}),
         releaseEnv: { ...process.env, RELEASE_COMMIT: '0000000' },
     });
     const server = await new Promise((resolve) => {
@@ -221,4 +229,4 @@ function done() {
     process.exit(failures ? 1 : 0);
 }
 
-module.exports = { boot, check, done, stubFetch, jsonResponse, defaults, NETWORK, LIVE };
+module.exports = { boot, check, done, stubFetch, jsonResponse, recapResponse, defaults, NETWORK, LIVE };

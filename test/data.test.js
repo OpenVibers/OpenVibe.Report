@@ -8,7 +8,7 @@ const assert = require('assert');
 const { createNetworkClient } = require('../server/data/network');
 const { createLiveClient } = require('../server/data/live');
 const { isSlug, isStreamId, isUsername, normaliseDays } = require('../server/data/source');
-const { jsonResponse, check, done } = require('./helpers/boot');
+const { jsonResponse, recapResponse, check, done } = require('./helpers/boot');
 
 const quiet = () => ({ warn() {}, error() {} });
 
@@ -104,7 +104,7 @@ const quiet = () => ({ warn() {}, error() {} });
         const urls = [];
         const client = createLiveClient({
             config: { liveUrl: 'http://live' },
-            fetchImpl: async (url) => { urls.push(String(url)); return jsonResponse({ n: urls.length }); },
+            fetchImpl: async (url) => { urls.push(String(url)); return recapResponse({ n: urls.length }); },
             now: () => now,
             log: quiet(),
         });
@@ -114,10 +114,10 @@ const quiet = () => ({ warn() {}, error() {} });
         assert.strictEqual(urls.filter((u) => u.endsWith('/api/rundown/')).length, 2, 'the home is held for two minutes');
 
         await client.recap(7);
-        now += 9 * 60_000;
+        now += 59_000;
         await client.recap(7);
-        assert.strictEqual(urls.filter((u) => u.endsWith('/api/recap/7')).length, 1, 'a recap is held for ten minutes');
-        now += 2 * 60_000;
+        assert.strictEqual(urls.filter((u) => u.endsWith('/api/recap/7')).length, 1, 'a recap is held for a minute');
+        now += 2_000;
         await client.recap(7);
         assert.strictEqual(urls.filter((u) => u.endsWith('/api/recap/7')).length, 2);
 
@@ -149,6 +149,72 @@ const quiet = () => ({ warn() {}, error() {} });
         assert.strictEqual((await client.rundown()).n, 2, 'the refreshed answer on the next read');
         now += 60 * 60_000;
         assert.strictEqual((await client.rundown()).n, 3, 'too old to serve: fetched while the visitor waits');
+    });
+
+    await check('after-show: an answer Live did not mark public is not held, and a 404 is a miss that is asked again', async () => {
+        let now = 0;
+        let calls = 0;
+        let answer = () => recapResponse({ recap: { stream_id: 7 } });
+        const client = createLiveClient({
+            config: { liveUrl: 'http://live' },
+            fetchImpl: async () => { calls++; return answer(); },
+            now: () => now,
+            log: quiet(),
+        });
+
+        // Live's own header decides: a private or no-store answer goes to this reader and is never kept.
+        answer = () => recapResponse({ recap: { stream_id: 7 } }, 'private, max-age=0');
+        await client.recap(7);
+        await client.recap(7);
+        assert.strictEqual(calls, 2, 'a non-public answer must not be cached');
+        answer = () => recapResponse({ recap: { stream_id: 7 } }, 'no-store');
+        await client.recap(7);
+        await client.recap(7);
+        assert.strictEqual(calls, 4, 'a no-store answer must not be cached');
+        answer = () => new Response(JSON.stringify({ recap: {} }), { status: 200, headers: { 'content-type': 'application/json' } });
+        await client.recap(7);
+        await client.recap(7);
+        assert.strictEqual(calls, 6, 'an answer with no Cache-Control at all must not be cached');
+
+        // public: held for a minute.
+        answer = () => recapResponse({ recap: { stream_id: 7 } });
+        await client.recap(7);
+        await client.recap(7);
+        assert.strictEqual(calls, 7, 'a public answer is held');
+
+        // The streamer made it private: once the minute is up Live answers 404, and the copy is dropped - not kept as
+        // a stale answer to serve while a refresh runs.
+        now += 61_000;
+        answer = () => jsonResponse({ error: 'No report for this stream' }, 404);
+        assert.strictEqual(await client.recap(7), null);
+        assert.strictEqual(calls, 8);
+        answer = () => jsonResponse({ error: 'No report for this stream' }, 404);
+        assert.strictEqual(await client.recap(7), null, 'a 404 is asked again, never answered from the old copy');
+        assert.strictEqual(calls, 9);
+        answer = () => recapResponse({ recap: { stream_id: 7, again: true } });
+        assert.strictEqual((await client.recap(7)).recap.again, true, 'the read after a 404 asks Live again');
+        assert.strictEqual(calls, 10);
+
+        // No stale copy is ever served for an after-show report: a failure is null, and the next read asks again.
+        answer = () => { throw new Error('connect ECONNREFUSED'); };
+        now += 61_000;
+        assert.strictEqual(await client.recap(7), null, 'an expired copy is not served while Live is down');
+        assert.strictEqual(calls, 11);
+        answer = () => recapResponse({ recap: { stream_id: 7, back: true } });
+        assert.strictEqual((await client.recap(7)).recap.back, true);
+        assert.strictEqual(calls, 12);
+
+        // A channel's list follows the same rule.
+        let channelCalls = 0;
+        const channel = createLiveClient({
+            config: { liveUrl: 'http://live' },
+            fetchImpl: async () => { channelCalls++; return recapResponse({ recaps: [] }, 'private'); },
+            now: () => 0,
+            log: quiet(),
+        });
+        await channel.channelRecaps('goosely');
+        await channel.channelRecaps('goosely');
+        assert.strictEqual(channelCalls, 2, 'a channel list Live marked private is not held');
     });
 
     await check('the cache keeps 1000 entries and drops the oldest first', async () => {
