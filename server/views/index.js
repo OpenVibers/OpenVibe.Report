@@ -337,6 +337,14 @@ function worked(rep) {
     return h + ' h ' + (m % 60) + ' min';
 }
 
+// A proof shot is a Media object (med_…); the picture is at Media's own address, the id stays under it.
+function shotURL(id) {
+    const s = String(id == null ? '' : id).trim();
+    if (/^med_[0-9A-Za-z]+$/.test(s)) return 'https://openvibe.media/o/' + s + '?w=640';
+    if (/^https?:\/\//i.test(s)) return s;
+    return null;
+}
+
 function reportCard(rep) {
     const out = reportOutcome(rep);
     return '<li class="rp-report"><a href="/s/' + encodeURIComponent(rep.id) + '"><span class="rp-kind">' + esc(out.label)
@@ -374,7 +382,7 @@ function sessionReport({ report: rep, signedIn = false } = {}) {
         + (rep.models && rep.models.length ? ' · ' + esc(rep.models.join(', ')) : '') + '</p></header>';
     body += '<section aria-labelledby="rp-sum-h"><h2 id="rp-sum-h">What was asked</h2><p class="rp-lede">'
         + esc(rep.summary) + '</p>'
-        + (rep.stopped_because ? '<p class="rp-summary">It stopped: ' + esc(rep.stopped_because) + '</p>' : '') + '</section>';
+        + '</section>';
     if (made.length) {
         body += '<section aria-labelledby="rp-out-h"><h2 id="rp-out-h">What came out</h2><ul class="rp-chips">'
             + made.map((o) => '<li><a href="' + (o.url ? esc(o.url) : '#') + '">' + esc(o.title)
@@ -382,15 +390,22 @@ function sessionReport({ report: rep, signedIn = false } = {}) {
     }
     body += '<section aria-labelledby="rp-pr-h"><h2 id="rp-pr-h">The proof</h2>'
         + (tests ? '<p class="rp-meta">Tests: ' + esc(tests) + '</p>' : '')
-        + (shots.length ? '<ul class="rp-chips">' + shots.map((s) => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '')
+        + (shots.length ? '<ul class="rp-chips">' + shots.map((s) => {
+            const u = shotURL(s);
+            return u
+                ? '<li><img src="' + esc(u) + '" alt="A screenshot of the work" width="160" loading="lazy" decoding="async" style="display:block;max-width:100%;height:auto"></li>'
+                : '<li>' + esc(s) + '</li>';
+        }).join('') + '</ul>' : '')
         + (proof.review ? '<p class="rp-summary"><b>' + esc(proof.review.verdict) + '</b>'
             + (proof.review.notes ? '<details class="rp-fold"><summary>The notes</summary><p>' + esc(proof.review.notes) + '</p></details>' : '')
             + '</p>' : '')
         + (!tests && !shots.length && !proof.review ? '<p class="rp-meta">No proof was recorded for this session.</p>' : '')
         + '</section>';
-    if (steps.length) {
-        body += '<section aria-labelledby="rp-tl-h"><h2 id="rp-tl-h">The steps</h2><ol class="rp-takes">'
-            + steps.map((s) => '<li><b>' + esc(s.title) + '</b>' + (s.detail ? '<span>' + esc(s.detail) + '</span>' : '')
+    if (steps.length || rep.stopped_because) {
+        body += '<section aria-labelledby="rp-tl-h"><h2 id="rp-tl-h">How it went</h2>'
+            + (rep.stopped_because ? '<p class="rp-summary">It stopped: ' + esc(rep.stopped_because) + '</p>' : '')
+            + '<ol class="rp-takes">'
+            + steps.map((s) => '<li><b>' + esc(s.title) + '</b>' + (s.detail ? '<span style="display:block">' + esc(s.detail) + '</span>' : '')
                 + '<span class="rp-meta">' + esc(s.status)
                 + (s.tests ? ' · ' + s.tests.passed + ' passed, ' + s.tests.failed + ' failed' : '') + '</span></li>').join('')
             + '</ol></section>';

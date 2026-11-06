@@ -106,7 +106,7 @@ function body(over = {}) {
             assert.ok(page.text.includes('Unlisted one'), 'the page shows the task');
             assert.ok(page.text.includes('What was asked'), 'the page has the summary part');
             assert.ok(page.text.includes('The proof'), 'the page has the proof part');
-            assert.ok(page.text.includes('The steps'), 'the page has the steps part');
+            assert.ok(page.text.includes('How it went'), 'the page has the steps part');
             assert.ok(page.text.includes('What to do'), 'the page has the actions part');
             const listed = await t.ctx.sessionReports.listPublic({ limit: 50 });
             assert.ok(!listed.some((rep) => rep.id === r.json().id), 'an unlisted report is not listed');
