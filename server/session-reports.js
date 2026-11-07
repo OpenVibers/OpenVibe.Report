@@ -306,6 +306,23 @@ function createSessionReports({ store, config, log = console, sharing = null }) 
         return all.filter((r) => String(r.created_at || '').slice(0, 10) === day).slice(0, limit);
     }
 
+    /**
+     * The public reports whose task says the agent worked on this topic (S7). Only Everyone's reports are read
+     * (listPublic is the sharing system's public answer), and the topic's whole name must appear as a whole phrase:
+     * "login" is not "login page", and a name inside another word is never a match.
+     */
+    async function listPublicMatchingTopic(title, { limit = 6 } = {}) {
+        const phrase = normalizeTopic(title);
+        if (!phrase) return [];
+        const all = await listPublic({ limit: 500 });
+        const re = new RegExp(`(^| )${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( |$)`);
+        return all.filter((r) => {
+            const text = [r.task && r.task.title, r.summary, ...(Array.isArray(r.highlights) ? r.highlights : [])]
+                .map(normalizeTopic).filter(Boolean).join(' ');
+            return re.test(text);
+        }).slice(0, Math.max(1, Math.min(20, Number(limit) || 6)));
+    }
+
     /** A person's own reports, newest first (their page and their default's "apply to all"). */
     async function listForOwner(owner, { limit = 24 } = {}) {
         if (!db || !owner) return [];
@@ -337,8 +354,13 @@ function createSessionReports({ store, config, log = console, sharing = null }) 
 
     return {
         write, writeStream, get, getWithAudience, listPublic, listPublicToday, listForOwner, attachStream, urlFor,
-        defaultAudience, setDefaultAudience, startingAudience,
+        defaultAudience, setDefaultAudience, startingAudience, listPublicMatchingTopic,
     };
 }
 
-module.exports = { createSessionReports, cleanBody, scrub, scrubDeep, rowToReport, ID_RE };
+/** A topic or a report's text as words: lower case, accents folded, punctuation and markup gone. */
+function normalizeTopic(value) {
+    return String(value || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+module.exports = { createSessionReports, cleanBody, scrub, scrubDeep, rowToReport, normalizeTopic, ID_RE };

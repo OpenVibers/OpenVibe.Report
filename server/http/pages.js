@@ -186,7 +186,9 @@ function createPageRoutes(ctx) {
         if (!isSlug(slug)) return notFound(req, res);
         const topic = await live.topic(slug);
         if (!topic) return notFound(req, res);
-        return send(req, res, views.topic({ topic }));
+        // S7: a public agent report may cite the topic when the agent worked on it (only Everyone's reports).
+        const citations = sessionReports ? await sessionReports.listPublicMatchingTopic((topic.topic && topic.topic.title) || topic.title).catch(() => []) : [];
+        return send(req, res, views.topic({ topic, citations }));
     });
 
     r.get('/rundown/e/:streamId', async (req, res) => {
