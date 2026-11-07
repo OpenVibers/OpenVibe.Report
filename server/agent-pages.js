@@ -16,7 +16,6 @@ function createAgentPages({ publicPages, bench }) {
         if (path === '/') page = await publicPages.home();
         else if (path === '/developers') page = publicPages.developers();
         else if (path === '/design') page = publicPages.design();
-        else if (path === '/rundown') page = await publicPages.rundown();
         else if (path === '/stats') page = await publicPages.stats(normaliseDays(query && query.get('days')));
         else if (path === '/ai') page = await publicPages.aiIndex();
         else if (model) page = await publicPages.aiModel(decodeURIComponent(model[1]));

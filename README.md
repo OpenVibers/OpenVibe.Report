@@ -77,10 +77,10 @@ All server-rendered in `server/views/index.js`; every dynamic value goes through
 |---|---|
 | `/` | the 7-day open numbers, the Rundown's counts and lead, and the trending topics |
 | `/stats?days=7\|30\|90` | the network totals and a first look at every site (anything else is 30) |
-| `/rundown` | on air, the lead, the latest streams and every topic |
-| `/rundown/t/:slug` | one topic, its takes and related topics |
-| `/rundown/e/:streamId` | one stream as an episode, with its segments |
-| `/rundown/s/:username` | one streamer's episodes and topics |
+| `/rundown` | on air, the lead, the latest streams and every topic; canonical is OpenVibe.Live's `/rundown` |
+| `/rundown/t/:slug` | one topic, its takes and related topics; canonical is Live's `/rundown/t/:slug` |
+| `/rundown/e/:streamId` | one stream as an episode, with its segments; canonical is Live's `/rundown/e/:streamId` |
+| `/rundown/s/:username` | one streamer's episodes and topics; canonical is Live's `/rundown/:username` |
 | `/after-show/:streamId` | one after-show report |
 | `/c/:username` | one channel's latest after-show reports |
 | `/ai` | benchmark kinds grouped by room, with leaders and game counts |

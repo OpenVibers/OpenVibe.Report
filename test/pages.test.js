@@ -32,6 +32,21 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             });
         }
 
+        await check('every Rundown page canonicalises to OpenVibe.Live, and the rest to Report', async () => {
+            const canon = {
+                '/rundown': 'https://openvibe.live/rundown',
+                '/rundown/t/seattle': 'https://openvibe.live/rundown/t/seattle',
+                '/rundown/e/7': 'https://openvibe.live/rundown/e/7',
+                '/rundown/s/goosely': 'https://openvibe.live/rundown/goosely',
+                '/stats': 'https://openvibe.report/stats',
+                '/': 'https://openvibe.report/',
+            };
+            for (const [path, url] of Object.entries(canon)) {
+                const r = await t.get(path);
+                assert.ok(r.text.includes(`<link rel="canonical" href="${url}">`), `${path}: ${url}`);
+            }
+        });
+
         await check('the CSP allows the Live and Community thumbnails on the pages that show them', async () => {
             for (const path of ['/', '/rundown']) {
                 const r = await t.get(path);
@@ -55,9 +70,10 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             assert.ok(org && Array.isArray(org.sameAs) && org.sameAs.includes('https://github.com/OpenVibers'), 'Organization');
         });
 
-        await check('a page names its canonical and mounts the Frame for service report', async () => {
+        await check('The Rundown pages name OpenVibe.Live as canonical and mount the Frame for service report', async () => {
             const r = await t.get('/rundown/t/seattle');
-            assert.ok(r.text.includes('<link rel="canonical" href="https://openvibe.report/rundown/t/seattle">'));
+            assert.ok(r.text.includes('<link rel="canonical" href="https://openvibe.live/rundown/t/seattle">'), 'the topic is Live\'s page');
+            assert.ok(!r.text.includes('<link rel="canonical" href="https://openvibe.report/rundown/t/seattle">'), 'Report must not claim it');
             assert.ok(r.text.includes('<div id="navbar-mount"></div>'), 'no navbar mount');
             assert.ok(r.text.includes('id="ov-footer"'), 'no Shared footer');
             assert.ok(r.text.includes('"service":"report"'), 'the Frame is not initialised for report');
