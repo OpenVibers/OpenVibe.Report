@@ -87,6 +87,15 @@ function createPageRoutes(ctx) {
     const { live, bench, sessionReports } = ctx;
     const r = express.Router();
     const publicPages = ctx.publicPages || createPublicPages(ctx);
+    // The Rundown's pages canonicalise to OpenVibe.Live, and so does its Markdown twin: the generic agent layer
+    // (server/agent-pages.js) would sign the twin with this site's own address. Answer it here instead, before the
+    // .md hand-off, with Live's canonical.
+    r.get('/rundown.md', async (_req, res) => {
+        const { markdownTwin } = require('openvibe-shared/agent-layer');
+        const page = await publicPages.rundown();
+        const body = markdownTwin({ html: page.html, canonical: 'https://openvibe.live/rundown' });
+        res.set('Content-Type', 'text/markdown; charset=utf-8').set('Cache-Control', CACHE).send(body);
+    });
     // A path ending in .md is a Markdown twin (server/agent-pages.js), never a page parameter.
     r.use((req, res, next) => (req.path.endsWith('.md') ? next('router') : next()));
 

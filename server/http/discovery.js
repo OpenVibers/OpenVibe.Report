@@ -7,8 +7,8 @@
  *   GET /sitemap.xml     /, /stats, /design, /rundown and every /rundown/t/<slug> from the Rundown's topics
  *   GET /llms.txt        a markdown map of the site and its machine-readable answers
  *
- * The sitemap reads topics through the same cached client as the pages, so a crawler is no heavier than a reader
- * and a source that does not answer leaves the three static pages in place.
+ * The sitemap lists only the pages this site owns; The Rundown pages carry rel=canonical to openvibe.live and are left
+ * out, so the two sites never present the same page as two canonical URLs.
  */
 const fs = require('fs');
 const path = require('path');
@@ -46,24 +46,19 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
     });
 
     r.get('/sitemap.xml', async (_req, res) => {
-        const [data, ai, reports] = await Promise.all([live.topics(), bench.kinds(), sessionReports ? sessionReports.listPublic({ limit: 500 }) : []]);
-        const topics = (data && Array.isArray(data.topics)) ? data.topics : [];
+        const [ai, reports] = await Promise.all([bench.kinds(), sessionReports ? sessionReports.listPublic({ limit: 500 }) : []]);
         const kinds = (ai && Array.isArray(ai.data.kinds)) ? ai.data.kinds : [];
         const lastmod = siteUpdated();
+        // Only the pages this site owns. /rundown and its topic, episode and speaker pages carry rel=canonical to
+        // OpenVibe.Live's Rundown, so listing them here would advertise a duplicate.
         const pages = [
             { loc: abs('/'), changefreq: 'daily', priority: 1.0 },
             { loc: abs('/stats'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/design'), changefreq: 'weekly', priority: 0.6 },
-            { loc: abs('/rundown'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/ai'), changefreq: 'daily', priority: 0.9 },
             ...reports.map((rep) => ({ loc: abs('/s/' + encodeURIComponent(rep.id)), changefreq: 'daily', priority: 0.6 })),
             ...kinds.filter((k) => k && bench.isKindId(k.id)).map((k) => ({
                 loc: abs(`/ai/${encodeURIComponent(k.id)}`), changefreq: 'daily', priority: 0.7,
-            })),
-            ...topics.filter((t) => t && typeof t.slug === 'string').map((t) => ({
-                loc: abs(`/rundown/t/${encodeURIComponent(t.slug)}`),
-                changefreq: 'weekly',
-                priority: 0.7,
             })),
         ].map((p) => ({ ...p, ...(lastmod ? { lastmod } : {}) }));
         res.type('application/xml').set('Cache-Control', CACHE).send(seo.sitemapXml(pages));
@@ -81,7 +76,7 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
                     { title: 'OpenVibe.Report', url: abs('/'), note: 'the Report room' },
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
                     { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
-                    { title: 'The Rundown', url: abs('/rundown'), note: 'what streamers talked about, topic by topic' },
+                    { title: 'The Rundown', url: 'https://openvibe.live/rundown', note: 'what streamers talked about, topic by topic (OpenVibe.Live is its canonical home)' },
                     { title: 'AI boards', url: abs('/ai'), note: 'Bench ratings, quality and cost across rooms' },
                 ] },
                 // A JSON API is what an agent came for, not something to skip (AGT-5 review).

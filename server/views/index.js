@@ -23,6 +23,7 @@ const { asset } = require('../assets');
 
 const NAME = 'OpenVibe.Report';
 const NETWORK = 'https://openvibe.network';
+const LIVE = 'https://openvibe.live';
 const BENCH = 'https://bench.openvibe.services';
 const ROOM = rooms.get('report');
 const esc = kit.esc;
@@ -317,7 +318,7 @@ ${all.length ? `<section aria-labelledby="rp-t-h"><h2 id="rp-t-h">Topics</h2><ul
 ${voices.length ? `<section aria-labelledby="rp-v-h"><h2 id="rp-v-h">Voices</h2><ul class="rp-voices">${voices.map((v) => `<li><a href="/rundown/s/${encodeURIComponent((v.user || {}).username || '')}">${kit.mark({ name: who(v.user), src: v.user && v.user.avatar_url, size: 40 })}<span><b>${esc(who(v.user))}</b><small>${[n(v.topics) ? `${exact(v.topics)} topic${Number(v.topics) === 1 ? '' : 's'}` : '', n(v.segments) ? `${exact(v.segments)} take${Number(v.segments) === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</small></span></a></li>`).join('')}</ul></section>` : ''}
 ${streams.length ? kit.rail({ id: 'episodes', title: 'Recent streams', items: streams }) : ''}
 ${reports && reports.length ? reportsSection(reports) : ''}`;
-    return layout({ title: 'The Rundown: what streamers talked about', description: 'Topics, takes and crossovers from what streamers said on OpenVibe, written up by AI from the streams themselves.', body, active: '/rundown', path: '/rundown' });
+    return layout({ title: 'The Rundown: what streamers talked about', description: 'Topics, takes and crossovers from what streamers said on OpenVibe, written up by AI from the streams themselves.', body, active: '/rundown', path: '/rundown', canonical: `${LIVE}/rundown` });
 }
 
 
@@ -462,7 +463,7 @@ ${t.headline ? `<p class="rp-lede">${esc(t.headline)}</p>` : ''}${t.summary ? `<
 ${takes.length ? `<section aria-labelledby="rp-tk-h"><h2 id="rp-tk-h">Takes</h2><ol class="rp-takes">${takes.map(takeRow).join('')}</ol></section>` : ''}
 ${citesHTML}
 ${(d.related || []).length ? `<section aria-labelledby="rp-rel-h"><h2 id="rp-rel-h">Related</h2><ul class="rp-chips">${d.related.slice(0, 12).map((r) => `<li><a href="/rundown/t/${encodeURIComponent(r.slug)}">${esc(r.title)}</a></li>`).join('')}</ul></section>` : ''}`;
-    return layout({ title: `${t.title}: The Rundown`, description: t.headline || `What streamers said about ${t.title}.`, body, active: '/rundown', path: `/rundown/t/${encodeURIComponent(t.slug || '')}` });
+    return layout({ title: `${t.title}: The Rundown`, description: t.headline || `What streamers said about ${t.title}.`, body, active: '/rundown', path: `/rundown/t/${encodeURIComponent(t.slug || '')}`, canonical: `${LIVE}/rundown/t/${encodeURIComponent(t.slug || '')}` });
 }
 
 /** A chapter's moment in the recording on OpenVibe.Video (the same link Live's own Rundown draws). */
@@ -489,17 +490,17 @@ function episode({ episode: d, citations = [] } = {}) {
 ${chaptersHTML}
 ${segs.length ? `<section aria-labelledby="rp-sg-h"><h2 id="rp-sg-h">What happened</h2><ol class="rp-takes rp-timeline">${segs.map(takeRow).join('')}</ol></section>` : ''}
 ${(d.more || []).length ? `<section aria-labelledby="rp-mo-h"><h2 id="rp-mo-h">More from ${esc(who(s.user) || 'this streamer')}</h2><ul class="rp-chips">${d.more.slice(0, 8).map((m) => `<li><a href="/rundown/e/${encodeURIComponent(m.stream_id)}">${esc(m.title)}</a></li>`).join('')}</ul></section>` : ''}`;
-    return layout({ title: `${e.title || s.title}: The Rundown`, description: e.logline || '', body, active: '/rundown', path: `/rundown/e/${encodeURIComponent(s.id || e.stream_id || '')}` });
+    return layout({ title: `${e.title || s.title}: The Rundown`, description: e.logline || '', body, active: '/rundown', path: `/rundown/e/${encodeURIComponent(s.id || e.stream_id || '')}`, canonical: `${LIVE}/rundown/e/${encodeURIComponent(s.id || e.stream_id || '')}` });
 }
 
 function speaker({ speaker: d, username } = {}) {
     const u = d.user || { username };
-    if (d.opted_out) return layout({ title: `${who(u)}: The Rundown`, robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>${esc(who(u))}</h1><p class="rp-lede">${esc(who(u))} has opted out of The Rundown: nothing they say on stream is written up here.</p></header>`, active: '/rundown' });
+    if (d.opted_out) return layout({ title: `${who(u)}: The Rundown`, robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>${esc(who(u))}</h1><p class="rp-lede">${esc(who(u))} has opted out of The Rundown: nothing they say on stream is written up here.</p></header>`, active: '/rundown', canonical: `${LIVE}/rundown/${encodeURIComponent(u.username || username || '')}` });
     const body = `<header class="rp-page-h rp-person">${kit.mark({ name: who(u), src: u.avatar_url, size: 64 })}<div><p class="rp-kicker">The Rundown · voice</p><h1>${esc(who(u))}</h1><p class="rp-meta"><a href="https://openvibe.live/@${encodeURIComponent(u.username || username)}">Channel on OpenVibe.Live</a> · <a href="/c/${encodeURIComponent(u.username || username)}">After-show reports</a></p></div></header>
 ${(d.topics || []).length ? `<section aria-labelledby="rp-st-h"><h2 id="rp-st-h">Topics</h2><ul class="rp-topics">${d.topics.slice(0, 12).map(topicCard).join('')}</ul></section>` : ''}
 ${(d.lines || []).length ? `<section aria-labelledby="rp-sl-h"><h2 id="rp-sl-h">Takes</h2><ol class="rp-takes">${d.lines.slice(0, 20).map(takeRow).join('')}</ol><p class="rp-meta">${AI}</p></section>` : ''}
 ${(d.episodes || []).length ? `<section aria-labelledby="rp-se-h"><h2 id="rp-se-h">Episodes</h2><ul class="rp-chips">${d.episodes.slice(0, 12).map((m) => `<li><a href="/rundown/e/${encodeURIComponent(m.stream_id)}">${esc(m.title)}</a></li>`).join('')}</ul></section>` : ''}`;
-    return layout({ title: `${who(u)}: The Rundown`, description: `What ${who(u)} talked about on stream, topic by topic.`, body, active: '/rundown', path: `/rundown/s/${encodeURIComponent(u.username || username || '')}` });
+    return layout({ title: `${who(u)}: The Rundown`, description: `What ${who(u)} talked about on stream, topic by topic.`, body, active: '/rundown', path: `/rundown/s/${encodeURIComponent(u.username || username || '')}`, canonical: `${LIVE}/rundown/${encodeURIComponent(u.username || username || '')}` });
 }
 
 function recap({ recap: d } = {}) {
