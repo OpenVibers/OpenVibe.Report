@@ -235,6 +235,6 @@ HMAC. See [SECURITY.md](SECURITY.md).
 <!-- versions:start -->
 - openvibe-contracts: v0.312.0
 - openvibe-sdk: v0.93.0
-- openvibe-shared: v4.124.0
+- openvibe-shared: v4.126.0
 - openvibe-publishing: v1.5.0
 <!-- versions:end -->
