@@ -251,6 +251,29 @@ async function createApp(opts = {}) {
     // ── Loopback-only operator and Events routes ────────────
     app.use('/internal', createInternalRoutes({ analytics, shadow, config, now, log }));
 
+    // ── A session report from any harness with the person's own token (Agent Streams S7) ──
+    // openvibe-sdk/reports writes here. The Report service takes the owner from the token, never from the body; the
+    // report is private by default; a browser call must be same-origin, while a server-to-server call carries a Bearer.
+    app.post('/api/v1/me/session-reports', express.json({ limit: '256kb' }), async (req, res) => {
+        res.set('Cache-Control', 'private, no-store');
+        const viewer = sharing.viewerOf(req.user);
+        if (!viewer) return contracts.http.sendProblem(res, 401, 'auth.sign_in_required', { detail: 'Sign in to write your report.', ctx: req.ov });
+        const bearer = /^Bearer\s+\S+/i.test(String(req.headers.authorization || ''));
+        const sameSite = ['same-origin', 'same-site'].includes(String(req.headers['sec-fetch-site'] || ''));
+        if (!bearer && !sameSite && !req.headers['x-requested-with']) {
+            return contracts.http.sendProblem(res, 403, 'share.csrf', { detail: 'Cross-site request refused', ctx: req.ov });
+        }
+        if (!sessionReports) return contracts.http.sendProblem(res, 503, 'report.no_database', { detail: 'Report has no database in this process.', ctx: req.ov });
+        const body = req.body && typeof req.body === 'object' ? { ...req.body } : {};
+        delete body.owner;
+        try {
+            const out = await sessionReports.write({ ...body, owner: viewer.subject.id });
+            return res.status(out.created ? 201 : 200).json(out);
+        } catch (err) {
+            return contracts.http.sendProblem(res, 400, 'report.invalid', { detail: String((err && err.message) || err).slice(0, 300), ctx: req.ov });
+        }
+    });
+
     // ── API: CORS-open, public for two minutes, 120 requests a minute per address ──
     app.use('/api/v1', (_req, res, next) => {
         res.set('Access-Control-Allow-Origin', '*');

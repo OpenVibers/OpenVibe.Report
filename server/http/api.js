@@ -124,6 +124,19 @@ function createApi({ network, live, analytics = null, aiUsage = null, aiExchange
         return res.json(recaps);
     });
 
+    // The caller's own session reports of the last days (Today's "Your agents this week", S7). The list is the
+    // person's alone: a signed-out reader is 401, never a list of everybody's public reports.
+    r.get('/me/session-reports', async (req, res) => {
+        if (!sessionReports) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const viewer = sharing.viewerOf(req.user);
+        if (!viewer) return problem(req, res, 401, 'auth.sign_in_required', 'Sign in to read your agents.');
+        const days = Math.min(30, Math.max(1, Number(req.query.days) || 7));
+        const from = now() - days * 24 * 60 * 60_000;
+        const reports = (await sessionReports.listForOwner(viewer.subject.id, { limit: 200 }))
+            .filter((r) => { const at = Date.parse(r.created_at); return !Number.isFinite(at) || at >= from; });
+        return res.json({ days, reports });
+    });
+
     // ── Session reports (Agent Streams S3), in the sharing system's four audiences ─────────────────────
     //
     // The share row decides through canView, exactly as the page does: a report of Specific people is a 404 for a

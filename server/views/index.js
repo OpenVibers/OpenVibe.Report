@@ -450,21 +450,43 @@ function sharingChip(audience, members = []) {
     return 'Only you';
 }
 
-function topic({ topic: d } = {}) {
+function topic({ topic: d, citations = [] } = {}) {
     const t = d.topic || {};
     const takes = (d.takes || []).slice(0, 40);
+    // S7: a public agent report whose task worked on this topic, under the whole-name rule. Only Everyone's reports
+    // reach here (the page asks listPublicMatchingTopic); a hidden report is never a citation.
+    const cites = (Array.isArray(citations) ? citations : []).slice(0, 6);
+    const citesHTML = cites.length ? `<section aria-labelledby="rp-cite-h"><h2 id="rp-cite-h">Agents that worked on this</h2><ul class="rp-topics">${cites.map((r) => `<li class="rp-report"><a href="/s/${encodeURIComponent(r.id)}"><span class="rp-kind">${esc((r.outcome || 'done') === 'failed' ? 'Failed' : (r.outcome || 'done') === 'stopped' ? 'Stopped' : 'Done')}</span><b>${esc((r.task && r.task.title) || 'An agent session')}</b><span class="rp-report-s">${esc(r.summary || '')}</span><span class="rp-meta">${AI}${r.worked_seconds ? ` · ${esc(worked(r))}` : ''}</span></a></li>`).join('')}</ul></section>` : '';
     const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/rundown">The Rundown</a> · ${esc(KIND[t.kind] || t.kind || 'Topic')}</p><h1>${esc(t.title)}</h1>
 ${t.headline ? `<p class="rp-lede">${esc(t.headline)}</p>` : ''}${t.summary ? `<p class="rp-summary">${esc(t.summary)}</p>` : ''}<p class="rp-meta">${AI}${t.first_seen_at ? ` · since ${esc(day(t.first_seen_at))}` : ''}</p></header>
 ${takes.length ? `<section aria-labelledby="rp-tk-h"><h2 id="rp-tk-h">Takes</h2><ol class="rp-takes">${takes.map(takeRow).join('')}</ol></section>` : ''}
+${citesHTML}
 ${(d.related || []).length ? `<section aria-labelledby="rp-rel-h"><h2 id="rp-rel-h">Related</h2><ul class="rp-chips">${d.related.slice(0, 12).map((r) => `<li><a href="/rundown/t/${encodeURIComponent(r.slug)}">${esc(r.title)}</a></li>`).join('')}</ul></section>` : ''}`;
     return layout({ title: `${t.title}: The Rundown`, description: t.headline || `What streamers said about ${t.title}.`, body, active: '/rundown', path: `/rundown/t/${encodeURIComponent(t.slug || '')}` });
 }
 
-function episode({ episode: d } = {}) {
+/** A chapter's moment in the recording on OpenVibe.Video (the same link Live's own Rundown draws). */
+function chapterHref(vodId, sec) {
+    const id = String(vodId == null ? '' : vodId).trim();
+    if (!/^\d{1,16}$/.test(id)) return null;
+    const t = Math.max(0, Math.floor(Number(sec) || 0));
+    return `https://openvibe.video/v/${encodeURIComponent(id)}${t ? `?t=${t}` : ''}`;
+}
+
+function episode({ episode: d, citations = [] } = {}) {
     const e = d.episode || {}, s = d.stream || {};
     const segs = (d.segments || []).slice(0, 60);
+    // S7: the chapters are the recording's moments, linked into OpenVibe.Video; a chapter with no recording stays text.
+    const vod = e.vod_id || s.vod_id || null;
+    const chapters = (Array.isArray(e.chapters) ? e.chapters : []).slice(0, 40);
+    const chaptersHTML = chapters.length ? `<section aria-labelledby="rp-ch-h"><h2 id="rp-ch-h">Chapters</h2><ol class="rp-chapters">${chapters.map((c) => {
+        const href = vod ? chapterHref(vod, c.sec) : null;
+        const stamp = `<span class="rp-stamp">${esc(String(Math.floor((Number(c.sec) || 0) / 60)).padStart(2, '0'))}:${esc(String((Number(c.sec) || 0) % 60).padStart(2, '0'))}</span>`;
+        return `<li>${href ? `<a href="${esc(href)}">${stamp} ${esc(c.title)}</a>` : `${stamp} ${esc(c.title)}`}</li>`;
+    }).join('')}</ol></section>` : '';
     const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/rundown">The Rundown</a> · episode</p><h1>${esc(e.title || s.title || 'Episode')}</h1>${e.logline ? `<p class="rp-lede">${esc(e.logline)}</p>` : ''}
 <p class="rp-meta">${AI}${who(s.user) ? ` · <a href="/rundown/s/${encodeURIComponent(s.user.username)}">${esc(who(s.user))}</a>` : ''}${s.started_at ? ` · ${esc(dayTime(s.started_at))}` : ''}${s.id ? ` · <a href="/after-show/${encodeURIComponent(s.id)}">After-show report</a>` : ''}</p></header>
+${chaptersHTML}
 ${segs.length ? `<section aria-labelledby="rp-sg-h"><h2 id="rp-sg-h">What happened</h2><ol class="rp-takes rp-timeline">${segs.map(takeRow).join('')}</ol></section>` : ''}
 ${(d.more || []).length ? `<section aria-labelledby="rp-mo-h"><h2 id="rp-mo-h">More from ${esc(who(s.user) || 'this streamer')}</h2><ul class="rp-chips">${d.more.slice(0, 8).map((m) => `<li><a href="/rundown/e/${encodeURIComponent(m.stream_id)}">${esc(m.title)}</a></li>`).join('')}</ul></section>` : ''}`;
     return layout({ title: `${e.title || s.title}: The Rundown`, description: e.logline || '', body, active: '/rundown', path: `/rundown/e/${encodeURIComponent(s.id || e.stream_id || '')}` });
