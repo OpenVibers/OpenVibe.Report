@@ -774,7 +774,7 @@ function aiIndex({ overview, kinds, boards = [], rankings = [] }) {
     const rated = items.filter((x) => played(x.rows)).sort((a, b) => gamesOf(b.rows) - gamesOf(a.rows));
     const waiting = items.filter((x) => !played(x.rows));
     const leaders = rated.length ? kit.table({
-        caption: 'Task kinds and their leaders', columns: [
+        label: 'Task kinds and their leaders', columns: [
             { key: 'job', label: 'Job', primary: true, html: true }, { key: 'leader', label: 'Leader', html: true },
             { key: 'quality', label: 'Quality', num: true, html: true }, { key: 'games', label: 'Games', num: true, fmt: 'int' },
             { key: 'cost', label: 'Cost/run', num: true, html: true },
@@ -809,7 +809,7 @@ function aiIndex({ overview, kinds, boards = [], rankings = [] }) {
     const activeBench = benches.filter((b) => Number(b.runs) > 0);
     const idleBench = benches.filter((b) => !(Number(b.runs) > 0));
     const benchTable = activeBench.length ? kit.table({
-        caption: 'Benchmarks with published runs', columns: [
+        label: 'Benchmarks with published runs', columns: [
             { key: 'benchmark', label: 'Benchmark', primary: true, html: true }, { key: 'kind', label: 'Task kind' },
             { key: 'leader', label: 'Leader', html: true }, { key: 'runs', label: 'Runs', num: true, fmt: 'int' }, { key: 'last', label: 'Last run', html: true },
         ], rows: benches.map((b, i) => (Number(b.runs) > 0 ? benchRow(b, i) : null)).filter(Boolean),
