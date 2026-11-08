@@ -4,7 +4,7 @@
  * Crawl artifacts for openvibe.report, built with openvibe-shared/seo:
  *
  *   GET /robots.txt      the public pages are crawlable; the API is not
- *   GET /sitemap.xml     /, /stats, /design, /rundown and every /rundown/t/<slug> from the Rundown's topics
+ *   GET /sitemap.xml     /, /stats, /design, /ai (and its benchmarks, models, method and compare), the Rundown's topics
  *   GET /llms.txt        a markdown map of the site and its machine-readable answers
  *
  * The sitemap lists only the pages this site owns; The Rundown pages carry rel=canonical to openvibe.live and are left
@@ -46,8 +46,13 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
     });
 
     r.get('/sitemap.xml', async (_req, res) => {
-        const [ai, reports] = await Promise.all([bench.kinds(), sessionReports ? sessionReports.listPublic({ limit: 500 }) : []]);
+        const [ai, overview, reports] = await Promise.all([
+            bench.kinds(), bench.overview(), sessionReports ? sessionReports.listPublic({ limit: 500 }) : [],
+        ]);
         const kinds = (ai && Array.isArray(ai.data.kinds)) ? ai.data.kinds : [];
+        const o = overview && overview.data ? overview.data : {};
+        const benches = Array.isArray(o.list) ? o.list : [];
+        const models = Array.isArray(o.model_list) ? o.model_list.map((m) => m.model).filter(Boolean) : [...new Set((Array.isArray(o.recent) ? o.recent : []).map((r) => r && r.model).filter(Boolean))];
         const lastmod = siteUpdated();
         // Only the pages this site owns. /rundown and its topic, episode and speaker pages carry rel=canonical to
         // OpenVibe.Live's Rundown, so listing them here would advertise a duplicate.
@@ -56,19 +61,28 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
             { loc: abs('/stats'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/design'), changefreq: 'weekly', priority: 0.6 },
             { loc: abs('/ai'), changefreq: 'daily', priority: 0.9 },
+            { loc: abs('/ai/method'), changefreq: 'weekly', priority: 0.6 },
+            { loc: abs('/ai/compare'), changefreq: 'weekly', priority: 0.6 },
             ...reports.map((rep) => ({ loc: abs('/s/' + encodeURIComponent(rep.id)), changefreq: 'daily', priority: 0.6 })),
             ...kinds.filter((k) => k && bench.isKindId(k.id)).map((k) => ({
                 loc: abs(`/ai/${encodeURIComponent(k.id)}`), changefreq: 'daily', priority: 0.7,
             })),
-        ].map((p) => ({ ...p, ...(lastmod ? { lastmod } : {}) }));
+            ...benches.filter((b) => b && bench.isBenchmarkId(b.id)).map((b) => ({
+                loc: abs(`/ai/${encodeURIComponent(b.id)}`), changefreq: 'daily', priority: 0.8,
+                ...(dayOf(b.last_run) ? { lastmod: dayOf(b.last_run) } : {}),
+            })),
+            ...models.filter((m) => bench.isModelName(m)).map((m) => ({
+                loc: abs(`/ai/models/${encodeURIComponent(m)}`), changefreq: 'daily', priority: 0.6,
+            })),
+        ].map((p) => ({ ...p, ...(lastmod && !p.lastmod ? { lastmod } : {}) }));
         res.type('application/xml').set('Cache-Control', CACHE).send(seo.sitemapXml(pages));
     });
 
     // The site as llms.txt describes it, shared by /llms.txt and /llms-full.txt (SEO-33).
     const llmsSite = () => ({
             name: SITE_NAME,
-            summary: 'Every number on OpenVibe, honest: the network\'s open stats, The Rundown of what streamers talked about, and every stream\'s after-show report.',
-            details: 'The numbers and the write-ups are read from OpenVibe.Network and OpenVibe.Live, cached in this process for a few minutes, and shown as the sources answer them. Nothing here is about a person.',
+            summary: 'Every number on OpenVibe, honest: the network\'s open stats, The Rundown of what streamers talked about, every stream\'s after-show report, and the AI results Bench publishes.',
+            details: 'The numbers and the write-ups are read from OpenVibe.Network, OpenVibe.Live and OpenVibe.Bench, cached in this process for a few minutes, and shown as the sources answer them. Nothing here is about a person.',
             markdown: true,
             base: site,
             sections: [
@@ -77,7 +91,9 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
                     { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
                     { title: 'The Rundown', url: 'https://openvibe.live/rundown', note: 'what streamers talked about, topic by topic (OpenVibe.Live is its canonical home)' },
-                    { title: 'AI boards', url: abs('/ai'), note: 'Bench ratings, quality and cost across rooms' },
+                    { title: 'AI', url: abs('/ai'), note: 'OpenVibe.Bench results: quality, price and speed for every task kind and benchmark' },
+                    { title: 'How AI results are judged', url: abs('/ai/method'), note: 'scores, verified runs, cost per solved, speed and the frontier' },
+                    { title: 'Compare AI models', url: abs('/ai/compare'), note: 'two or three models on the same benchmarks' },
                 ] },
                 // A JSON API is what an agent came for, not something to skip (AGT-5 review).
                 { title: 'API', links: [
@@ -85,6 +101,8 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
                     { title: 'Design health (JSON)', url: abs('/api/v1/design-health'), note: 'every site; /api/v1/design-health/<site> for one' },
                     { title: 'The Rundown (JSON)', url: abs('/api/v1/rundown') },
                     { title: 'Topics (JSON)', url: abs('/api/v1/rundown/topics') },
+                    { title: 'New AI results (RSS)', url: abs('/ai/feed.xml') },
+                    { title: 'New AI results (JSON)', url: abs('/api/v1/ai/results') },
                 ] },
             ],
             optional: [

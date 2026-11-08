@@ -11,6 +11,12 @@
  *   GET /rundown/s/:username    one streamer
  *   GET /after-show/:streamId   one after-show report
  *   GET /c/:username            one channel's after-show reports
+ *   GET /ai                     OpenVibe.Bench's public results: task kinds, benchmarks, runs and last runs
+ *   GET /ai/method              how a score, a cost and a speed are made
+ *   GET /ai/compare             two or three models side by side
+ *   GET /ai/feed.xml            new runs as RSS
+ *   GET /ai/:ref                one task kind (Elo/price/speed) or one public benchmark (bmk_…)
+ *   GET /ai/models/:model       one model's runs over time, tasks, cost and recent runs
  *
  * A bad path parameter is a 404 without a source request; so is a source that answers nothing. Pages are public
  * for two minutes.
@@ -49,25 +55,68 @@ function createPublicPages({ sessionReports, network, live, bench, analytics = n
     }
 
     async function aiIndex() {
-        const kinds = await bench.kinds();
+        const [overview, kinds] = await Promise.all([bench.overview(), bench.kinds()]);
         const list = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
-        const boards = await Promise.all(list.map((kind) => bench.board(kind.id, 'elo')));
-        return { html: views.aiIndex({ kinds, boards }) };
+        const benches = overview && overview.data && Array.isArray(overview.data.list) ? overview.data.list : [];
+        const [boards, rankings] = await Promise.all([
+            Promise.all(list.map((kind) => bench.board(kind.id, 'elo'))),
+            Promise.all(benches.map((b) => bench.rankings(b.id, 'score'))),
+        ]);
+        return { html: views.aiIndex({ overview, kinds, boards, rankings }) };
     }
 
     async function aiBoard(kindId, tab) {
         if (!bench.isKindId(kindId)) return null;
-        const [kinds, board, cost] = await Promise.all([
-            bench.kinds(), bench.board(kindId, tab), tab === 'pareto' ? bench.board(kindId, 'cost') : Promise.resolve(null),
+        const [kinds, board, cost, benchmarks, runs, overview] = await Promise.all([
+            bench.kinds(),
+            bench.board(kindId, tab),
+            tab === 'pareto' ? bench.board(kindId, 'cost') : Promise.resolve(null),
+            bench.benchmarks(),
+            bench.runs({ kind: kindId, limit: 8 }),
+            bench.overview(),
         ]);
         const kind = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds.find((k) => k.id === kindId) : null;
         if (kinds && !kind) return null;
-        return { html: views.aiBoard({ kindId, kind, tab, board, cost, kinds }) };
+        const kindBenchmarks = benchmarks && benchmarks.data && Array.isArray(benchmarks.data.benchmarks)
+            ? benchmarks.data.benchmarks.filter((b) => b.kind === kindId) : [];
+        const rankings = await Promise.all(kindBenchmarks.map((b) => bench.rankings(b.id, 'score')));
+        return { html: views.aiBoard({ kindId, kind, tab, board, cost, kinds, benchmarks, rankings, runs, overview }) };
+    }
+
+    async function aiBenchmark(benchmarkId) {
+        if (!bench.isBenchmarkId(benchmarkId)) return null;
+        const [benchmark, rankings, runs, overview] = await Promise.all([
+            bench.benchmark(benchmarkId), bench.rankings(benchmarkId, 'score'), bench.runs({ benchmark: benchmarkId, limit: 20 }), bench.overview(),
+        ]);
+        // A public id the overview does not list is a 404; a Bench that did not answer at all is the honest unavailable page.
+        const list = overview && overview.data && Array.isArray(overview.data.list) ? overview.data.list : null;
+        if (list && !list.some((b) => b.id === benchmarkId)) return null;
+        return { html: views.aiBenchmark({ benchmark, rankings, runs }) };
     }
 
     async function aiModel(model) {
         if (!bench.isModelName(model)) return null;
-        return { html: views.aiModel({ model, summary: await bench.modelSummary(model) }) };
+        const [detail, legacy] = await Promise.all([bench.modelDetail(model), bench.modelSummary(model)]);
+        return { html: views.aiModel({ model, detail, legacy }) };
+    }
+
+    async function aiMethod() {
+        const [overview, kinds] = await Promise.all([bench.overview(), bench.kinds()]);
+        return { html: views.aiMethod({ overview, kinds }) };
+    }
+
+    async function aiCompare(models = [], errors = []) {
+        const clean = [...new Set((models || []).filter((m) => bench.isModelName(m)))].slice(0, 3);
+        const [details, legacy] = await Promise.all([
+            Promise.all(clean.map((m) => bench.modelDetail(m))),
+            Promise.all(clean.map((m) => bench.modelSummary(m))),
+        ]);
+        return { models: clean, html: views.aiCompare({ models: clean, details, legacy, errors }) };
+    }
+
+    async function aiFeed() {
+        const [runs, overview] = await Promise.all([bench.runs({ limit: 20 }), bench.overview()]);
+        return { runs, overview };
     }
 
     function design() { return { html: designViews.designHealth(designHealth.all()) }; }
@@ -80,7 +129,27 @@ function createPublicPages({ sessionReports, network, live, bench, analytics = n
         return { html: views.rundown({ rundown: r, topics, reports }) };
     }
 
-    return { home, stats, developers, design, rundown, aiIndex, aiBoard, aiModel };
+    return { home, stats, developers, design, rundown, aiIndex, aiBoard, aiBenchmark, aiModel, aiMethod, aiCompare, aiFeed };
+}
+
+/** The new-results feed: one item per public run, with its own Bench date and no invented number. */
+function rssFeed({ runs, overview, base }) {
+    const xml = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const list = runs && runs.data && Array.isArray(runs.data.runs) ? runs.data.runs : [];
+    const titles = new Map((overview && overview.data && Array.isArray(overview.data.list) ? overview.data.list : []).map((b) => [b.id, b.title]));
+    const site = String(base || 'https://openvibe.report').replace(/\/+$/, '');
+    const items = list.map((r) => {
+        const title = `${r.model} on ${titles.get(r.benchmark_id) || r.benchmark_id}`;
+        const link = `${site}/ai/${encodeURIComponent(r.benchmark_id)}`;
+        const score = r.score == null ? 'no score' : `${Math.round(Number(r.score) * 10) / 10}/100`;
+        const cost = r.cost_usd == null ? 'cost not given' : `$${Number(r.cost_usd).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}`;
+        const speed = r.ms == null ? 'time not given' : `${Math.round(Number(r.ms))} ms`;
+        const at = Date.parse(r.created_at);
+        return `<item><title>${xml(title)}</title><link>${xml(link)}</link><guid isPermaLink="false">${xml(r.id)}</guid>${Number.isFinite(at) ? `<pubDate>${new Date(at).toUTCString()}</pubDate>` : ''}<description>${xml(`${r.model} scored ${score} on ${titles.get(r.benchmark_id) || r.benchmark_id}, for ${cost} in ${speed} (${r.provenance || 'run'}).`)}</description></item>`;
+    }).join('');
+    const newest = list.length ? Date.parse(list[0].created_at) : NaN;
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>OpenVibe AI: new results</title><link>${xml(`${site}/ai`)}</link><description>Verified and submitted AI runs as OpenVibe.Bench publishes them.</description><language>en</language>${Number.isFinite(newest) ? `<lastBuildDate>${new Date(newest).toUTCString()}</lastBuildDate>` : ''}${items}</channel></rss>`;
 }
 
 function createPageRoutes(ctx) {
@@ -137,6 +206,24 @@ function createPageRoutes(ctx) {
         return send(req, res, page.html, 200, 'no-store');
     });
 
+    // The AI section's method, comparison and feed. They must sit before /ai/:ref, which would read them as a kind.
+    r.get('/ai/method', async (req, res) => send(req, res, (await publicPages.aiMethod()).html, 200, 'no-store'));
+
+    r.get('/ai/compare', async (req, res) => {
+        const raw = String(req.query.models || '').split(',').map((x) => x.trim()).filter(Boolean);
+        const errors = [];
+        const unique = [...new Set(raw)];
+        if (unique.length < 2) errors.push('Pick at least two model ids, comma separated.');
+        if (unique.length > 3) errors.push('At most three models can be compared at once.');
+        const page = await publicPages.aiCompare(unique.slice(0, 3), errors);
+        return send(req, res, page.html, 200, 'no-store');
+    });
+
+    r.get('/ai/feed.xml', async (req, res) => {
+        const feed = await publicPages.aiFeed();
+        res.status(200).set('Cache-Control', 'public, max-age=120').type('application/rss+xml; charset=utf-8').send(rssFeed({ ...feed, base: ctx.config.baseUrl }));
+    });
+
     // The AI Exchange's daily aggregates (plan G-P9), staff-only, behind REPORT_AI_EXCHANGE. The gate is the signed-in
     // person's staff role (`staff.site.view`, the capability that covers analytics and money state), the same
     // openvibe-contracts staff map other staff pages use. The page is private and never cached.
@@ -155,8 +242,11 @@ function createPageRoutes(ctx) {
         }
     });
 
-    r.get('/ai/:kind', async (req, res) => {
-        const page = await publicPages.aiBoard(req.params.kind, bench.normaliseTab(req.query.tab));
+    r.get('/ai/:ref', async (req, res) => {
+        const ref = String(req.params.ref || '');
+        const page = bench.isBenchmarkId(ref)
+            ? await publicPages.aiBenchmark(ref)
+            : await publicPages.aiBoard(ref, bench.normaliseTab(req.query.tab));
         if (!page) return notFound(req, res);
         return send(req, res, page.html, 200, 'no-store');
     });

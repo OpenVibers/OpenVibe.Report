@@ -40,8 +40,8 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         await check('/ai leads with the leaders: the job, its leader, the rating and the games', async () => {
             const r = await t.get('/ai');
             assert.strictEqual(r.status, 200);
-            for (const s of ['<caption>Leaders</caption>', 'href="/ai/design.page">Page &lt;design&gt;</a>', 'openai/gpt-4o', '1043 ± 38', 'data-label="Games">8</td>', 'job rated', 'provisional']) assert.ok(r.text.includes(s), s);
-            assert.ok(!r.text.includes('No model is rated yet'), 'no empty notice while a board has a leader');
+            for (const s of ['Task kinds and their leaders', 'href="/ai/design.page">Page &lt;design&gt;</a>', 'openai/gpt-4o', '1043 ± 38', 'data-label="Games">8</td>', 'job rated', 'provisional']) assert.ok(r.text.includes(s), s);
+            assert.ok(!r.text.includes('No model is rated on a task kind yet'), 'no empty notice while a board has a leader');
             assert.ok(!r.text.includes('Page <design>'));
         });
 
@@ -107,8 +107,8 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         });
         try {
             const r = await fresh.get('/ai');
-            assert.ok(r.text.includes('No model is rated yet') && r.text.includes('Jobs being rated'), 'one notice, one list');
-            assert.ok(!r.text.includes('<caption>Leaders</caption>') && !r.text.includes('jobs tracked'), 'no empty leaders table and no lone number');
+            assert.ok(r.text.includes('No model is rated on a task kind yet') && r.text.includes('Jobs being rated'), 'one notice, one list');
+            assert.ok(!r.text.includes('Task kinds and their leaders') && !r.text.includes('jobs tracked'), 'no empty leaders table and no lone number');
             const b = await fresh.get('/ai/design.page');
             assert.ok(b.text.includes('No votes yet') && b.text.includes('href="https://openvibe.design/"') && b.text.includes('Vote on Design'), 'a blind-vote job sends people to vote');
             assert.ok(!b.text.includes('class="ovk-tabs'), 'an empty board has no tabs');
@@ -130,7 +130,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         });
         try {
             const r = await unplayed.get('/ai');
-            assert.ok(r.text.includes('No model is rated yet') && !r.text.includes('<caption>Leaders</caption>'), 'no leaders table');
+            assert.ok(r.text.includes('No model is rated on a task kind yet') && !r.text.includes('Task kinds and their leaders'), 'no leaders table');
             assert.ok(!r.text.includes('gpt-5-nano-2025-08-07'), 'the unjudged model is named nowhere as a leader');
             const b = await unplayed.get('/ai/design.page');
             assert.ok(b.text.includes('No votes yet') && b.text.includes('Vote on Design') && !b.text.includes('class="ovk-tabs'), 'the board asks for votes');

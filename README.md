@@ -36,7 +36,7 @@ OpenVibe.Live in both modes.
 | **Report's tables** | `report_metric_days`, `report_metric_windows`, `report_streams` | the same routes while `REPORT_SOURCE=report` |
 | **OpenVibe.Live** — The Rundown | `GET /api/rundown/`, `/api/rundown/topics`, `/api/rundown/t/:slug`, `/api/rundown/e/:streamId`, `/api/rundown/s/:username` | `/rundown`, `/rundown/t/:slug`, `/rundown/e/:streamId`, `/rundown/s/:username` |
 | **OpenVibe.Live** — after-show reports | `GET /api/recap/:streamId`, `GET /api/recap/channel/:username` | `/after-show/:streamId`, `/c/:username` |
-| **OpenVibe.Bench** | `GET /api/v1/kinds`, `/api/v1/boards/:kind?type=elo\|pareto\|cost`, `/api/v1/models/:model` | `/ai`, `/ai/:kind`, `/ai/models/:model` |
+| **OpenVibe.Bench** | `GET /api/v1/kinds`, `/api/v1/boards/:kind?type=elo\|pareto\|cost`, `/api/v1/benchmarks`, `/api/v1/rankings`, `/api/v1/runs`, `/api/v1/overview`, `/api/v1/models/:model`, `/api/v1/models/:model/summary` | `/ai`, `/ai/:kind`, `/ai/<benchmark>`, `/ai/models/:model`, `/ai/compare`, `/ai/method`, `/ai/feed.xml`, `GET /api/v1/ai/results` |
 | **OpenVibe.Billing** | `GET /api/v1/stats`, `GET /api/v1/transactions?subject=…` | the revenue read for a channel; network money counts |
 | **OpenVibe.Billing** — settlements, through Events | `billing.credit.settled@1` on `POST /internal/events` (only with `REPORT_AI_EXCHANGE=1`) | the AI Exchange aggregates and the staff page/API |
 
@@ -64,6 +64,7 @@ never invents a zero and never throws a source error at the reader.
 - **Money** — OpenVibe.Billing. Report reads it with `billing.stats.read` and `billing.balance.read`; it holds no
   ledger and computes no price.
 - **The Rundown and the after-show reports** — OpenVibe.Live. Report quotes them, including their counts and text.
+- **The benchmark results** — OpenVibe.Bench. Report renders its rows and never derives a score, cost or time; Bench stayed the authority when its public pages moved here (2026-11-08) and its old HTML pages answer 301 to `/ai` counterparts.
 - **Identity, sessions and writes** — Report has no sign-in, no cookies and no public write route. `POST
   /internal/events` is loopback-only and HMAC-verified.
 - **The Shared Frame** — `openvibe-shared` (navbar, footer, theme-loader, static files), served from this site's own
@@ -83,9 +84,13 @@ All server-rendered in `server/views/index.js`; every dynamic value goes through
 | `/rundown/s/:username` | one streamer's episodes and topics; canonical is Live's `/rundown/:username` |
 | `/after-show/:streamId` | one after-show report |
 | `/c/:username` | one channel's latest after-show reports |
-| `/ai` | benchmark kinds grouped by room, with leaders and game counts |
-| `/ai/:kind` | Elo, Pareto quality against cost per solved, and cost per solved tables |
-| `/ai/models/:model` | a model's ratings and entries across kinds |
+| `/ai` | the AI overview: every published benchmark with its leader, runs and last run; every task kind with its leader, quality, cost and speed; a link to the method and compare pages |
+| `/ai/:kind` | one task kind: Elo rank, quality against cost, cost per solved, the verified runs on its benchmarks, and the latest runs |
+| `/ai/<benchmark>` | one public Bench benchmark: verified rankings with score, cost, speed and last run, a score-against-cost SVG, and the latest runs |
+| `/ai/models/:model` | a model's runs over time, its best and worst tasks, cost, per-benchmark record and recent runs |
+| `/ai/compare` | two or three models on the same benchmarks, side by side |
+| `/ai/method` | how a score is made, how runs are judged, verified vs submitted, and what the counts mean |
+| `/ai/feed.xml` | new public runs as RSS; the same rows are `GET /api/v1/ai/results` |
 | `/ai/exchange` | **staff only**, with `REPORT_AI_EXCHANGE=1`: Billing's settlements by day, model and access, a daily chart and the exact amounts. Needs a signed-in person whose staff role holds `staff.site.view` |
 
 A bad path parameter (slug, stream id, username) or a source that answered nothing renders `views.notFound()` with
@@ -104,6 +109,7 @@ GET /api/v1/rundown/topics
 GET /api/v1/rundown/t/:slug
 GET /api/v1/after-show/:streamId
 GET /api/v1/c/:username
+GET /api/v1/ai/results            the new AI runs, newest first
 ```
 
 A bad parameter or a missing source answer is a 404 `application/problem+json` body built with

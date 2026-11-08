@@ -18,7 +18,13 @@ function createAgentPages({ publicPages, bench }) {
         else if (path === '/design') page = publicPages.design();
         else if (path === '/stats') page = await publicPages.stats(normaliseDays(query && query.get('days')));
         else if (path === '/ai') page = await publicPages.aiIndex();
+        else if (path === '/ai/method') page = await publicPages.aiMethod();
+        else if (path === '/ai/compare') {
+            const models = String((query && query.get('models')) || '').split(',').map((x) => x.trim()).filter(Boolean);
+            page = await publicPages.aiCompare(models);
+        }
         else if (model) page = await publicPages.aiModel(decodeURIComponent(model[1]));
+        else if (kind && bench.isBenchmarkId(kind[1])) page = await publicPages.aiBenchmark(kind[1]);
         else if (kind) page = await publicPages.aiBoard(kind[1], bench.normaliseTab(query && query.get('tab')));
         return page ? { html: page.html } : null;
     }

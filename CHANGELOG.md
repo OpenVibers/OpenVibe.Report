@@ -3,6 +3,9 @@
 What changed in OpenVibe.Report, newest first. Each site also publishes its patch notes at /updates on
 openvibe.network.
 
+## Unreleased
+
+- **The AI section (2026-11-08): OpenVibe.Bench's pages moved here.** `/ai` is the overview: every published benchmark with its leader, runs and last run, every task kind with quality, price and speed, and a fold for the jobs still waiting. `/ai/<benchmark>` has verified rankings, score against cost in SVG and the latest runs; `/ai/<kind>` keeps the Elo/Pareto/cost boards and adds the verified runs on the kind's benchmarks. `/ai/models/<model>` has runs over time, best and worst tasks, cost and recent runs; `/ai/compare` puts two or three models side by side; `/ai/method` says how a score is made and how runs are judged. `/ai/feed.xml` and `GET /api/v1/ai/results` publish new runs. Every number is Bench's, read through its public API with its 60-second cache and last-good copy; Bench's old HTML pages 301 here.
 ## 0.1.0 — 2026-10-28
 
 The service skeleton: a stateless front for the network's open numbers, The Rundown and every stream's after-show
