@@ -43,8 +43,15 @@ const { check, done, jsonResponse } = require('./helpers/boot');
         assert.strictEqual(await bench.board('../bad'), null);
         assert.strictEqual(await bench.board('design.page', 'wrong'), null);
         assert.strictEqual(await bench.modelSummary('bad?name'), null);
+        assert.strictEqual(await bench.benchmark('../bad'), null);
+        assert.strictEqual(await bench.rankings('not-a-benchmark'), null);
+        assert.strictEqual(await bench.runs({ benchmark: '../bad' }), null);
+        assert.strictEqual(await bench.modelDetail('bad?name'), null);
         assert.strictEqual(calls, 2);
         assert.strictEqual(bench.isModelName('openai/gpt-4o'), true);
+        assert.strictEqual(bench.isBenchmarkId('bmk_01M65KA3H4Y4ZENBYYZQA8SRNN'), true);
+        assert.strictEqual(bench.normaliseLimit(0), 1);
+        assert.strictEqual(bench.normaliseLimit(1000), 100);
     });
 
     done();

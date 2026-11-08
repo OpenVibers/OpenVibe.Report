@@ -30,7 +30,7 @@ const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, bench = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
 
@@ -164,6 +164,22 @@ function createApi({ network, live, analytics = null, aiUsage = null, aiExchange
         return res.json({
             reports: [...publicOnes.map((r) => ({ ...r, audience: 'public' })), ...mine],
         });
+    });
+
+    // The new AI results, as JSON: the same public runs the /ai/feed.xml RSS carries. Only Bench's own rows; a
+    // result with no run is not in it.
+    r.get('/ai/results', async (req, res) => {
+        if (!bench) return problem(req, res, 503, 'report.no_bench', 'Bench is not configured in this process.');
+        const [runs, overview] = await Promise.all([bench.runs({ limit: 50 }), bench.overview()]);
+        const list = runs && runs.data && Array.isArray(runs.data.runs) ? runs.data.runs : null;
+        if (!list) return problem(req, res, 502, 'report.bench_unavailable', 'Bench did not answer with its runs.');
+        const titles = new Map((overview && overview.data && Array.isArray(overview.data.list) ? overview.data.list : []).map((b) => [b.id, b.title]));
+        const results = list.map((run) => ({
+            id: run.id, benchmark_id: run.benchmark_id, benchmark: titles.get(run.benchmark_id) || null,
+            model: run.model, score: run.score, cost_usd: run.cost_usd, ms: run.ms, provenance: run.provenance,
+            created_at: run.created_at, url: `${String(config.baseUrl || 'https://openvibe.report').replace(/\/+$/, '')}/ai/${encodeURIComponent(run.benchmark_id)}`,
+        }));
+        return res.json({ count: results.length, generated_at: new Date(now()).toISOString(), results });
     });
 
     // ── The AI meter (plan L40 and L41) ─────────────────────────────────────────────

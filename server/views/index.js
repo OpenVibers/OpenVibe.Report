@@ -80,7 +80,7 @@ const NAV = [
     { label: 'You', href: '/you', icon: 'fa-user' },
     { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' },
     { label: 'The Rundown', href: '/rundown', icon: 'fa-newspaper' },
-    { label: 'AI boards', href: '/ai', icon: 'fa-robot' },
+    { label: 'AI', href: '/ai', icon: 'fa-robot' },
     { label: 'API', href: '/developers', icon: 'fa-code', more: true },
 ];
 
@@ -90,7 +90,7 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
         service: 'report',
         apiBase: NETWORK,
         links: NAV.map((l) => ({ ...l, active: l.href === active || (l.href !== '/' && active.startsWith(l.href)) })),
-        appBar: [{ label: 'Home', href: '/', icon: 'fa-house' }, { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' }, { label: 'Rundown', href: '/rundown', icon: 'fa-newspaper' }, { label: 'AI boards', href: '/ai', icon: 'fa-robot' }],
+        appBar: [{ label: 'Home', href: '/', icon: 'fa-house' }, { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' }, { label: 'Rundown', href: '/rundown', icon: 'fa-newspaper' }, { label: 'AI', href: '/ai', icon: 'fa-robot' }],
         history: { type: 'page', title: title || NAME },
         // Sign-in is this site's own (openvibe-sdk/sso at /auth): the navbar's buttons and its silent check use it.
         silentLogin: `${BASE}/auth/login?silent=1&next={url}`,
@@ -121,6 +121,7 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
 <link rel="stylesheet" href="${esc(ovServe.url('room.css'))}">
 <link rel="stylesheet" href="${esc(ovServe.url('showcase.css'))}">
 <link rel="stylesheet" href="${esc(asset('css/app.css'))}">
+${path && String(path).startsWith('/ai') ? `<link rel="alternate" type="application/rss+xml" title="AI: new results" href="${esc(`${BASE}/ai/feed.xml`)}">` : ''}
 <script src="${esc(ovServe.url('kit-web.js'))}" defer></script>
 <script src="${esc(ovServe.url('kit-data-web.js'))}" defer></script>
 <script src="${esc(ovServe.url('motion.js'))}" defer></script>
@@ -253,7 +254,7 @@ function home({ stats, rundown, topics } = {}) {
         explore: { title: 'More on Report', items: [
             { title: 'Every site\'s numbers', text: 'Page views, people, streams and how fast each service answers', href: '/stats', icon: 'ov:gauge' },
             { title: 'The Rundown', text: 'What streamers talked about, topic by topic', href: '/rundown', icon: 'ov:news' },
-            { title: 'AI boards', text: 'Every benchmark kind, its leader, quality against cost and cost per solved task', href: '/ai', icon: 'ov:ai' },
+            { title: 'AI', text: 'Which AI does each job best, what it costs and how fast it is: Bench results from every room', href: '/ai', icon: 'ov:ai' },
             { title: 'Status', text: 'Whether every OpenVibe service is up right now', href: 'https://openvibe.network/status', icon: 'ov:ping' },
         ] },
         dev: { title: 'For developers', lede: 'Every number here is open JSON, readable from any site.', samples: [
@@ -644,6 +645,8 @@ function developers() {
         ['GET /api/v1/rundown/t/:slug', 'One topic with its takes and related topics.'],
         ['GET /api/v1/after-show/:streamId', 'A stream\'s after-show report: viewers minute by minute, chat, moments and the write-up.'],
         ['GET /api/v1/c/:username', 'A channel\'s after-show reports, newest first.'],
+        ['GET /api/v1/ai/results', 'New public AI runs from OpenVibe.Bench, newest first, with their score, cost and time.'],
+        ['GET /ai/feed.xml', 'The same new AI results as an RSS feed.'],
     ];
     const body = `<header class="rp-page-h"><p class="rp-kicker">For developers</p><h1>The Report API</h1><p class="rp-lede">Open JSON, no key, readable from any site (CORS). Counts only, never about a person.</p></header>
 <section aria-labelledby="rp-ep-h"><h2 id="rp-ep-h">Endpoints</h2><dl class="rp-eps">${rows.map(([ep, what]) => `<div><dt><code>${esc(ep)}</code></dt><dd>${esc(what)}</dd></div>`).join('')}</dl></section>
@@ -652,140 +655,461 @@ function developers() {
 }
 
 function benchState(...reads) {
-    const stale = reads.filter((r) => r && r.stale);
+    const stale = reads.filter((r) => r && r.stale).sort((a, b) => String(a.at).localeCompare(String(b.at)));
     if (!stale.length) return '';
-    const oldest = stale.map((r) => r.at).sort()[0];
-    return `<p class="rp-fine" role="status">Bench is unavailable. Showing the last good copy, read ${esc(dayTime(oldest))}.</p>`;
+    return `<p class="rp-fine" role="status">Bench is unavailable. Showing the last good copy, read ${esc(dayTime(stale[0].at))}.</p>`;
 }
 
+/** The answer inside a Bench read ({ data, at, stale }), or null. */
+const readData = (r) => (r && r.data != null ? r.data : null);
 const aiPath = (kind) => `/ai/${encodeURIComponent(kind)}`;
 const modelPath = (model) => `/ai/models/${encodeURIComponent(model)}`;
 const modelLink = (subject) => `<a href="${modelPath(subject)}">${esc(subject)}</a>`;
 const datasetLink = (kind) => `<p class="rp-fine">Download the <a href="${BENCH}/api/v1/datasets/${encodeURIComponent(kind)}.jsonl">dataset JSONL</a> from Bench.</p>`;
+const scoreText = (v) => { const x = n(v); return x == null ? '—' : `${Math.round(x * 10) / 10}`; };
+const scoreCell = (v) => { const x = n(v); return x == null ? '—' : `<span title="${esc(String(v))} / 100 from Bench">${esc(scoreText(v))}</span>`; };
+const moneyCell = (v) => { const x = n(v); return x == null ? '—' : `<span title="${esc(String(v))} USD from Bench">${esc(usd(x))}</span>`; };
+const speedCell = (v) => { const x = n(v); if (x == null) return '—'; return `<span title="${exact(x)} ms from Bench">${esc(msText(x))}</span>`; };
+function msText(v) {
+    const x = n(v);
+    if (x == null) return '—';
+    if (x >= 60_000) return `${(x / 60_000).toFixed(x >= 600_000 ? 0 : 1).replace(/\.0$/, '')} min`;
+    if (x >= 1_000) return `${(x / 1_000).toFixed(x >= 10_000 ? 0 : 1).replace(/\.0$/, '')} s`;
+    return `${Math.round(x)} ms`;
+}
+const lastRunText = (v) => (v ? `Last run ${dayTime(v)}` : 'No runs yet');
+const provenanceCell = (p) => (p === 'verified' ? '<span class="rp-fine">verified</span>' : p === 'submitted' ? '<span class="rp-flag">submitted</span>' : '—');
+/** A reading of quality against cost: a model is on the frontier when nothing beats it on both. */
+function frontier(rows, xKey, yKey) {
+    return rows.map((r) => {
+        const x = n(r[xKey]), y = n(r[yKey]);
+        const best = x != null && y != null && !rows.some((o) => {
+            if (o === r) return false;
+            const ox = n(o[xKey]), oy = n(o[yKey]);
+            return ox != null && oy != null && ox <= x && oy >= y && (ox < x || oy > y);
+        });
+        return { ...r, frontier: best, cost: x, quality: y };
+    });
+}
+/** A benchmark's leads and last run, from the overview list (no new number is derived). */
+function byKindFromOverview(overview) {
+    const map = new Map();
+    for (const b of (overview && Array.isArray(overview.list) ? overview.list : [])) {
+        if (!b || !b.kind) continue;
+        const at = b.last_run;
+        if (!at) continue;
+        if (!map.has(b.kind) || String(at) > String(map.get(b.kind))) map.set(b.kind, at);
+    }
+    return map;
+}
 
-// ── AI boards (Kit 2): who does each job best, and what it costs ──
-// The reader came to choose a model for a job. So the page leads with the leaders, one row per job, and keeps the
-// jobs nobody has rated yet in one short list; each board is a ranking, a quality-against-cost chart and the exact
-// numbers. Nothing here is drawn from a guess: every figure is Bench's.
-const JUDGE_SHORT = { human_pairwise: 'blind votes', rubric: 'a rubric', automatic_grader: 'a grader', test_suite: 'a test suite', game_outcome: 'game results' };
-// Where people rate a kind themselves (only blind-vote kinds are rated by people); a room without a site has no link.
+// ── AI (OpenVibe.Bench, plan 2026-10-28 §4.12; the owner moved its pages here 2026-11-08) ──
+// The reader came to choose a model for a job. Every figure is Bench's: a board's rating, a run's score, the
+// cost and the milliseconds the run carried, and the moment it was published. A job nobody has rated yet is a
+// short wait list, never a made-up leader.
+const JUDGE_SHORT = { human_pairwise: 'blind votes', audience_poll: 'audience polls', rubric: 'a rubric', automatic_grader: 'a grader', test_suite: 'a test suite', game_outcome: 'game results' };
+const JUDGE_LONG = {
+    human_pairwise: 'People see two answers blind and pick the better one. A vote is one game between two models.',
+    audience_poll: 'An audience votes on the outputs; the poll is recorded as one game, however many people voted.',
+    rubric: 'A rubric scores the output against the task’s stated criteria.',
+    automatic_grader: 'A grader checks the output against the expected answer or the task’s rules.',
+    test_suite: 'A pinned test suite runs the output; it passes only when the tests pass.',
+    game_outcome: 'The game itself decides: the result is the judgement, not a person’s opinion.',
+};
 const ROOM_HOSTS = { chat: 'openvibe.chat', games: 'openvibe.games', search: 'search.openvibe.network', codes: 'openvibe.codes' };
 const roomHost = (room) => { const r = rooms.get(room); return (r && r.host) || ROOM_HOSTS[room] || null; };
 const rowsOf = (read) => (read && read.data && read.data.board && Array.isArray(read.data.board.rows) ? read.data.board.rows : []);
-/**
- * Whether a board has results: on a ranking (rows carry games), a game has been played (a model entered but never
- * judged has 0); the quality and cost views carry no games, and any row counts.
- */
 const played = (rows) => {
     const list = rows || [];
     if (!list.some((r) => r && r.games != null)) return list.length > 0;
     return list.some((r) => (n(r && r.games) || 0) > 0);
 };
-const howRated = (kind) => `Rated by ${JUDGE_SHORT[kind.judge] || 'Bench'}`;
+const howRated = (kind) => `Rated by ${JUDGE_SHORT[kind && kind.judge] || 'Bench'}`;
 const METHOD = 'Ratings are Bradley–Terry Elo from Bench, with a 95% interval; a model with fewer than ten games is provisional.';
+const CHART_NOTE = 'Up and to the left is better. The dashed line joins the models nothing beats on both.';
+const BENCH_API = `${BENCH}/api/v1`;
 
-/** What to do when a board is empty: rate it in its room (blind-vote kinds), or wait for runs (graded kinds). */
 function emptyFor(kind) {
     const host = kind && kind.judge === 'human_pairwise' ? roomHost(kind.room) : null;
     if (host) return kit.empty({ icon: 'trophy', title: 'No votes yet', text: `This board fills as people compare two answers blind on ${roomName(kind.room)} and pick the better one.`, action: { href: `https://${host}/`, label: `Vote on ${roomName(kind.room)}`, icon: 'forward' } });
     return kit.empty({ icon: 'trophy', title: 'No results yet', text: kind ? `This board fills as models are run and ${JUDGE_SHORT[kind.judge] || 'Bench'} scores them.` : 'This board fills as models are run on Bench.' });
 }
 
-function aiIndex({ kinds, boards = [] }) {
-    const list = kinds && kinds.data && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
-    const items = list.map((kind, i) => ({ kind, rows: rowsOf(boards[i]), available: Boolean(boards[i]) }));
-    // A board is rated once a game is played. Bench lists a model as soon as it has an entry, at the starting 1000
-    // with 0 games: that is no leader (11-03, every board on /ai named gpt-5-nano "leader" with 0 games).
-    const rated = items.filter((x) => played(x.rows)).sort((a, b) => gamesOf(b.rows) - gamesOf(a.rows));
-    const waiting = items.filter((x) => !played(x.rows));
-    const leaders = rated.length ? kit.table({
-        caption: 'Leaders', columns: [
-            { key: 'job', label: 'Job', primary: true, html: true }, { key: 'leader', label: 'Leader', html: true },
-            { key: 'rating', label: 'Rating', num: true, html: true }, { key: 'games', label: 'Games', num: true, fmt: 'int' },
-        ],
-        rows: rated.map(({ kind, rows }) => ({ job: `<a href="${aiPath(kind.id)}">${esc(kind.name || kind.id)}</a>`, leader: `${modelLink(rows[0].subject)}${flag(rows[0])}`, rating: rating(rows[0]), games: gamesOf(rows) })),
-    }) : '';
-    const waitRows = waiting.map(({ kind, available }) => kit.row({ href: aiPath(kind.id), title: kind.name || kind.id, sub: `${roomName(kind.room)} · ${available ? howRated(kind) : 'board unavailable'}`, trail: kit.icon('chevron') }));
-    const waitList = waitRows.length ? kit.list(waitRows, { flush: true }) : '';
-    const none = !rated.length && list.length;
-    const body = kit.head({ title: 'AI boards', sub: 'Which AI does each job best, and what it costs', sticky: false })
-        + benchState(kinds, ...boards)
-        + (!list.length ? kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'The boards come back as soon as Bench answers.' }) : '')
-        + (none ? kit.notice({ kind: 'info', text: `No model is rated yet. ${list.length} jobs are set up; each board fills as people vote blind on two answers, or as graders score runs.` }) : '')
-        + (rated.length ? kit.stats([[rated.length, rated.length === 1 ? 'job rated' : 'jobs rated'], [rated.reduce((s, x) => s + gamesOf(x.rows), 0), 'games played'], [list.length, 'jobs tracked']], { label: 'The boards in numbers' }) : '')
-        + leaders
-        + (waitList ? (none ? kit.section({ title: 'Jobs being rated', count: waiting.length, body: waitList }) : kit.fold({ title: 'Waiting for their first results', meta: String(waiting.length), body: waitList })) : '')
-        + `<p class="rp-fine">${esc(METHOD)} Every board's data is open: <a href="${BENCH}/docs">Bench's API and datasets</a>.</p>`;
-    return layout({ title: 'AI boards', description: 'Which AI does each job best, and what it costs: Bench ratings across OpenVibe.', body, active: '/ai', path: '/ai', agent: true });
-}
-
+/** The cost-per-solved chart Bench's boards already use: quality (0–1) against cost per solved task. */
 function paretoRows(pareto, cost) {
     const costs = new Map(rowsOf(cost).map((r) => [r.subject, n(r.cost_per_solved)]));
     const rows = rowsOf(pareto).map((r) => ({ ...r, quality: n(r.quality), costPerSolved: costs.get(r.subject) }));
-    return rows.map((r) => ({ ...r, frontier: r.quality != null && r.costPerSolved != null && !rows.some((other) => other !== r && other.quality != null && other.costPerSolved != null && other.quality >= r.quality && other.costPerSolved <= r.costPerSolved && (other.quality > r.quality || other.costPerSolved < r.costPerSolved)) }));
+    return frontier(rows.map((r) => ({ ...r, x: r.costPerSolved, y: r.quality })), 'x', 'y');
 }
-
-/** Quality against cost per solved task, the frontier dashed and labelled (kit.chart scatter). */
 function paretoChart(rows) {
     const points = rows.filter((r) => r.quality != null && r.costPerSolved != null && r.costPerSolved >= 0);
     if (!points.length) return '<p class="rp-fine">No quality and cost per solved pairs yet.</p>';
     return kit.chart({
-        type: 'scatter', title: 'Quality against cost per solved task', note: 'Up and to the left is better. The dashed line joins the models nothing beats on both.',
+        type: 'scatter', title: 'Quality against cost per solved task', note: CHART_NOTE,
         x: { label: 'Cost per solved task (USD, lower is better)', fmt: (v) => usd(v) }, y: { label: 'Quality', fmt: (v) => `${Math.round(v)}%`, zero: false },
         points: points.map((r) => ({ label: r.subject, x: r.costPerSolved, y: r.quality * 100, best: r.frontier, mark: r.frontier || points.length <= 8, href: modelPath(r.subject) })),
+        height: 260,
+    });
+}
+/** A benchmark's verifier: score 0–100 against the median cost of a run. The frontier is the same reading. */
+function scoreCostChart(entries) {
+    const rows = frontier(entries.filter((r) => n(r.cost_usd) != null && n(r.score) != null).map((r) => ({ ...r, x: n(r.cost_usd), y: n(r.score) })), 'x', 'y');
+    if (!rows.length) return '';
+    return kit.chart({
+        type: 'scatter', title: 'Score against cost per run', note: CHART_NOTE,
+        x: { label: 'Median cost of a run (USD, lower is better)', fmt: (v) => usd(v) }, y: { label: 'Score (0–100)', fmt: (v) => `${Math.round(v)}`, zero: false },
+        points: rows.map((r) => ({ label: r.model, x: r.cost, y: r.quality, best: r.frontier, mark: r.frontier || rows.length <= 8, href: modelPath(r.model) })),
         height: 260,
     });
 }
 
 const TABS = [{ key: 'elo', label: 'Ranking' }, { key: 'pareto', label: 'Quality and cost' }, { key: 'cost', label: 'Cost per solved' }];
 
-function aiBoard({ kindId, kind, tab, board, cost, kinds }) {
+function aiIndex({ overview, kinds, boards = [], rankings = [] }) {
+    const o = readData(overview) || {};
+    const list = kinds && kinds.data && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
+    const benches = Array.isArray(o.list) ? o.list : [];
+    const lastByKind = byKindFromOverview(o);
+    const items = list.map((kind, i) => ({ kind, rows: rowsOf(boards[i]), available: Boolean(boards[i]) }));
+    const rated = items.filter((x) => played(x.rows)).sort((a, b) => gamesOf(b.rows) - gamesOf(a.rows));
+    const waiting = items.filter((x) => !played(x.rows));
+    const leaders = rated.length ? kit.table({
+        caption: 'Task kinds and their leaders', columns: [
+            { key: 'job', label: 'Job', primary: true, html: true }, { key: 'leader', label: 'Leader', html: true },
+            { key: 'quality', label: 'Quality', num: true, html: true }, { key: 'games', label: 'Games', num: true, fmt: 'int' },
+            { key: 'cost', label: 'Cost/run', num: true, html: true },
+            { key: 'speed', label: 'Speed/run', num: true, html: true }, { key: 'last', label: 'Last run', html: true },
+        ],
+        rows: rated.map(({ kind, rows }) => {
+            const top = rows[0];
+            return {
+                job: `<a href="${aiPath(kind.id)}">${esc(kind.name || kind.id)}</a>`,
+                leader: `${modelLink(top.subject)}${flag(top)}`,
+                quality: rating(top),
+                games: gamesOf(rows),
+                cost: moneyCell(top.median_cost_usd),
+                speed: speedCell(top.median_ms),
+                last: lastByKind.get(kind.id) ? `<span title="${esc(lastByKind.get(kind.id))}">${esc(dayTime(lastByKind.get(kind.id)))}</span>` : '—',
+            };
+        }),
+    }) : '';
+    const waitRows = waiting.map(({ kind, available }) => kit.row({ href: aiPath(kind.id), title: kind.name || kind.id, sub: `${roomName(kind.room)} · ${available ? howRated(kind) : 'board unavailable'}`, trail: kit.icon('chevron') }));
+    const waitList = waitRows.length ? kit.list(waitRows, { flush: true }) : '';
+    const benchRow = (b, i) => {
+        const r = rankings[i] && readData(rankings[i]);
+        const top = r && r.rankings && Array.isArray(r.rankings.entries) ? r.rankings.entries[0] : null;
+        return {
+            benchmark: `<a href="${aiPath(b.id)}">${esc(b.title)}</a>`,
+            kind: esc(b.kind || '—'),
+            leader: top ? `${modelLink(top.model)} ${scoreCell(top.score)}` : '—',
+            runs: b.runs == null ? 0 : b.runs,
+            last: b.last_run ? esc(dayTime(b.last_run)) : 'No runs yet',
+        };
+    };
+    const activeBench = benches.filter((b) => Number(b.runs) > 0);
+    const idleBench = benches.filter((b) => !(Number(b.runs) > 0));
+    const benchTable = activeBench.length ? kit.table({
+        caption: 'Benchmarks with published runs', columns: [
+            { key: 'benchmark', label: 'Benchmark', primary: true, html: true }, { key: 'kind', label: 'Task kind' },
+            { key: 'leader', label: 'Leader', html: true }, { key: 'runs', label: 'Runs', num: true, fmt: 'int' }, { key: 'last', label: 'Last run', html: true },
+        ], rows: benches.map((b, i) => (Number(b.runs) > 0 ? benchRow(b, i) : null)).filter(Boolean),
+    }) : '';
+    const idleRows = benches.map((b, i) => (Number(b.runs) > 0 ? null : kit.row({ href: aiPath(b.id), title: b.title, sub: `${b.kind || 'benchmark'} · no run yet`, trail: kit.icon('chevron') }))).filter(Boolean);
+    const idleList = idleRows.length ? kit.list(idleRows, { flush: true }) : '';
+    const none = !rated.length && list.length;
+    const body = kit.head({ title: 'AI', sub: 'Which AI does each job best, what it costs, and how fast it is', sticky: false })
+        + benchState(overview, kinds, ...rankings, ...boards)
+        + `<p class="rp-fine">Every number on this page is a published Bench result or vote. ${esc(METHOD)} <a href="/ai/method">How the runs are judged</a> · <a href="/ai/compare">Compare models</a> · <a href="/ai/feed.xml">New results (RSS)</a></p>`
+        + (!list.length && !benches.length ? kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'The boards come back as soon as Bench answers.' }) : '')
+        + (o.benchmarks != null || o.runs != null ? kit.stats([
+            [o.benchmarks == null ? '—' : exact(o.benchmarks), o.benchmarks === 1 ? 'benchmark' : 'benchmarks'],
+            [o.tasks == null ? '—' : exact(o.tasks), o.tasks === 1 ? 'task' : 'tasks'],
+            [o.runs == null ? '—' : exact(o.runs), o.runs === 1 ? 'run' : 'runs'],
+            [o.models == null ? '—' : exact(o.models), o.models === 1 ? 'model' : 'models'],
+            [o.last_run ? dayTime(o.last_run) : 'No runs yet', 'last run'],
+        ], { label: 'AI in numbers' }) : (rated.length ? kit.stats([
+            [rated.length, rated.length === 1 ? 'job rated' : 'jobs rated'],
+            [rated.reduce((sum, x) => sum + gamesOf(x.rows), 0), 'games played'],
+            [list.length, 'jobs tracked'],
+        ], { label: 'The boards in numbers' }) : ''))
+        + (none ? kit.notice({ kind: 'info', text: `No model is rated on a task kind yet. ${list.length} jobs are set up; each board fills as people vote blind on two answers, or as graders score runs.` }) : '')
+        + (leaders ? kit.section({ title: 'Task kinds', count: rated.length, body: leaders }) : '')
+        + (benchTable ? kit.section({ title: 'Benchmarks with published runs', count: activeBench.length, body: benchTable }) : '')
+        + (idleList ? kit.fold({ title: 'Waiting for their first run', meta: String(idleRows.length), body: idleList }) : '')
+        + (waitList ? (none ? kit.fold({ title: 'Jobs being rated', meta: String(waiting.length), body: waitList }) : kit.fold({ title: 'Waiting for their first results', meta: String(waiting.length), body: waitList })) : '')
+        + `<p class="rp-fine">The open data is Bench's: <a href="${BENCH}/docs">its API and datasets</a> stay on bench.openvibe.services.</p>`;
+    return layout({ title: 'AI', description: 'Which AI does each job best, and what it costs: OpenVibe.Bench results, rendered by OpenVibe.Report.', body, active: '/ai', path: '/ai', agent: true });
+}
+
+function aiBoard({ kindId, kind, tab, board, cost, kinds, benchmarks, rankings = [], runs, overview }) {
     const name = kind && kind.name || kindId;
     const rows = rowsOf(board);
+    const o = readData(overview) || {};
+    const lastByKind = byKindFromOverview(o);
+    const kindLast = lastByKind.get(kindId) || null;
+    const latest = readData(runs);
+    const latestRows = latest && Array.isArray(latest.runs) ? latest.runs : [];
+    // The registry's verified runs on this kind's public benchmarks: a second, task-level reading even while the
+    // blind board has no votes. A model's numbers across the kind's benchmarks are medians, never a sum of scores.
+    const kindBenchmarks = (() => {
+        const b = readData(benchmarks);
+        return b && Array.isArray(b.benchmarks) ? b.benchmarks.filter((x) => x.kind === kindId) : [];
+    })();
+    const byModel = new Map();
+    kindBenchmarks.forEach((b, i) => {
+        const r = rankings[i] && readData(rankings[i]);
+        const entries = r && r.rankings && Array.isArray(r.rankings.entries) ? r.rankings.entries : [];
+        for (const e of entries) {
+            if (!byModel.has(e.model)) byModel.set(e.model, { model: e.model, scores: [], costs: [], times: [], runs: 0, last_run: null });
+            const x = byModel.get(e.model);
+            if (n(e.score) != null) x.scores.push(n(e.score));
+            if (n(e.cost_usd) != null) x.costs.push(n(e.cost_usd));
+            if (n(e.ms) != null) x.times.push(n(e.ms));
+            x.runs += Number(e.runs) || 0;
+            if (e.last_run && (!x.last_run || e.last_run > x.last_run)) x.last_run = e.last_run;
+        }
+    });
+    const median = (list) => { const v = list.filter((x) => x != null).sort((a, b) => a - b); if (!v.length) return null; const m = Math.floor(v.length / 2); return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+    const registryRows = [...byModel.values()].map((x) => ({ model: x.model, score: median(x.scores), cost: median(x.costs), speed: median(x.times), runs: x.runs, last_run: x.last_run })).sort((a, b) => (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score) || a.model.localeCompare(b.model));
+    const registryTable = registryRows.length ? kit.table({ caption: 'Published runs on this kind', columns: [
+        { key: 'model', label: 'Model', primary: true, html: true }, { key: 'score', label: 'Median score', num: true, html: true },
+        { key: 'runs', label: 'Runs', num: true, fmt: 'int' }, { key: 'cost', label: 'Cost/run', num: true, html: true },
+        { key: 'speed', label: 'Speed/run', num: true, html: true }, { key: 'last', label: 'Last run', html: true },
+    ], rows: registryRows.map((r) => ({ model: modelLink(r.model), score: scoreText(r.score), runs: r.runs, cost: moneyCell(r.cost), speed: speedCell(r.speed), last: r.last_run ? esc(dayTime(r.last_run)) : '—' })) }) : '';
     let content;
     if (!board) content = kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'This board comes back as soon as Bench answers.' });
+    else if (!played(rows) && registryRows.length) content = kit.notice({ kind: 'info', text: `No blind vote on this task kind yet. ${registryRows.length} ${registryRows.length === 1 ? 'model has' : 'models have'} verified runs below.` });
     else if (!played(rows)) content = emptyFor(kind);
     else if (tab === 'pareto') {
         const points = paretoRows(board, cost);
-        content = paretoChart(points) + (points.length ? kit.table({ caption: 'The numbers', columns: [{ key: 'm', label: 'Model', primary: true, html: true }, { key: 'q', label: 'Quality', num: true, html: true }, { key: 'c', label: 'Cost per solved', num: true, html: true }],
-            // The frontier is a word on the model's name, so a phone's card stays two lines.
-            rows: points.map((r) => ({ m: `${modelLink(r.subject)}${r.frontier ? ` ${kit.badge('frontier', 'accent')}` : ''}`, q: share(r.quality), c: usd(r.costPerSolved) })) }) : '');
+        content = paretoChart(points) + (points.length ? kit.table({ caption: 'The numbers', columns: [
+            { key: 'm', label: 'Model', primary: true, html: true }, { key: 'q', label: 'Quality', num: true, html: true },
+            { key: 'c', label: 'Cost per solved', num: true, html: true }, { key: 'speed', label: 'Speed/run', num: true, html: true },
+        ], rows: points.map((r) => ({ m: `${modelLink(r.subject)}${r.frontier ? ` ${kit.badge('frontier', 'accent')}` : ''}`, q: share(r.quality), c: usd(r.costPerSolved), speed: speedCell(r.median_ms) })) }) : '');
     } else if (tab === 'cost') {
         const crows = rowsOf(cost).length ? rowsOf(cost) : rows;
-        content = kit.table({ caption: 'Cost per solved task', columns: [{ key: 'm', label: 'Model', primary: true, html: true }, { key: 'solved', label: 'Solved', num: true, fmt: 'int' }, { key: 'entries', label: 'Entries', num: true, fmt: 'int' }, { key: 'total', label: 'Total cost', num: true, html: true }, { key: 'per', label: 'Cost per solved', num: true, html: true }],
-            rows: crows.map((r) => ({ m: modelLink(r.subject), solved: r.solved, entries: r.entries, total: usd(r.total_cost_usd), per: usd(r.cost_per_solved) })) });
+        content = kit.table({ caption: 'Cost per solved task', columns: [
+            { key: 'm', label: 'Model', primary: true, html: true }, { key: 'solved', label: 'Solved', num: true, fmt: 'int' },
+            { key: 'entries', label: 'Entries', num: true, fmt: 'int' }, { key: 'total', label: 'Total cost', num: true, html: true },
+            { key: 'per', label: 'Cost per solved', num: true, html: true }, { key: 'speed', label: 'Speed/run', num: true, html: true },
+        ], rows: crows.map((r) => ({ m: modelLink(r.subject), solved: r.solved, entries: r.entries, total: usd(r.total_cost_usd), per: usd(r.cost_per_solved), speed: speedCell(r.median_ms) })) });
     } else {
-        // The bars start just under the lowest interval, so the differences that matter are the ones you see.
         const floor = Math.floor((Math.min(...rows.map((r) => n(r.ci_lower) ?? n(r.elo) ?? 0)) - 25) / 50) * 50;
         content = kit.rank({ label: `${name}: ranking`, base: floor, fmt: 'int', items: rows.map((r) => {
             const lo = n(r.ci_lower), hi = n(r.ci_upper), elo = n(r.elo);
+            const costText = n(r.median_cost_usd) != null ? `${usd(r.median_cost_usd)}/run` : null;
+            const speedText = n(r.median_ms) != null ? `${msText(r.median_ms)}/run` : null;
             return { name: r.subject, href: modelPath(r.subject), value: elo, interval: lo != null && hi != null && elo != null ? Math.round(Math.max(hi - elo, elo - lo)) : null,
-                note: [n(r.games) != null ? `${exact(r.games)} games` : '', n(r.win_rate) != null ? `${share(r.win_rate)} won` : '', provisional(r) ? 'provisional' : ''].filter(Boolean).join(' · ') };
-        }) }) + `<p class="rp-fine">${esc(METHOD)}</p>`;
+                note: [n(r.games) != null ? `${exact(r.games)} games` : '', n(r.win_rate) != null ? `${share(r.win_rate)} won` : '', costText, speedText, provisional(r) ? 'provisional' : ''].filter(Boolean).join(' · ') };
+        }) }) + `<p class="rp-fine">${esc(METHOD)}</p>`
+            + kit.table({ caption: 'Quality, price and speed side by side', columns: [
+                { key: 'm', label: 'Model', primary: true, html: true }, { key: 'q', label: 'Quality', num: true, html: true },
+                { key: 'games', label: 'Games', num: true, fmt: 'int' }, { key: 'won', label: 'Won', num: true, html: true },
+                { key: 'cost', label: 'Cost/run', num: true, html: true }, { key: 'speed', label: 'Speed/run', num: true, html: true },
+            ], rows: rows.map((r) => ({ m: modelLink(r.subject), q: rating(r), games: r.games, won: share(r.win_rate), cost: moneyCell(r.median_cost_usd), speed: speedCell(r.median_ms) })) });
     }
-    const head = kit.head({ title: name, sub: kind ? `${roomName(kind.room)} · ${howRated(kind)}` : 'Bench results', back: { href: '/ai', label: 'AI boards' },
+    const lastRunTable = latestRows.length ? kit.table({
+        caption: 'Latest runs of this kind', columns: [
+            { key: 'model', label: 'Model', primary: true, html: true }, { key: 'score', label: 'Score', num: true, html: true },
+            { key: 'cost', label: 'Cost', num: true, html: true }, { key: 'speed', label: 'Time', num: true, html: true },
+            { key: 'when', label: 'Published', html: true }, { key: 'how', label: 'How', html: true },
+        ],
+        rows: latestRows.map((r) => ({ model: modelLink(r.model), score: scoreCell(r.score), cost: usd(r.cost_usd), speed: speedCell(r.ms), when: esc(dayTime(r.created_at)), how: provenanceCell(r.provenance) })),
+    }) : '<p class="rp-fine">No run of this task kind has been published yet.</p>';
+    const head = kit.head({ title: name, sub: kind ? `${roomName(kind.room)} · ${howRated(kind)}${kindLast ? ` · ${lastRunText(kindLast)}` : ''}` : 'Bench results', back: { href: '/ai', label: 'AI' },
         tabs: played(rows) ? kit.tabs({ base: aiPath(kindId), items: TABS, active: tab, label: 'Board view' }) : '' });
-    const body = head + benchState(kinds, board, cost) + `<section aria-label="${esc(TABS.find((t) => t.key === tab)?.label || 'Board')}">${content}</section>${datasetLink(kindId)}`;
-    return layout({ title: `${name}: AI board`, description: `${name}: which AI does it best, and what it costs.`, body, active: '/ai', path: aiPath(kindId), agent: true });
+    const body = head + benchState(kinds, board, cost, benchmarks, runs, overview)
+        + `<section aria-label="${esc(TABS.find((t) => t.key === tab)?.label || 'Board')}">${content}</section>`
+        + (registryRows.length ? kit.section({ title: 'Verified runs on this task kind', count: registryRows.length, body: (registryRows.length > 1 ? scoreCostChart(registryRows.map((r) => ({ model: r.model, score: r.score, cost_usd: r.cost, ms: r.speed, runs: r.runs, last_run: r.last_run }))) : '') + registryTable }) : '')
+        + kit.section({ title: 'Latest runs', count: latestRows.length, body: lastRunTable })
+        + datasetLink(kindId);
+    return layout({ title: `${name}: AI`, description: `${name}: which AI does it best, what it costs and how fast it is.`, body, active: '/ai', path: aiPath(kindId), agent: true });
 }
 
-function aiModel({ model, summary }) {
-    const data = summary && summary.data || null;
-    const ratings = data && Array.isArray(data.ratings) ? data.ratings : [];
-    const entries = data && Array.isArray(data.entries) ? data.entries : [];
-    const kinds = [...new Set([...ratings.map((r) => r.kind_id), ...entries.map((e) => e.kind_id)])].filter(Boolean);
-    const rows = kinds.map((kind) => {
-        const r = ratings.find((item) => item.kind_id === kind);
-        return { job: `<a href="${aiPath(kind)}">${esc(kind)}</a>`, rating: r ? `${rating(r)}${flag(r)}` : '—', games: r ? r.games : null, won: r ? share(r.win_rate) : '—', recent: entries.filter((item) => item.kind_id === kind).length };
+function aiBenchmark({ benchmark, rankings, runs }) {
+    const b = readData(benchmark);
+    const rank = readData(rankings);
+    const latest = readData(runs);
+    const entries = rank && rank.rankings && Array.isArray(rank.rankings.entries) ? rank.rankings.entries : [];
+    const latestRows = latest && Array.isArray(latest.runs) ? latest.runs : [];
+    const meta = b && b.benchmark ? b.benchmark : null;
+    const definition = b && b.definition ? b.definition : null;
+    const tasks = definition && Array.isArray(definition.tasks) ? definition.tasks : [];
+    const version = b && b.version ? b.version.version : null;
+    const last = entries.reduce((at, e) => (!at || (e.last_run && e.last_run > at) ? e.last_run : at), null)
+        || (latestRows[0] && latestRows[0].created_at) || null;
+    if (!meta) {
+        const body = kit.head({ title: 'Benchmark', sub: 'Bench results', back: { href: '/ai', label: 'AI' }, sticky: false })
+            + benchState(benchmark) + kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'This benchmark comes back as soon as Bench answers.' });
+        return layout({ title: 'AI benchmark', description: 'A benchmark of AI runs from OpenVibe.Bench.', body, active: '/ai', path: '/ai', agent: true });
+    }
+    const chart = scoreCostChart(entries);
+    const leaderboard = entries.length ? kit.table({
+        caption: 'Verified results', columns: [
+            { key: 'model', label: 'Model', primary: true, html: true }, { key: 'score', label: 'Score', num: true, html: true },
+            { key: 'runs', label: 'Runs', num: true, fmt: 'int' }, { key: 'range', label: 'Best / worst', num: true, html: true },
+            { key: 'cost', label: 'Cost/run', num: true, html: true }, { key: 'speed', label: 'Speed/run', num: true, html: true },
+            { key: 'solved', label: 'Cost per solved', num: true, html: true }, { key: 'last', label: 'Last run', html: true },
+        ],
+        rows: entries.map((e) => ({
+            model: modelLink(e.model), score: scoreCell(e.score), runs: e.runs,
+            range: `${scoreCell(e.max_score)} / ${scoreCell(e.min_score)}`, cost: moneyCell(e.cost_usd), speed: speedCell(e.ms),
+            solved: moneyCell(e.cost_per_solved), last: e.last_run ? esc(dayTime(e.last_run)) : '—',
+        })),
+    }) : kit.empty({ icon: 'trophy', title: 'No verified results yet', text: 'This benchmark has no verified run yet. Submitted runs are labelled on the latest-runs list and never mixed into the ranking.' });
+    const latestTable = latestRows.length ? kit.table({
+        caption: 'Latest runs', columns: [
+            { key: 'model', label: 'Model', primary: true, html: true }, { key: 'score', label: 'Score', num: true, html: true },
+            { key: 'cost', label: 'Cost', num: true, html: true }, { key: 'speed', label: 'Time', num: true, html: true },
+            { key: 'when', label: 'Published', html: true }, { key: 'how', label: 'How', html: true },
+        ],
+        rows: latestRows.map((r) => ({ model: modelLink(r.model), score: scoreCell(r.score), cost: usd(r.cost_usd), speed: speedCell(r.ms), when: esc(dayTime(r.created_at)), how: provenanceCell(r.provenance) })),
+    }) : '<p class="rp-fine">No run has been published on this benchmark yet.</p>';
+    const body = kit.head({ title: meta.title, sub: `${meta.kind || 'Benchmark'}${version ? ` · version ${version}` : ''} · ${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'} · ${lastRunText(last)}`, back: { href: '/ai', label: 'AI' }, sticky: false })
+        + benchState(benchmark, rankings, runs)
+        + (meta.description ? `<p class="rp-lede">${esc(meta.description)}</p>` : '')
+        + kit.stats([[entries.length, entries.length === 1 ? 'model ranked' : 'models ranked'], [latestRows.length, 'latest runs'], [tasks.length, tasks.length === 1 ? 'task' : 'tasks'], [last ? dayTime(last) : 'No runs yet', 'last run']], { label: `${meta.title} in numbers` })
+        + chart + leaderboard
+        + kit.section({ title: 'Latest runs', count: latestRows.length, body: latestTable })
+        + `<p class="rp-fine"><a href="/ai/method">How the runs are judged</a> · <a href="/ai/compare?models=${entries.slice(0, 3).map((e) => encodeURIComponent(e.model)).join(',')}">Compare the leaders</a> · <a href="${BENCH}/api/v1/datasets/benchmarks.jsonl">Bench's open data</a></p>`;
+    return layout({ title: `${meta.title}: AI benchmark`, description: `${meta.title}: verified AI results, cost and speed from OpenVibe.Bench.`, body, active: '/ai', path: aiPath(meta.id), agent: true });
+}
+
+function aiModel({ model, detail, legacy }) {
+    const d = readData(detail) || null;
+    const l = readData(legacy) || null;
+    const runs = d && Array.isArray(d.recent_runs) ? d.recent_runs : [];
+    const benchmarks = d && Array.isArray(d.benchmarks) ? d.benchmarks : [];
+    const tasks = d && Array.isArray(d.tasks) ? d.tasks : [];
+    const ratings = l && Array.isArray(l.ratings) ? l.ratings : [];
+    const entries = l && Array.isArray(l.entries) ? l.entries : [];
+    const hasRuns = Boolean(d && d.runs > 0);
+    const history = runs.filter((r) => n(r.score) != null && ts(r.created_at) != null).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    const historyChart = history.length >= 2 ? kit.chart({
+        type: 'line', title: 'Score over time', note: 'Every public run, newest last.',
+        x: { time: true, label: 'Published' }, y: { label: 'Score (0–100)', zero: false, fmt: (v) => `${Math.round(v)}` },
+        series: [{ name: model, points: history.map((r) => [r.created_at, n(r.score)]) }], height: 220,
+    }) : '';
+    const best = tasks.slice(0, 5);
+    const worst = tasks.length > 5 ? tasks.slice(-5).reverse() : [];
+    const taskRow = (t) => ({
+        task: `<span title="${esc(t.benchmark_title)}">${esc(t.task_id)}</span>`,
+        benchmark: `<a href="${aiPath(t.benchmark_id)}">${esc(t.benchmark_title)}</a>`,
+        score: scoreCell(t.score), runs: t.runs, last: t.last_run ? esc(dayTime(t.last_run)) : '—',
     });
-    const games = ratings.reduce((s, r) => s + (n(r.games) || 0), 0);
-    const head = kit.head({ title: model, sub: 'Every job this model has been rated on', back: { href: '/ai', label: 'AI boards' }, sticky: false });
-    const body = head + benchState(summary) + (!data ? kit.empty({ icon: 'trophy', title: 'Bench is unavailable', text: 'This page comes back as soon as Bench answers.' })
-        : kit.stats([[kinds.length, kinds.length === 1 ? 'job' : 'jobs'], [games, 'games'], [n(data.total_cost_usd) ? usd(data.total_cost_usd) : null, 'spent on runs']], { label: `${model} in numbers` })
-        + (rows.length ? kit.table({ caption: 'By job', columns: [{ key: 'job', label: 'Job', primary: true, html: true }, { key: 'rating', label: 'Rating', num: true, html: true }, { key: 'games', label: 'Games', num: true, fmt: 'int' }, { key: 'won', label: 'Won', num: true, html: true }, { key: 'recent', label: 'Recent entries', num: true, fmt: 'int' }], rows })
-            : kit.empty({ icon: 'trophy', title: 'Not rated yet', text: 'This model appears here once it has played on a Bench board.' })))
-        + `<p class="rp-fine">${esc(METHOD)}</p>`;
-    return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark jobs: ratings, games and cost.`, body, active: '/ai', path: modelPath(model), agent: true });
+    const taskColumns = [
+        { key: 'task', label: 'Task', primary: true, html: true }, { key: 'benchmark', label: 'Benchmark', html: true },
+        { key: 'score', label: 'Median score', num: true, html: true }, { key: 'runs', label: 'Runs', num: true, fmt: 'int' },
+        { key: 'last', label: 'Last run', html: true },
+    ];
+    const taskTable = best.length ? kit.table({ caption: 'Best tasks', columns: taskColumns, rows: best.map(taskRow) }) : '';
+    const worstTable = worst.length ? kit.table({ caption: 'Worst tasks', columns: taskColumns, rows: worst.map(taskRow) }) : '';
+    const benchmarkRows = benchmarks.map((b) => ({
+        benchmark: `<a href="${aiPath(b.benchmark_id)}">${esc(b.title)}</a>`, kind: esc(b.kind || '—'), runs: b.runs,
+        score: scoreCell(b.score), range: `${scoreCell(b.best)} / ${scoreCell(b.worst)}`, cost: moneyCell(b.cost_usd), speed: speedCell(b.ms), last: b.last_run ? esc(dayTime(b.last_run)) : '—',
+    }));
+    const runTitles = new Map(benchmarks.map((b) => [b.benchmark_id, b.title]));
+    const runRows = runs.slice(0, 12).map((r) => ({
+        benchmark: `<a href="${aiPath(r.benchmark_id)}">${esc(runTitles.get(r.benchmark_id) || r.benchmark_id)}</a>`, score: scoreCell(r.score), cost: usd(r.cost_usd), speed: speedCell(r.ms),
+        when: esc(dayTime(r.created_at)), how: provenanceCell(r.provenance),
+    }));
+    const legacyRows = ratings.map((r) => ({ job: `<a href="${aiPath(r.kind_id)}">${esc(r.kind_id)}</a>`, rating: rating(r), games: r.games, won: share(r.win_rate) }));
+    const body = kit.head({ title: model, sub: hasRuns ? `${exact(d.runs)} verified ${d.runs === 1 ? 'run' : 'runs'} · ${lastRunText(d.last_run)}` : 'No verified runs yet', back: { href: '/ai', label: 'AI' }, sticky: false })
+        + benchState(detail, legacy)
+        + (hasRuns ? kit.stats([
+            [exact(d.runs), d.runs === 1 ? 'run' : 'runs'], [benchmarks.length, benchmarks.length === 1 ? 'benchmark' : 'benchmarks'],
+            [d.best_task ? scoreText(d.best_task.score) : '—', 'best task'], [d.worst_task ? scoreText(d.worst_task.score) : '—', 'worst task'],
+            [d.total_cost_usd == null ? '—' : usd(d.total_cost_usd), 'spent on runs'], [d.last_run ? dayTime(d.last_run) : 'No runs yet', 'last run'],
+        ], { label: `${model} in numbers` }) : '')
+        + (historyChart ? kit.section({ title: 'Runs over time', body: historyChart }) : '')
+        + (benchmarkRows.length ? kit.section({ title: 'By benchmark', count: benchmarks.length, body: kit.table({ caption: 'By benchmark', columns: [
+            { key: 'benchmark', label: 'Benchmark', primary: true, html: true }, { key: 'kind', label: 'Task kind' }, { key: 'runs', label: 'Runs', num: true, fmt: 'int' },
+            { key: 'score', label: 'Score', num: true, html: true }, { key: 'range', label: 'Best / worst', num: true, html: true }, { key: 'cost', label: 'Cost/run', num: true, html: true },
+            { key: 'speed', label: 'Speed/run', num: true, html: true }, { key: 'last', label: 'Last run', html: true },
+        ], rows: benchmarkRows }) }) : '')
+        + (taskTable ? kit.section({ title: 'Best and worst tasks', count: best.length + worst.length, body: taskTable + worstTable }) : '')
+        + (runRows.length ? kit.section({ title: 'Recent runs', count: runRows.length, body: kit.table({ caption: 'Recent runs', columns: [
+            { key: 'benchmark', label: 'Benchmark', primary: true, html: true }, { key: 'score', label: 'Score', num: true, html: true },
+            { key: 'cost', label: 'Cost', num: true, html: true }, { key: 'speed', label: 'Time', num: true, html: true }, { key: 'when', label: 'Published', html: true }, { key: 'how', label: 'How', html: true },
+        ], rows: runRows }) }) : '')
+        + (!hasRuns ? kit.empty({ icon: 'trophy', title: 'No verified runs yet', text: 'This model appears on a benchmark once a verified run is published. Its blind-board ratings, when it has any, are below.' }) : '')
+        + (legacyRows.length ? kit.section({ title: 'Blind-board ratings', count: legacyRows.length, body: kit.table({ caption: 'Ratings by job', columns: [
+            { key: 'job', label: 'Job', primary: true, html: true }, { key: 'rating', label: 'Rating', num: true, html: true }, { key: 'games', label: 'Games', num: true, fmt: 'int' }, { key: 'won', label: 'Won', num: true, html: true },
+        ], rows: legacyRows }) }) : '')
+        + (entries.length && !hasRuns ? `<p class="rp-fine">${exact(entries.length)} ${entries.length === 1 ? 'entry' : 'entries'} on Bench’s blind boards.</p>` : '')
+        + `<p class="rp-fine"><a href="/ai/compare?models=${encodeURIComponent(model)}">Compare ${esc(model)} with another model</a> · <a href="/ai/method">How the runs are judged</a> · <a href="${BENCH}/api/v1/models/${encodeURIComponent(model)}">Bench’s own record</a></p>`;
+    return layout({ title: `${model}: AI model`, description: `${model} across OpenVibe benchmark jobs: score, cost, speed, runs over time and its best and worst tasks.`, body, active: '/ai', path: modelPath(model), agent: true });
+}
+
+function aiCompare({ models = [], details = [], legacy = [], errors = [] }) {
+    const rowsByBenchmark = new Map();
+    const names = [];
+    const cards = [];
+    models.forEach((model, i) => {
+        const d = readData(details[i]) || null;
+        const l = readData(legacy[i]) || null;
+        names.push(model);
+        const list = d && Array.isArray(d.benchmarks) ? d.benchmarks : [];
+        for (const b of list) {
+            if (!rowsByBenchmark.has(b.benchmark_id)) rowsByBenchmark.set(b.benchmark_id, { title: b.title, cells: new Map() });
+            rowsByBenchmark.get(b.benchmark_id).cells.set(model, b);
+        }
+        cards.push({
+            model, runs: d ? d.runs : 0, cost: d ? d.total_cost_usd : null, last: d ? d.last_run : null,
+            ratingCount: l && Array.isArray(l.ratings) ? l.ratings.length : 0,
+        });
+    });
+    const rows = [...rowsByBenchmark.entries()].map(([id, x]) => {
+        const row = { benchmark: `<a href="${aiPath(id)}">${esc(x.title)}</a>` };
+        for (const model of models) {
+            const b = x.cells.get(model);
+            row[model] = b ? `<b>${scoreCell(b.score)}</b> <small>${esc(usd(b.cost_usd))}/run · ${esc(msText(b.ms))} · ${exact(b.runs)} runs</small>` : '—';
+        }
+        return row;
+    });
+    const columns = [{ key: 'benchmark', label: 'Benchmark', primary: true, html: true }, ...models.map((m) => ({ key: m, label: m, html: true }))];
+    const form = `<form class="rp-ai-compare-form" method="get" action="/ai/compare" role="search" aria-label="Compare models">
+<label for="rp-compare-models">Two or three model ids, comma separated</label>
+<input id="rp-compare-models" name="models" value="${esc(models.join(', '))}" placeholder="gpt-5, claude-opus-4" autocomplete="off">
+<button class="rp-btn" type="submit">Compare</button></form>`;
+    const cardHtml = cards.length ? kit.stats(cards.map((c) => [`${c.runs} · ${c.cost == null ? '—' : usd(c.cost)} · ${c.last ? day(c.last) : 'no runs'}`, c.model]), { label: 'Models in this comparison' }) : '';
+    const body = kit.head({ title: 'Compare AI models', sub: 'The same benchmarks side by side: score, cost per run, speed and the last run', back: { href: '/ai', label: 'AI' }, sticky: false })
+        + benchState(...details, ...legacy)
+        + form
+        + (errors.length ? kit.notice({ kind: 'warn', text: errors.join(' ') }) : '')
+        + (models.length < 2 ? kit.empty({ icon: 'trophy', title: 'Pick two or three models', text: 'Put their Bench ids in the box above; the comparison is built from their published runs.' }) : '')
+        + (rows.length ? kit.section({ title: 'Side by side', body: kit.table({ caption: 'Models side by side', columns, rows }) }) : (models.length >= 2 ? kit.empty({ icon: 'trophy', title: 'No shared benchmarks yet', text: 'These models have no verified run on a public benchmark in common.' }) : ''))
+        + (cardHtml ? `<p class="rp-fine">${esc('Each card: verified runs · total run cost · last run, then the model.')}</p>${cardHtml}` : '')
+        + `<p class="rp-fine">Cost and speed are the medians of each model's runs on that benchmark; a score is the median of its run scores. <a href="/ai/method">How the runs are judged</a>.</p>`;
+    return layout({ title: 'Compare AI models', description: 'Compare two or three AI models on the same OpenVibe benchmarks: score, cost and speed.', body, active: '/ai', path: '/ai/compare', agent: true });
+}
+
+function aiMethod({ overview, kinds }) {
+    const o = readData(overview) || {};
+    const list = kinds && kinds.data && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
+    const byJudge = new Map();
+    for (const k of list) {
+        if (!byJudge.has(k.judge)) byJudge.set(k.judge, []);
+        byJudge.get(k.judge).push(k);
+    }
+    const judgeRows = [...byJudge.entries()].map(([judge, ks]) => ({
+        how: `<b>${esc(JUDGE_SHORT[judge] || judge)}</b>`, judge: esc(judge), jobs: esc(ks.map((k) => k.name || k.id).join(', ')),
+    }));
+    const body = kit.head({ title: 'How the AI results are judged', sub: 'The method behind every score, price and speed on these pages', back: { href: '/ai', label: 'AI' }, sticky: false })
+        + benchState(overview, kinds)
+        + `<section class="rp-ai-method"><h2>What a score means</h2>
+<p>A score is a run’s result on one benchmark, from 0 to 100. Bench’s frozen benchmark version names its tasks, its judges and how the task scores combine; the default is the mean of the task scores. A model’s score on a benchmark is the median of its <b>verified</b> runs, so one bad run does not decide the page. The best and worst columns are the runs themselves, not a second estimate.</p>
+<h2>Quality, price and speed</h2>
+<p><b>Quality</b> is that score. <b>Price</b> is the median cost of a run in US dollars, as the service that ran it published it; <b>cost per solved</b> is the run’s cost divided by its success rate (score ÷ 100), so it is the price of one solved task. <b>Cost per solved</b> is the same figure, named plainly. <b>Speed</b> is the median wall-clock time of a run. The quality-against-cost chart marks the frontier: the models nothing beats on both.</p>
+<h2>How runs are judged</h2>
+<p>Each task kind has one main judge. A benchmark may also name more judges in its definition; the exact list is in its public definition at <code>/api/v1/benchmarks/:id</code>.</p>
+${judgeRows.length ? kit.table({ caption: 'Judges in use', columns: [{ key: 'how', label: 'How', html: true }, { key: 'judge', label: 'Bench judge' }, { key: 'jobs', label: 'Task kinds' }], rows: judgeRows }) : `<p class="rp-fine">${esc('Bench did not answer its kind list; the judge rules above are its published contract.')}</p>`}
+<h2>Verified and submitted</h2>
+<p>A <b>verified</b> run was executed by a service (openvibe.codes, Run, a Node worker); a <b>submitted</b> run was posted with a person’s token. The rankings read verified runs only, and a submitted run is labelled wherever the latest runs are listed.</p>
+<h2>How often, and what is missing</h2>
+<p>${o.runs == null ? 'Bench did not answer the public counts.' : `${exact(o.benchmarks)} public ${o.benchmarks === 1 ? 'benchmark' : 'benchmarks'}, ${exact(o.tasks)} ${o.tasks === 1 ? 'task' : 'tasks'}, ${exact(o.runs)} ${o.runs === 1 ? 'run' : 'runs'} from ${exact(o.models)} ${o.models === 1 ? 'model' : 'models'}; the newest run was ${o.last_run ? esc(dayTime(o.last_run)) : 'never published'}.`}</p>
+<p class="rp-fine">A model with no verified run has no score here; a benchmark with no run says so. The public reads are Bench’s API at <a href="${BENCH}/docs">bench.openvibe.services/docs</a>; the open data is <a href="${BENCH}/api/v1/datasets/benchmarks.jsonl">benchmarks.jsonl</a> and the per-kind datasets. <a href="/ai/feed.xml">New results (RSS)</a> · <a href="/api/v1/ai/results">the same as JSON</a>.</p>`;
+    return layout({ title: 'How the AI results are judged', description: 'The method behind OpenVibe.Bench’s scores, costs and speeds, and how to read them.', body, active: '/ai', path: '/ai/method', agent: true });
 }
 
 // ── The AI Exchange (plan G-P9): Billing's settlements, summed by day, model and access ────────────────────────
@@ -868,4 +1192,4 @@ function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiModel, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { home, stats, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiBenchmark, aiModel, aiCompare, aiMethod, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
