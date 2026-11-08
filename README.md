@@ -233,7 +233,7 @@ project, money) is never stored. `/internal/` is loopback-only, and `POST /inter
 HMAC. See [SECURITY.md](SECURITY.md).
 
 <!-- versions:start -->
-- openvibe-contracts: v0.312.0
+- openvibe-contracts: v0.338.0
 - openvibe-sdk: v0.94.0
 - openvibe-shared: v4.142.0
 - openvibe-publishing: v1.5.0
