@@ -31,7 +31,7 @@ const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, meStats = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, meStats = null, popularity = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
 
@@ -95,6 +95,24 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         const stats = analytics ? await analytics.stats(days) : await network.stats(days);
         if (!stats) return notFound(req, res, 'report.stats_not_found', 'The open numbers did not answer for this window.');
         return res.json(stats);
+    });
+
+    // The front door's five things people do now (plan L43): ranked from Report's own tables. Public and aggregate
+    // only; a tool is a destination beside a site. Five-minute memo, so this answer is cheap for every reader.
+    r.get('/popular', async (req, res) => {
+        if (!popularity) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const body = await popularity.popular({ limit: req.query.limit });
+        if (!body) return notFound(req, res, 'report.popular_not_found', 'The popularity numbers did not answer.');
+        return res.set('Cache-Control', 'public, max-age=300').json(body);
+    });
+
+    // Which sites people who publish their site list use together (the opt-in rule in server/me-stats.js). Pair
+    // counts only, and a pair below the small-group floor is left out; no person, username or subject is in it.
+    r.get('/popular/co-usage', async (req, res) => {
+        if (!popularity) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const body = await popularity.coUsage();
+        if (!body) return notFound(req, res, 'report.popular_not_found', 'The co-usage numbers did not answer.');
+        return res.set('Cache-Control', 'public, max-age=300').json(body);
     });
 
     // Every site's design health (plan L45 step 6): the snapshot scripts/design-health.js wrote from each site's code.

@@ -48,6 +48,14 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             assert.strictEqual(t.fetchImpl.calls.length, before, 'a bad parameter reached the source');
         });
 
+        await check('the popularity routes answer problem+json when Report has no numbers', async () => {
+            for (const path of ['/api/v1/popular', '/api/v1/popular/co-usage']) {
+                const r = await t.get(path);
+                assert.strictEqual(r.status, 404, path);
+                assert.match(r.headers.get('content-type') || '', /^application\/problem\+json/);
+            }
+        });
+
         await check('the API is read-only', async () => {
             const r = await t.get('/api/v1/stats', { method: 'POST' });
             assert.strictEqual(r.status, 405);

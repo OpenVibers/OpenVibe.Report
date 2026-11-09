@@ -103,10 +103,12 @@ HTML is `no-store` so the outage notice stays current.
 
 ## API
 
-All under `/api/v1`, CORS `*`, `Cache-Control: public, max-age=120`, 120 requests a minute per address:
+All under `/api/v1`, CORS `*`, `Cache-Control: public, max-age=120` (the popularity pair: 300), 120 requests a minute per address:
 
 ```
 GET /api/v1/stats?days=7|30|90        REPORT_SOURCE=network|report
+GET /api/v1/popular?limit=5           the front door's ranked sites and tools (public, aggregate)
+GET /api/v1/popular/co-usage          opt-in site pairs for "Try next", small groups omitted
 GET /api/v1/rundown
 GET /api/v1/rundown/topics
 GET /api/v1/rundown/t/:slug
@@ -123,6 +125,12 @@ A bad parameter or a missing source answer is a 404 `application/problem+json` b
 methods get 405. `GET /api/v1/me/stats` and `PUT /api/v1/me/stats/published` answer the `report.me-stats@1` document
 (the switch request is `report.me-stats-publish@1`); the public route copies only the published sections from the
 person's last snapshot, so a section a source did not answer for is absent, never a zero.
+
+`/api/v1/popular` ranks Report's own daily and window numbers: opens today (UTC, still counting) and over seven days,
+the seven before that for growth, and the distinct signed-in people Network's cross-site history counts. A tool is a
+destination beside a site. The answer is public and aggregate only, held five minutes. `/api/v1/popular/co-usage`
+reads only people who switched their `sites` section public (`report_me_stats.published`); it returns pair counts, never
+a person, username or subject, and a pair below three people is left out.
 
 The AI Exchange JSON read is the staff exception (with `REPORT_AI_EXCHANGE=1`): a Network service token with the
 same `report.ai_usage.read` capability the AI meter uses, never cached, no person or project in the answer. The

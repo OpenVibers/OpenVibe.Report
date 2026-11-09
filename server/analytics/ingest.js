@@ -136,6 +136,18 @@ function metricRowsFromStats(stats) {
             win('traffic_server_errors', 'site', id, t.server_errors);
             win('traffic_p95_ms', 'site', id, t.p95_ms);
         }
+        // The rolling numbers Report's popularity reads: page views today and over seven days, and the distinct
+        // signed-in people Network counted for the site (history only; guests are never in it).
+        for (const k of ['opens_24h', 'opens_7d', 'opens_prev_7d', 'uses_24h', 'uses_7d', 'uses_prev_7d', 'growth_7d_pct']) win(k, 'site', id, site[k]);
+    }
+    // Tools are destinations of their own (a tool host's page views, not only the Tools site's total): one row per
+    // tool, with the same rolling metrics, so the home's list can rank a tool beside a site.
+    for (const tool of Array.isArray(s.tools) ? s.tools : []) {
+        if (!tool || typeof tool !== 'object') continue;
+        const id = tool.id || tool.host || tool.short;
+        if (!id) continue;
+        for (const k of ['opens_24h', 'opens_7d', 'opens_prev_7d', 'uses_24h', 'uses_7d', 'uses_prev_7d', 'growth_7d_pct', 'change_pct']) win(k, 'tool', id, tool[k]);
+        for (const p of seriesOf(tool.daily)) day('pageviews', 'tool', id, p.day, p.n);
     }
     return [...seen.values()];
 }
@@ -172,6 +184,18 @@ function dimensionsFromStats(stats) {
             doc: {
                 id, name: site.name || `OpenVibe.${site.short || id}`, short: site.short || id, host: site.host || null,
                 url: site.url || (site.host ? `https://${site.host}/` : null), tagline: site.tagline || '', icon: site.icon || null,
+            },
+        });
+    }
+    for (const tool of Array.isArray(s.tools) ? s.tools : []) {
+        if (!tool || typeof tool !== 'object') continue;
+        const id = tool.id || tool.host || tool.short;
+        if (!id) continue;
+        docs.push({
+            kind: 'tool', id,
+            doc: {
+                id, name: tool.name || tool.short || id, short: tool.short || id, host: tool.host || null,
+                url: tool.url || (tool.host ? `https://${tool.host}/` : null), tagline: tool.tagline || '', icon: tool.icon || id,
             },
         });
     }
