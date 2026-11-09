@@ -102,7 +102,11 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
                 task.rank = overlap.length ? { min: Math.min(...overlap), max: Math.max(...overlap), position: i + 1 } : null;
             });
         }
-        rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity));
+        const outPrice = (r) => Math.min(...(r.provider_offers || []).map((o) => (o.price && o.price.out != null ? Number(o.price.out) : NaN)).filter(Number.isFinite), Infinity);
+        rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity)
+            || (b.routed === true) - (a.routed === true)
+            || outPrice(a) - outPrice(b)
+            || String(a.id).localeCompare(String(b.id)));
         rows.forEach((row, i) => {
             const [lo, hi] = row.rating.interval || [];
             if (lo == null || hi == null) row.rank = null;
