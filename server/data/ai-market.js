@@ -2,6 +2,7 @@
 const { bare, findCatalogModel } = require('./ai-join');
 // The first offer supplies the displayed prices: lowest known own-page output price,
 // then input price. Unknown prices sort last; never turn null into a free price.
+const sameEndpoint = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 const amount = v => v == null || !Number.isFinite(Number(v)) ? Infinity : Number(v);
 function mergeMarket(catalogue, market) {
     if (!market || !Array.isArray(market.offers)) return catalogue;
@@ -17,7 +18,7 @@ function mergeMarket(catalogue, market) {
                 field_sources: offer.field_sources, routed: false, uncensored: false, offers: [] };
             models.set(key, model);
         }
-        const measured = offer.routed && cat?.offers?.find(o => o.provider === offer.provider && bare(o.model) === bare(offer.provider_model));
+        const measured = offer.routed && cat?.offers?.find(o => o.provider === offer.provider && sameEndpoint(o.model, offer.provider_model));
         model.offers.push({ ...(measured || {}), ...offer, model: offer.provider_model, license: offer.licence,
             source: { name: 'Provider price page', url: offer.price_source, date: offer.price_checked_at, sample_size: measured?.requests_7d ?? null } });
         model.routed ||= offer.routed; model.uncensored ||= offer.uncensored;
@@ -32,7 +33,7 @@ function mergeMarket(catalogue, market) {
         }
         for (const offer of cat.offers || []) {
             model.routed = true;
-            const matched = model.offers.find(o => o.provider === offer.provider && bare(o.model) === bare(offer.model));
+            const matched = model.offers.find(o => o.provider === offer.provider && sameEndpoint(o.model, offer.model));
             if (matched) { Object.assign(matched, { ...offer, ...matched, routed: true }); continue; }
             // A routed endpoint may not have a pricebook observation yet. Keep its measurements,
             // but only a sourced page price may compete with the market's advertised prices.
