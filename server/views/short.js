@@ -92,7 +92,9 @@ function foldScript(id) {
  * fold. { start, end, html } — the section that holds the needle.
  */
 function part(html, needle) {
-    const at = html.indexOf(needle);
+    // A heading reads ">Title</h2>", or ">Title</span></h2>" since openvibe-shared 4.160.0 put an icon tile beside it.
+    let at = html.indexOf(needle);
+    if (at < 0 && /<\/h2>$/.test(needle)) at = html.indexOf(needle.replace(/<\/h2>$/, '</span></h2>'));
     if (at < 0) return null;
     const start = html.lastIndexOf('<section', at);
     const close = html.indexOf('</section>', at);
