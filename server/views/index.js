@@ -22,6 +22,23 @@ const rooms = require('openvibe-shared/rooms');
 const { asset } = require('../assets');
 
 const NAME = 'OpenVibe.Report';
+
+// The tables are an open dataset, not only a page: Dataset JSON-LD names the numbers and the JSON that serves them, so
+// dataset search and AI retrieval can cite Report's tables instead of re-deriving them from prose.
+function networkDataset() {
+    return seo.jsonLd.dataset({
+        name: 'OpenVibe network numbers',
+        url: 'https://openvibe.report/stats',
+        description: 'Page views, visitors, live streams, chat, OpenCoins and service speed across every OpenVibe site, counted by the sites themselves and published as open JSON.',
+        creator: 'OpenVibe',
+        keywords: ['OpenVibe', 'web analytics', 'live streaming', 'page views', 'service status', 'open data'],
+        distribution: [
+            { '@type': 'DataDownload', name: 'Network numbers', contentUrl: 'https://openvibe.report/api/v1/stats', encodingFormat: 'application/json' },
+            { '@type': 'DataDownload', name: 'AI results and cost per task', contentUrl: 'https://openvibe.report/api/v1/ai/results', encodingFormat: 'application/json' },
+            { '@type': 'DataDownload', name: 'The Rundown topics', contentUrl: 'https://openvibe.report/api/v1/rundown/topics', encodingFormat: 'application/json' },
+        ],
+    });
+}
 const NETWORK = 'https://openvibe.network';
 const LIVE = 'https://openvibe.live';
 const BENCH = 'https://bench.openvibe.services';
@@ -273,7 +290,7 @@ function home({ stats, rundown, topics } = {}) {
     out = foldAround(out, '>Questions</h2>', 'faq', '<h2 id="rp-faq-h">Questions</h2>');
     return layout({
         title: null, body: out, active: '/', path: '/', agent: true,
-        jsonLd: [seo.jsonLd.website({ name: 'OpenVibe.Report', url: 'https://openvibe.report/', description: "The network's numbers open to everyone, what streamers talked about in The Rundown, and every stream's after-show report." }), seo.jsonLd.organization()],
+        jsonLd: [seo.jsonLd.website({ name: 'OpenVibe.Report', url: 'https://openvibe.report/', description: "The network's numbers open to everyone, what streamers talked about in The Rundown, and every stream's after-show report." }), seo.jsonLd.organization(), networkDataset()],
         // The rule that shows the picked topic of the pick list: one per topic, written for this page.
     });
 }
@@ -302,7 +319,7 @@ ${sites ? `<section aria-labelledby="rp-sites-h"><h2 id="rp-sites-h">Every site<
 ${L ? `<section aria-labelledby="rp-live-h"><h2 id="rp-live-h">OpenVibe.Live</h2><div class="rp-minis">${[['Streamers', L.streamers], ['Streams', L.streams], ['Hours watched', L.hours_watched], ['Chat messages', L.messages], ['Recordings', L.vods], ['Clips', L.clips], ['AI moments', L.ai_moments]].filter(([, v]) => n(v)).map(([l, v]) => `<div><b>${fmt(v)}</b><span>${esc(l)}</span></div>`).join('')}</div></section>` : ''}
 ${A && A.daily && A.daily.length > 1 ? `<section aria-labelledby="rp-acc-h"><h2 id="rp-acc-h">New accounts a day</h2>${bars(A.daily, 'New accounts a day', { h: 110 })}</section>` : ''}
 <section aria-labelledby="rp-how-h"><h2 id="rp-how-h">How these are counted</h2><p class="rp-fine">${esc(d.note || '')} The same numbers: <a href="/api/v1/stats?days=${esc(days)}"><code>/api/v1/stats</code></a>. How closely each site follows the design kit, read from its code: <a href="/design">Design health</a>.</p></section>`;
-    return layout({ title: `Every site's numbers, ${days} days`, description: 'Page views, people, streams and how fast each OpenVibe service answers, open to everyone.', body, active: '/stats', path: `/stats${Number(days) === 30 ? '' : `?days=${Number(days)}`}`, agent: true });
+    return layout({ title: `Every site's numbers, ${days} days`, description: 'Page views, people, streams and how fast each OpenVibe service answers, open to everyone.', body, active: '/stats', path: `/stats${Number(days) === 30 ? '' : `?days=${Number(days)}`}`, agent: true, jsonLd: [networkDataset()] });
 }
 
 function rundown({ rundown: R = {}, topics, reports } = {}) {
