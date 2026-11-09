@@ -178,6 +178,8 @@ async function boot(opts = {}) {
         sso: opts.sso,
         shadow: opts.shadow,
         ...(opts.aiUsage ? { aiUsage: opts.aiUsage } : {}),
+        ...(opts.bench ? { bench: opts.bench } : {}),
+        ...(opts.aiCatalogue ? { aiCatalogue: opts.aiCatalogue } : {}),
         ...(opts.verifyServiceToken ? { verifyServiceToken: opts.verifyServiceToken } : {}),
         ...(opts.shareNetwork ? { shareNetwork: opts.shareNetwork } : {}),
         releaseEnv: { ...process.env, RELEASE_COMMIT: '0000000' },

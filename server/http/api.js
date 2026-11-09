@@ -30,7 +30,7 @@ const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, bench = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
 
@@ -82,6 +82,89 @@ function createApi({ network, live, bench = null, analytics = null, aiUsage = nu
 
     // Every site's design health (plan L45 step 6): the snapshot scripts/design-health.js wrote from each site's code.
     r.get('/design-health', (req, res) => res.json(designHealth.all()));
+
+    const aiEnvelope = (schema, data) => ({ '$schema': schema, generated_at: new Date(now()).toISOString(), ...data });
+    const aiRows = async () => {
+        const [kindsResult, catalogueResult] = await Promise.all([bench && bench.kinds(), aiCatalogue && aiCatalogue.catalog()]);
+        if (!kindsResult) return null;
+        const kinds = kindsResult.data && kindsResult.data.kinds || [];
+        const catalogModels = catalogueResult && catalogueResult.models || [];
+        const boards = await Promise.all(kinds.map((kind) => bench.board(kind.id, 'elo')));
+        const rows = [];
+        for (let i = 0; i < boards.length; i += 1) {
+            const board = boards[i];
+            const list = board && board.data && board.data.board && board.data.board.rows || [];
+            for (const entry of list) {
+                const id = entry.subject || entry.model || entry.name;
+                const catalogue = catalogModels.find((m) => m.slug === id || m.canonical === id || m.id === id) || null;
+                const elo = entry.elo != null && Number.isFinite(Number(entry.elo)) ? Number(entry.elo) : null;
+                rows.push({ id, kind: kinds[i].id, maker: catalogue && (catalogue.maker || (String(catalogue.slug || '').includes('/') ? String(catalogue.slug).split('/')[0] : null)) || null, weights: catalogue && (catalogue.weights || (catalogue.open_weights === true ? 'open' : null)) || null,
+                    status: catalogue && catalogue.status || 'current', uncensored: catalogue && catalogue.uncensored === true,
+                    community: Boolean(catalogue && catalogue.community), rating: elo == null ? { value: null, reason: 'Bench has no rating.' } : { value: elo, interval: [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: board.at, sample_size: entry.games ?? null },
+                    benchmark: entry.score == null ? { value: null, reason: 'No benchmark score.' } : { value: entry.score, source: 'OpenVibe.Bench', date: board.at, sample_size: entry.runs ?? null },
+                    provider_offers: catalogue ? catalogue.offers.map((offer) => ({ ...offer, source: { name: 'OpenVibe.AI', date: catalogueResult.generated_at || null, sample_size: offer.requests_7d ?? null } })) : [], source: { name: 'OpenVibe.Bench', date: board.at, sample_size: entry.games ?? null } });
+            }
+        }
+        rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity) || String(a.id).localeCompare(String(b.id)));
+        rows.forEach((row, index) => {
+            const lo = row.rating.interval && row.rating.interval[0]; const hi = row.rating.interval && row.rating.interval[1];
+            if (lo == null || hi == null) row.rank = { value: null, reason: 'Not enough data to establish a rank band.' };
+            else { const overlapping = rows.filter((other) => other.rating.interval && other.rating.interval[0] != null && other.rating.interval[1] != null && other.rating.interval[0] <= hi && other.rating.interval[1] >= lo); row.rank = { min: Math.min(...overlapping.map((x) => rows.indexOf(x) + 1)), max: Math.max(...overlapping.map((x) => rows.indexOf(x) + 1)), position: index + 1, source: 'OpenVibe.Bench', date: row.source.date, sample_size: row.source.sample_size }; }
+        });
+        return rows;
+    };
+
+    r.get('/ai/leaderboard', async (req, res) => {
+        const all = await aiRows();
+        if (!all) return problem(req, res, 502, 'report.ai_source_unavailable', 'OpenVibe.Bench did not answer.');
+        let rows = all;
+        const q = req.query;
+        if (q.kind) rows = rows.filter((x) => x.kind === q.kind);
+        if (q.maker) rows = rows.filter((x) => String(x.maker || '').toLowerCase() === String(q.maker).toLowerCase());
+        if (q.weights === 'open') rows = rows.filter((x) => x.weights === 'open' || x.weights === 'open_weights');
+        if (q.weights === 'closed') rows = rows.filter((x) => x.weights === 'closed');
+        if (q.status === 'current') rows = rows.filter((x) => x.status === 'current');
+        if (q.uncensored === 'true') rows = rows.filter((x) => x.uncensored);
+        if (q.community === 'true') rows = rows.filter((x) => x.community);
+        if (q.price) rows = rows.filter((x) => x.provider_offers.some((o) => o.price && (q.price === 'free' ? o.free_tier : q.price === 'low' ? Number(o.price.out) <= 1 : ['mid', 'medium'].includes(q.price) ? Number(o.price.out) > 1 && Number(o.price.out) <= 10 : q.price === 'high' ? Number(o.price.out) > 10 : false)));
+        if (q.sort === 'name') rows.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        if (q.sort === 'price') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity));
+        if (q.sort === 'speed') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity));
+        const limit = Math.max(1, Math.min(100, Number(q.limit) || 25)); const offset = Math.max(0, Number(q.cursor) || 0);
+        return res.json(aiEnvelope('report.ai-leaderboard@1', { count: rows.length, rows: rows.slice(offset, offset + limit), next_cursor: offset + limit < rows.length ? String(offset + limit) : null }));
+    });
+    r.get('/ai/models/:id', async (req, res) => {
+        const result = bench && await bench.modelDetail(req.params.id);
+        if (!result) return notFound(req, res, 'report.ai_model_not_found', 'No public Bench model by that id.');
+        const rows = await aiRows(); const ranking = rows && rows.filter((x) => x.id === req.params.id);
+        return res.json(aiEnvelope('report.ai-model@1', { ...result.data, ratings: ranking || [], source: { name: 'OpenVibe.Bench', date: result.at, sample_size: result.data.runs ?? null } }));
+    });
+    r.get('/ai/providers', async (_req, res) => {
+        const data = aiCatalogue && await aiCatalogue.catalog();
+        if (!data) return problem(_req, res, 502, 'report.ai_source_unavailable', 'OpenVibe.AI did not answer with provider metrics.');
+        const providers = data.models.flatMap((model) => (model.offers || []).map((offer) => {
+            const evidence = { name: 'OpenVibe.AI', date: offer.observed_at || data.generated_at, sample_size: offer.requests_7d ?? null };
+            return { model: model.slug, ...offer, error_rate: offer.uptime == null ? { value: null, reason: 'Not enough provider attempts to calculate an error rate.' } : { value: Math.max(0, 1 - Number(offer.uptime)), source: evidence, derivation: '1 - uptime' },
+                tokens_per_second: { value: null, reason: 'OpenVibe.AI public catalogue does not report generated tokens per second.' },
+                ttft_ms: { value: null, reason: 'OpenVibe.AI public catalogue p50 latency may be total response latency; it does not expose TTFT separately.' }, source: evidence };
+        }));
+        return res.json(aiEnvelope('report.ai-providers@1', { generated_at: data.generated_at, providers }));
+    });
+    r.get('/ai/compare', async (req, res) => {
+        const ids = String(req.query.models || '').split(',').filter(Boolean).slice(0, 4);
+        const models = await Promise.all(ids.map(async (id) => { const value = bench && await bench.modelDetail(id); return value ? { ...value.data, source: { name: 'OpenVibe.Bench', date: value.at, sample_size: value.data.runs ?? null } } : { id, model: null, reason: 'No public Bench data for this model.' }; }));
+        return res.json(aiEnvelope('report.ai-compare@1', { models }));
+    });
+    r.get('/ai/picks', async (_req, res) => {
+        const rows = await aiRows(); if (!rows) return problem(_req, res, 502, 'report.ai_source_unavailable', 'OpenVibe.Bench did not answer.');
+        const best = rows.find((x) => x.rating.value != null) || null;
+        const cheapest = rows.filter((x) => x.provider_offers.some((o) => o.price)).sort((a, b) => Number(a.provider_offers[0].price.out) - Number(b.provider_offers[0].price.out))[0] || null;
+        const value = rows.filter((x) => x.rating.value != null && x.provider_offers.some((o) => o.price && Number(o.price.out) > 0)).sort((a, b) => Number(a.provider_offers.find((o) => o.price && Number(o.price.out) > 0).price.out) / a.rating.value - Number(b.provider_offers.find((o) => o.price && Number(o.price.out) > 0).price.out) / b.rating.value)[0] || null;
+        const fastest = rows.filter((x) => x.provider_offers.some((o) => Number.isFinite(Number(o.speed && o.speed.p50_ms)))).sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite)) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite)))[0] || null;
+        const picks = [{ id: 'overall', model: best, why: best ? 'Highest Bench rating.' : 'Not enough data.' }, { id: 'value', model: value, why: value ? 'Bench rating relative to listed provider output price.' : 'Not enough paired rating and price data.' }, { id: 'fastest', model: fastest, why: fastest ? 'Lowest measured p50 response time.' : 'Not enough measured speed data.' }];
+        for (const id of ['open', 'code', 'writing', 'uncensored', 'free']) picks.push({ id, model: rows.find((x) => id === 'open' ? x.weights === 'open' : id === 'uncensored' ? x.uncensored : id === 'free' ? x.provider_offers.some((o) => o.free_tier) : x.kind === id) || null, why: 'Based on currently available public source data.' });
+        return res.json(aiEnvelope('report.ai-picks@1', { picks }));
+    });
     r.get('/design-health/:site', (req, res) => {
         const site = designHealth.site(req.params.site);
         if (!site) return notFound(req, res, 'report.design_site_not_found', 'No site by that name in the design health snapshot.');
