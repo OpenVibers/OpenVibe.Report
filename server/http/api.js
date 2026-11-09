@@ -103,7 +103,7 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
 
     const aiEnvelope = (schema, data) => ({ '$schema': schema, generated_at: new Date(now()).toISOString(), ...data });
     const aiRows = async () => {
-        const [kindsResult, catalogueResult] = await Promise.all([bench && bench.kinds(), aiCatalogue && aiCatalogue.catalog()]);
+        const [kindsResult, catalogueResult] = await Promise.all([bench && bench.kinds(), require('../data/ai-market').comparisonCatalogue(aiCatalogue)]);
         if (!kindsResult) return null;
         const kinds = kindsResult.data && kindsResult.data.kinds || [];
         const catalogModels = catalogueResult && catalogueResult.models || [];
@@ -116,12 +116,21 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
                 const id = entry.subject || entry.model || entry.name;
                 const catalogue = findCatalogModel(catalogModels, id);
                 const elo = entry.elo != null && Number.isFinite(Number(entry.elo)) ? Number(entry.elo) : null;
-                rows.push({ id, kind: kinds[i].id, maker: makerOf(catalogue, id), weights: catalogue && (catalogue.weights || (catalogue.open_weights === true ? 'open' : null)) || null,
+                rows.push({ id, routed: catalogue ? catalogue.routed !== false : false, kind: kinds[i].id, maker: makerOf(catalogue, id), weights: catalogue && (catalogue.weights || (catalogue.open_weights === true ? 'open' : null)) || null,
                     status: catalogue && catalogue.status || 'current', uncensored: catalogue && catalogue.uncensored === true,
                     community: Boolean(catalogue && catalogue.community), rating: elo == null ? { value: null, reason: 'Bench has no rating.' } : { value: elo, interval: [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: board.at, sample_size: entry.games ?? null },
                     benchmark: entry.score == null ? { value: null, reason: 'No benchmark score.' } : { value: entry.score, source: 'OpenVibe.Bench', date: board.at, sample_size: entry.runs ?? null },
                     provider_offers: catalogue ? catalogue.offers.map((offer) => ({ ...offer, source: { name: 'OpenVibe.AI', date: catalogueResult.generated_at || null, sample_size: offer.requests_7d ?? null } })) : [], source: { name: 'OpenVibe.Bench', date: board.at, sample_size: entry.games ?? null } });
             }
+        }
+        const rated = new Set(rows.map(row => findCatalogModel(catalogModels, row.id)).filter(Boolean));
+        for (const model of catalogModels) {
+            if (rated.has(model)) continue;
+            rows.push({ id: model.slug || model.canonical, kind: model.kind || null, maker: makerOf(model),
+                routed: model.routed !== false, weights: model.open_weights == null ? null : model.open_weights ? 'open' : 'closed',
+                status: model.status || 'current', uncensored: Boolean(model.uncensored), community: Boolean(model.community),
+                rating: { value: null, reason: 'Not rated yet.' }, benchmark: { value: null, reason: 'Not rated yet.' },
+                provider_offers: model.offers || [], source: { name: 'OpenVibe.AI', date: catalogueResult.generated_at || null, sample_size: null } });
         }
         rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity) || String(a.id).localeCompare(String(b.id)));
         rows.forEach((row, index) => {
@@ -144,10 +153,10 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         if (q.status === 'current') rows = rows.filter((x) => x.status === 'current');
         if (q.uncensored === 'true') rows = rows.filter((x) => x.uncensored);
         if (q.community === 'true') rows = rows.filter((x) => x.community);
-        if (q.price) rows = rows.filter((x) => x.provider_offers.some((o) => o.price && (q.price === 'free' ? o.free_tier : q.price === 'low' ? Number(o.price.out) <= 1 : ['mid', 'medium'].includes(q.price) ? Number(o.price.out) > 1 && Number(o.price.out) <= 10 : q.price === 'high' ? Number(o.price.out) > 10 : false)));
+        if (q.price) rows = rows.filter((x) => x.provider_offers.some((o) => o.price && o.price.out != null && (q.price === 'free' ? o.free_tier : q.price === 'low' ? Number(o.price.out) <= 1 : ['mid', 'medium'].includes(q.price) ? Number(o.price.out) > 1 && Number(o.price.out) <= 10 : q.price === 'high' ? Number(o.price.out) > 10 : false)));
         if (q.sort === 'name') rows.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-        if (q.sort === 'price') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity));
-        if (q.sort === 'speed') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity));
+        if (q.sort === 'price') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => (o.price?.out == null ? NaN : Number(o.price.out))).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => (o.price?.out == null ? NaN : Number(o.price.out))).filter(Number.isFinite), Infinity));
+        if (q.sort === 'speed') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => (o.speed?.p50_ms == null ? NaN : Number(o.speed.p50_ms))).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => (o.speed?.p50_ms == null ? NaN : Number(o.speed.p50_ms))).filter(Number.isFinite), Infinity));
         const limit = Math.max(1, Math.min(100, Number(q.limit) || 25)); const offset = Math.max(0, Number(q.cursor) || 0);
         if (q.format === 'csv') {
             const csv = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
@@ -163,15 +172,15 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         return res.json(aiEnvelope('report.ai-model@1', { ...result.data, ratings: ranking || [], source: { name: 'OpenVibe.Bench', date: result.at, sample_size: result.data.runs ?? null } }));
     });
     r.get('/ai/providers', async (_req, res) => {
-        const data = aiCatalogue && await aiCatalogue.catalog();
+        const data = await require('../data/ai-market').comparisonCatalogue(aiCatalogue);
         if (!data) return problem(_req, res, 502, 'report.ai_source_unavailable', 'OpenVibe.AI did not answer with provider metrics.');
         const providers = data.models.flatMap((model) => (model.offers || []).map((offer) => {
             const evidence = { name: 'OpenVibe.AI', date: offer.observed_at || data.generated_at, sample_size: offer.requests_7d ?? null };
-            return { model: model.slug, ...offer, error_rate: offer.uptime == null ? { value: null, reason: 'Not enough provider attempts to calculate an error rate.' } : { value: Math.max(0, 1 - Number(offer.uptime)), source: evidence, derivation: '1 - uptime' },
-                tokens_per_second: { value: null, reason: 'OpenVibe.AI public catalogue does not report generated tokens per second.' },
-                ttft_ms: { value: null, reason: 'OpenVibe.AI public catalogue p50 latency may be total response latency; it does not expose TTFT separately.' }, source: evidence };
+            return { ...offer, model: model.slug, routed: offer.routed !== false, error_rate: offer.uptime == null ? { value: null, reason: 'Not enough provider attempts to calculate an error rate.' } : { value: Math.max(0, 1 - Number(offer.uptime)), source: evidence, derivation: '1 - uptime' },
+                tokens_per_second: { value: offer.routed === false ? null : offer.speed?.tokens_per_second ?? null, reason: offer.routed === false ? 'Not routed here' : 'Not measured yet' },
+                ttft_ms: { value: offer.routed === false ? null : offer.speed?.ttft_ms ?? null, reason: offer.routed === false ? 'Not routed here' : 'Not measured yet' }, source: evidence };
         }));
-        return res.json(aiEnvelope('report.ai-providers@1', { generated_at: data.generated_at, providers }));
+        return res.json(aiEnvelope('report.ai-providers@1', { generated_at: data.generated_at, stale: data.stale || false, metadata: data.metadata || null, providers }));
     });
     r.get('/ai/compare', async (req, res) => {
         const ids = String(req.query.models || '').split(',').filter(Boolean).slice(0, 4);
@@ -181,9 +190,9 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
     r.get('/ai/picks', async (_req, res) => {
         const rows = await aiRows(); if (!rows) return problem(_req, res, 502, 'report.ai_source_unavailable', 'OpenVibe.Bench did not answer.');
         const best = rows.find((x) => x.rating.value != null) || null;
-        const cheapest = rows.filter((x) => x.provider_offers.some((o) => o.price)).sort((a, b) => Number(a.provider_offers[0].price.out) - Number(b.provider_offers[0].price.out))[0] || null;
+        const cheapest = rows.filter((x) => x.provider_offers.some((o) => o.price && o.price.out != null)).sort((a, b) => Number(a.provider_offers[0].price.out) - Number(b.provider_offers[0].price.out))[0] || null;
         const value = rows.filter((x) => x.rating.value != null && x.provider_offers.some((o) => o.price && Number(o.price.out) > 0)).sort((a, b) => Number(a.provider_offers.find((o) => o.price && Number(o.price.out) > 0).price.out) / a.rating.value - Number(b.provider_offers.find((o) => o.price && Number(o.price.out) > 0).price.out) / b.rating.value)[0] || null;
-        const fastest = rows.filter((x) => x.provider_offers.some((o) => Number.isFinite(Number(o.speed && o.speed.p50_ms)))).sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite)) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite)))[0] || null;
+        const fastest = rows.filter((x) => x.provider_offers.some((o) => Number.isFinite((o.speed?.p50_ms == null ? NaN : Number(o.speed.p50_ms))))).sort((a, b) => Math.min(...a.provider_offers.map((o) => (o.speed?.p50_ms == null ? NaN : Number(o.speed.p50_ms))).filter(Number.isFinite)) - Math.min(...b.provider_offers.map((o) => (o.speed?.p50_ms == null ? NaN : Number(o.speed.p50_ms))).filter(Number.isFinite)))[0] || null;
         const picks = [{ id: 'overall', model: best, why: best ? 'Highest Bench rating.' : 'Not enough data.' }, { id: 'value', model: value, why: value ? 'Bench rating relative to listed provider output price.' : 'Not enough paired rating and price data.' }, { id: 'fastest', model: fastest, why: fastest ? 'Lowest measured p50 response time.' : 'Not enough measured speed data.' }];
         for (const id of ['open', 'code', 'writing', 'uncensored', 'free']) {
             const model = rows.find((x) => id === 'open' ? x.weights === 'open' : id === 'uncensored' ? x.uncensored : id === 'free' ? x.provider_offers.some((o) => o.free_tier) : x.kind === id) || null;
