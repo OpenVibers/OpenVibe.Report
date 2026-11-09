@@ -23,8 +23,23 @@ function mergeMarket(catalogue, market) {
         model.routed ||= offer.routed; model.uncensored ||= offer.uncensored;
     }
     // Routed models with no own-page pricebook entry still remain discoverable.
-    for (const cat of catalogue?.models || []) if (!models.has(bare(cat.slug || cat.canonical))) {
-        models.set(bare(cat.slug || cat.canonical), { ...cat, routed: true, offers: (cat.offers || []).map(o => ({ ...o, routed: true })) });
+    for (const cat of catalogue?.models || []) {
+        const key = bare(cat.slug || cat.canonical);
+        const model = models.get(key);
+        if (!model) {
+            models.set(key, { ...cat, routed: true, offers: (cat.offers || []).map(o => ({ ...o, routed: true })) });
+            continue;
+        }
+        for (const offer of cat.offers || []) {
+            model.routed = true;
+            const matched = model.offers.find(o => o.provider === offer.provider && bare(o.model) === bare(offer.model));
+            if (matched) { Object.assign(matched, { ...offer, ...matched, routed: true }); continue; }
+            // A routed endpoint may not have a pricebook observation yet. Keep its measurements,
+            // but only a sourced page price may compete with the market's advertised prices.
+            model.offers.push({ ...offer, routed: true,
+                price: /^https:\/\//.test(offer.price_source || '') ? offer.price : null,
+                source: offer.source || { name: 'OpenVibe.AI', date: catalogue.generated_at || null, sample_size: offer.requests_7d ?? null } });
+        }
     }
     for (const model of models.values()) model.offers.sort((a,b) => amount(a.price?.out) - amount(b.price?.out) || amount(a.price?.in) - amount(b.price?.in));
     return { ...catalogue, generated_at: market.generated_at, metadata: market.metadata, stale: market.stale || false, models: [...models.values()] };
