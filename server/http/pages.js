@@ -81,6 +81,15 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
         }
         rows.length = 0;
         rows.push(...grouped.values());
+        for (const kind of kinds) {
+            const ranked = rows.map((row) => ({ row, task: row.task_ratings.find((rating) => rating.kind === kind.id) })).filter((x) => x.task).sort((a, b) => (b.task.rating.value ?? -Infinity) - (a.task.rating.value ?? -Infinity));
+            ranked.forEach(({ task }, i) => {
+                const [lo, hi] = task.rating.interval || [];
+                if (lo == null || hi == null) return;
+                const overlap = ranked.map((other, j) => ({ other, rank: j + 1 })).filter(({ other }) => other.task.rating.interval && other.task.rating.interval[0] != null && other.task.rating.interval[1] != null && other.task.rating.interval[0] <= hi && other.task.rating.interval[1] >= lo).map(({ rank }) => rank);
+                task.rank = overlap.length ? { min: Math.min(...overlap), max: Math.max(...overlap), position: i + 1 } : null;
+            });
+        }
         rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity));
         rows.forEach((row, i) => {
             const [lo, hi] = row.rating.interval || [];
@@ -134,7 +143,7 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
         const data = await comparisonData();
         const row = data.rows.find((x) => x.id === id);
         const detail = await bench.modelDetail(id);
-        return { html: aiComparisonViews.model({ id, detail: detail && detail.data, row, providers: data.providers }) };
+        return { html: aiComparisonViews.model({ id, detail: detail && detail.data, sourceDate: detail && detail.at, row, providers: data.providers }) };
     }
     async function aiComparison({ models = [] } = {}) {
         const data = await comparisonData();
