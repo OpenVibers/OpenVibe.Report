@@ -1,0 +1,11 @@
+/* The Arena on Report (/ai/arena): Exchange's round fragments, side by side on a computer, stacked on a phone. */
+.ex-wrap { width: min(1100px, calc(100% - 32px)); margin: 32px auto; }
+.ex-arena-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.ex-arena-grid > * { min-width: 0; overflow-wrap: anywhere; }
+.ex-arena-form textarea { width: 100%; min-height: 140px; }
+.ex-wrap a, .ex-wrap button, .ex-wrap summary { min-height: 44px; display: inline-flex; align-items: center; }
+.ex-arena-answer { white-space: pre-wrap; }
+.ex-wrap pre { overflow: auto; max-width: 100%; }
+@media (min-width: 900px) {
+    .ex-arena-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
