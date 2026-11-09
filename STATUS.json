@@ -10,12 +10,12 @@
   "domain": "openvibe.report",
   "contracts": "openvibe-contracts v0.373.0",
   "sdk": "openvibe-sdk v0.125.0",
-  "shared": "openvibe-shared v4.175.0",
+  "shared": "openvibe-shared v4.177.0",
   "packages": [
     "openvibe-contracts v0.373.0",
     "openvibe-publishing v1.5.0",
     "openvibe-sdk v0.125.0",
-    "openvibe-shared v4.175.0",
+    "openvibe-shared v4.177.0",
     "pg v8.23.1",
     "pglite v0.5.13 (dev)"
   ],
