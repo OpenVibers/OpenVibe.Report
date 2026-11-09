@@ -50,6 +50,12 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             const page = await t.get('/ai/models/model-zero');
             assert.ok(page.text.includes('Not rated on any task yet'), 'the model page says so');
         });
+        await check('unrated models list what the Exchange routes first, then the cheapest; a note in brackets is not a name', async () => {
+            const views = require('../server/views/ai-comparison');
+            const html = views.providers({ providers: [{ provider: 'x', provider_name: 'Abliteration.ai (the uncensored tier)', model: 'm', price: { in: 0, out: 0 }, routed: false }] });
+            assert.ok(html.includes('Abliteration.ai<') && !html.includes('the uncensored tier'), 'the provider is named plainly');
+            assert.ok(html.includes('Free') && !html.includes('$0.00'), 'a price of zero reads Free');
+        });
         await check('the providers page lists every offer', async () => {
             const r = await t.get('/ai/providers');
             assert.ok(r.text.includes('OpenAI') && r.text.includes('DeepSeek'), 'both providers');

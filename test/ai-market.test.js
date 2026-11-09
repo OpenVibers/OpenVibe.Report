@@ -30,6 +30,13 @@ const catalogue = { models:[{ slug:'openai/gpt-5-nano', offers:[{provider:'opena
         assert(model.routed);assert.strictEqual(model.offers[0].provider,'cheap');
         assert.strictEqual(model.offers.find(o=>o.provider==='openai').speed.p50_ms,1234);
     });
+    await check('metadata aliases do not borrow measurements from a different routed endpoint',()=>{
+        const result=mergeMarket(catalogue,{...market,offers:[{...market.offers[0],provider_model:'gpt-5-nano-latest',routed:false}]});
+        const offers=result.models[0].offers;
+        assert.strictEqual(offers.find(o=>o.model==='gpt-5-nano-latest').routed,false);
+        assert.strictEqual(offers.find(o=>o.model==='gpt-5-nano-latest').speed,undefined);
+        assert.strictEqual(offers.find(o=>o.model==='gpt-5-nano').routed,true);
+    });
     const source=stubFetch();
     const t=await boot({env:{OV_AI_INTERNAL_URL:'http://127.0.0.1:5231',OV_BENCH_INTERNAL_URL:'http://127.0.0.1:5230'},fetchImpl:async(url,opts)=>{
         const u=new URL(String(url));
