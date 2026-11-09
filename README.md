@@ -2,6 +2,9 @@
 
 > Every number on OpenVibe, honest.
 
+**Live site:** https://openvibe.report · **API docs:** https://openvibe.services · **For AI:** https://openvibe.report/llms.txt
+**Run it:** `npm ci && npm run dev` (Node 22 or newer) · **Tests:** `npm test`
+
 **Status:** v0.1.0 service, now with its own analytics database and a shadow of Network's numbers (REP-2, plan
 2026-10-28 §4.8 and §5.4). The pages still read where they read today; `REPORT_SOURCE=report` switches the numbers
 when the cutover is approved.
