@@ -37,6 +37,7 @@ OpenVibe.Live in both modes.
 | **OpenVibe.Live** — The Rundown | `GET /api/rundown/`, `/api/rundown/topics`, `/api/rundown/t/:slug`, `/api/rundown/e/:streamId`, `/api/rundown/s/:username` | `/rundown`, `/rundown/t/:slug`, `/rundown/e/:streamId`, `/rundown/s/:username` |
 | **OpenVibe.Live** — after-show reports | `GET /api/recap/:streamId`, `GET /api/recap/channel/:username` | `/after-show/:streamId`, `/c/:username` |
 | **OpenVibe.Bench** | `GET /api/v1/kinds`, `/api/v1/boards/:kind?type=elo\|pareto\|cost`, `/api/v1/benchmarks`, `/api/v1/rankings`, `/api/v1/runs`, `/api/v1/overview`, `/api/v1/models/:model`, `/api/v1/models/:model/summary` | `/ai`, `/ai/:kind`, `/ai/<benchmark>`, `/ai/models/:model`, `/ai/compare`, `/ai/method`, `/ai/feed.xml`, `GET /api/v1/ai/results` |
+| **OpenVibe.AI** | `GET /api/v1/exchange/catalog` | `GET /api/v1/ai/leaderboard`, `/api/v1/ai/models/:id`, `/api/v1/ai/providers`, `/api/v1/ai/compare?models=`, `/api/v1/ai/picks` |
 | **OpenVibe.Billing** | `GET /api/v1/stats`, `GET /api/v1/transactions?subject=…` | the revenue read for a channel; network money counts |
 | **OpenVibe.Billing** — settlements, through Events | `billing.credit.settled@1` on `POST /internal/events` (only with `REPORT_AI_EXCHANGE=1`) | the AI Exchange aggregates and the staff page/API |
 
@@ -173,6 +174,7 @@ Every value comes from the environment (production: `/etc/openvibe/report.env`).
 | `OV_NETWORK_URL` | `https://openvibe.network` | the OAuth token endpoint's origin |
 | `OV_LIVE_INTERNAL_URL` | `http://127.0.0.1:3000` | Live's loopback origin |
 | `OV_BENCH_INTERNAL_URL` | `https://bench.openvibe.services` | Bench's public read origin, optionally an internal origin |
+| `OV_AI_INTERNAL_URL` | `https://ai.openvibe.services` | AI's public Exchange catalogue and measured provider offers |
 | `OV_BILLING_INTERNAL_URL` | `http://127.0.0.1:4600` | Billing's loopback origin |
 | `OV_OAUTH_CLIENT_ID` / `OV_OAUTH_CLIENT_SECRET` | `report` / unset | Report's client-credentials token for `openvibe.billing` |
 | `REPORT_BILLING_TOKEN` | unset | an explicit Billing bearer token for an operator run |

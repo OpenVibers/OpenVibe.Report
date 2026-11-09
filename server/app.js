@@ -31,6 +31,7 @@ const { createNetworkClient } = require('./data/network');
 const { createLiveClient } = require('./data/live');
 const { createBillingClient } = require('./data/billing');
 const { createBenchClient } = require('./data/bench');
+const { createAiCatalogue } = require('./data/ai-catalogue');
 const { createAnalytics } = require('./analytics');
 const { createAiUsage } = require('./analytics/ai-usage');
 const { createAiExchange } = require('./analytics/ai-exchange');
@@ -88,6 +89,7 @@ async function createApp(opts = {}) {
     const live = opts.live || createLiveClient({ config, fetchImpl, log, now });
     const billing = opts.billing || createBillingClient({ config, fetchImpl, log, now });
     const bench = opts.bench || createBenchClient({ config, fetchImpl, log, now });
+    const aiCatalogue = opts.aiCatalogue || createAiCatalogue({ config, fetchImpl, log, now });
     // D11 owner settings (report.ai_exchange): the switch is read through the store, env pins winning. Report can
     // run without a database (a network-only front): then there is no store and the env value is all there is.
     const exchangeConfig = store ? await createAiExchangeConfig({ db: store.db, config, env: opts.env || process.env, now, log, onActivate: opts.onConfigActivate }) : null;
@@ -116,7 +118,7 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, aiCatalogue, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports };
     const app = express();
     if (exchangeConfig) exchangeConfig.mount(app);
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts
@@ -287,7 +289,7 @@ async function createApp(opts = {}) {
         legacyHeaders: false,
         handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
     }));
-    app.use('/api/v1', createApi({ network, live, bench, analytics, aiUsage, aiExchange, sessionReports, config, now, log }));
+    app.use('/api/v1', createApi({ network, live, bench, aiCatalogue, analytics, aiUsage, aiExchange, sessionReports, config, now, log }));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 
     // ── Crawl artifacts, then the pages ─────────────────────
