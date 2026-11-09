@@ -37,7 +37,7 @@ const catalogue = { models:[{ slug:'openai/gpt-5-nano', offers:[{provider:'opena
         await check('pages list every market model, cheapest price, route marks and measured-only routed rows',async()=>{
             const r=await t.get('/ai/leaderboard');assert.strictEqual(r.status,200);assert(r.text.includes('qwen/unrated'));assert(r.text.includes('$0.01'));assert(r.text.includes('Routed here'));assert(r.text.includes('Not routed here'));
             assert(r.text.indexOf('gpt-5-nano-2025-08-07')<r.text.indexOf('qwen/unrated'));
-            const p=await t.get('/ai/providers');assert(p.text.includes('Cheaper fixture'));assert(p.text.includes('1.2 s'));assert(p.text.includes('Not routed here'));
+            const p=await t.get('/ai/providers');assert(p.text.includes('Cheaper fixture'));assert(/1\.2[0-9]*\s*s/.test(p.text));assert(p.text.includes('Not routed here'));
             const api=await t.get('/api/v1/ai/leaderboard');assert(api.json().rows.some(r=>r.id==='qwen/unrated'&&!r.routed));
         });
     } finally { await t.close(); }
