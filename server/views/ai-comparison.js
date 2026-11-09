@@ -17,7 +17,7 @@ const value = (x) => x == null || !Number.isFinite(Number(x)) ? null : Number(x)
 const idPath = (id) => `/ai/models/${encodeURIComponent(id || '')}`;
 const act = (href, label) => kit.button({ href, label, kind: 'quiet', icon: 'forward' });
 const quiet = (text) => `<span class="ai-quiet">${esc(text)}</span>`;
-const money = (x) => value(x) == null ? null : kit.num(x, 'money');
+const money = (x) => value(x) == null ? null : Number(x) === 0 ? 'Free' : kit.num(x, 'money');
 const ms = (x) => value(x) == null ? null : kit.num(x, 'ms');
 const share = (x) => { const v = x != null && typeof x === 'object' ? x.value : x; return value(v) == null ? null : `${(Number(v) * 100).toFixed(Number(v) > 0 && Number(v) < 0.01 ? 2 : 1)}%`; };
 const sourceHint = (s) => { const x = s && typeof s === 'object' ? s : { name: s }; return `Source: ${x.name || 'not listed'}${x.date ? ` · ${String(x.date).slice(0, 10)}` : ''}${x.sample_size != null ? ` · n = ${x.sample_size}` : ''}`; };
@@ -117,7 +117,7 @@ const dataLinks = () => `<p class="ai-data">Data: <a href="/api/v1/ai/leaderboar
 // ── /ai ──
 const PICK_LABELS = { overall: 'Best overall', value: 'Best value', fastest: 'Fastest', open: 'Best open weights', code: 'Best for code', writing: 'Best for writing', uncensored: 'Best uncensored 18+', free: 'Best free' };
 function pickNumber(id, row) {
-    if (id === 'value' || id === 'free') { const o = cheapest(row); return o ? `${money(o.price.out)} per 1M out` : ''; }
+    if (id === 'value' || id === 'free') { const o = cheapest(row); return !o ? '' : Number(o.price.out) === 0 ? 'Free' : `${money(o.price.out)} per 1M out`; }
     if (id === 'fastest') { const o = fastest(row); return o ? `${ms(o.speed.p50_ms)} typical reply` : ''; }
     return rated(row) ? `Rating ${Math.round(row.rating.value)}` : '';
 }
@@ -182,7 +182,7 @@ function leaderboard({ rows = [], filters = {} } = {}) {
 
 // ── /ai/providers ──
 const ownServer = (p) => /^(local|whisper)$/i.test(String(p.provider || '')) || /on this host|\blocal\b/i.test(String(p.provider_name || ''));
-const providerName = (p) => ownServer(p) ? 'OpenVibe server' : (p.provider_name || p.provider || 'Provider');
+const providerName = (p) => ownServer(p) ? 'OpenVibe server' : String(p.provider_name || p.provider || 'Provider').replace(/\s*\((?:the |an? )[^)]*\)\s*$/i, '');
 const providerMark = (p) => ownServer(p) ? marks.mark('openvibe', { size: 24, label: false }) : marks.mark(p.provider || p.provider_name, { size: 24, label: false });
 function providerTable(list) {
     const rows = list.map((p) => ({
