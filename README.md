@@ -259,6 +259,35 @@ HMAC. See [SECURITY.md](SECURITY.md).
 <!-- versions:start -->
 - openvibe-contracts: v0.373.0
 - openvibe-sdk: v0.125.0
-- openvibe-shared: v4.177.0
+- openvibe-shared: v4.178.0
 - openvibe-publishing: v1.5.0
 <!-- versions:end -->
+
+### AI market data and provenance
+
+The AI pages and `GET /api/v1/ai/leaderboard` and `/api/v1/ai/providers` read
+`https://api.openvibe.exchange/api/v1/exchange/market` alongside the routed catalog.
+Report follows every market cursor and caches the complete result for 120 seconds.
+An upstream failure retains the last complete market snapshot with `stale: true`;
+without a snapshot, Report falls back to the routed catalog.
+
+The market is public (`exchange.market@1`, cached 60 seconds). It accepts `limit`
+(1–500, default 100), opaque `cursor`, `maker`, `open_weights=true|false`, and
+`kind=chat|embedding|stt|image`. Responses contain `offers`, `total_models`,
+`total_offers`, `next_cursor`, `generated_at`, and the models.dev metadata snapshot's
+`source`, `checked_at`, and `stale` state. Each offer identifies `model`, `provider`,
+`provider_model`, `routed`, `provider_access`, and the preset's `uncensored` flag.
+Prices are USD per 1M tokens (`in`, `out`, `cached`), with `price_source` pointing
+to that provider's own page and `price_checked_at`. Unknown prices remain null.
+A latest observed price can differ from the price currently approved for routing.
+
+Model fields include maker, context, max output, open weights, licence, release
+date, knowledge cutoff and modalities. `field_sources` names the provider page or
+`https://models.dev/api.json` for each known field. Metadata refreshes daily on
+read; a failed refresh preserves the previous copy and marks it stale.
+
+Comparison rows include every market model, rated rows first, then unrated rows.
+Their first provider offer has the lowest known own-page output price, breaking
+ties by input price; input/output/cached prices always come from that same offer.
+Provider measurements join only routed offers. Other offers display “Not routed
+here”; missing measurements on routed offers display “Not measured yet”.

@@ -162,7 +162,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             const filtered = await fixture.get('/ai/leaderboard?maker=Maker%20A&weights=open&price=low&status=current&kind=code');
             assert.ok(filtered.text.includes('maker/model-a') && !filtered.text.includes('maker/model-b'));
             const provider = await fixture.get('/ai/providers');
-            assert.ok(provider.text.includes('Provider One') && provider.text.includes('No traffic yet'), 'an offer without requests has no measurement');
+            assert.ok(provider.text.includes('Provider One') && provider.text.includes('Not measured yet'), 'an offer without requests has no measurement');
             assert.ok(provider.text.includes('Down') && provider.text.includes('the provider says the account is out of credit') && provider.text.includes('since 2026-11-09 09:00 UTC'), 'the measured status and its reason are shown');
             assert.strictEqual((await fixture.get('/ai/compare?models=maker%2Fmodel-a,maker%2Fmodel-b')).status, 301);
             assert.strictEqual((await fixture.get('/ai/compare/maker%2Fmodel-a-vs-maker%2Fmodel-b')).status, 200);
