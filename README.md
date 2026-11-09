@@ -79,6 +79,8 @@ All server-rendered in `server/views/index.js`; every dynamic value goes through
 |---|---|
 | `/` | the 7-day open numbers, the Rundown's counts and lead, and the trending topics |
 | `/stats?days=7\|30\|90` | the network totals and a first look at every site (anything else is 30) |
+| `/me?days=7\|30\|90` | **signed in only, private, noindex**: your sites and activity (Network's history), what you made, your AI and Vibes, with a switch per section to publish it (the owner, 2026-11-09) |
+| `/u/:username` | a person's published stats: only the sections they turned on, with Person JSON-LD; noindex and no numbers until they publish |
 | `/rundown` | on air, the lead, the latest streams and every topic; canonical is OpenVibe.Live's `/rundown` |
 | `/rundown/t/:slug` | one topic, its takes and related topics; canonical is Live's `/rundown/t/:slug` |
 | `/rundown/e/:streamId` | one stream as an episode, with its segments; canonical is Live's `/rundown/e/:streamId` |
@@ -111,10 +113,16 @@ GET /api/v1/rundown/t/:slug
 GET /api/v1/after-show/:streamId
 GET /api/v1/c/:username
 GET /api/v1/ai/results            the new AI runs, newest first
+GET /api/v1/me/stats?days=7|30|90  the signed-in person's own numbers (private, no-store)
+PUT /api/v1/me/stats/published    the five per-section switches (same-origin, JSON)
+GET /api/v1/u/:name/stats         only the sections that person published (404 when none)
 ```
 
 A bad parameter or a missing source answer is a 404 `application/problem+json` body built with
-`openvibe-contracts` `http.sendProblem`. The public API is read-only; other methods get 405.
+`openvibe-contracts` `http.sendProblem`. The API is read-only except for the person's own publish switches; other
+methods get 405. `GET /api/v1/me/stats` and `PUT /api/v1/me/stats/published` answer the `report.me-stats@1` document
+(the switch request is `report.me-stats-publish@1`); the public route copies only the published sections from the
+person's last snapshot, so a section a source did not answer for is absent, never a zero.
 
 The AI Exchange JSON read is the staff exception (with `REPORT_AI_EXCHANGE=1`): a Network service token with the
 same `report.ai_usage.read` capability the AI meter uses, never cached, no person or project in the answer. The

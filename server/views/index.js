@@ -101,8 +101,17 @@ const NAV = [
     { label: 'API', href: '/developers', icon: 'fa-code', more: true },
 ];
 
-function layout({ title, description, canonical = null, path = null, robots = 'index, follow', body, active = '/', jsonLd = [], agent = false, inlineStyles = [] }) {
+function layout({ title, description, canonical = null, path = null, robots = 'index, follow', body, active = '/', jsonLd = [], agent = false, inlineStyles = [], og = null }) {
     canonical = canonical || (path ? canon(path) : undefined);
+    const ogTags = og ? [
+        `<meta property="og:type" content="${esc(og.type || 'website')}">`,
+        `<meta property="og:site_name" content="${esc(NAME)}">`,
+        `<meta property="og:title" content="${esc(og.title || title || NAME)}">`,
+        `<meta property="og:description" content="${esc(og.description || description || '')}">`,
+        og.url ? `<meta property="og:url" content="${esc(og.url)}">` : '',
+        og.image ? `<meta property="og:image" content="${esc(og.image)}">` : '',
+        '<meta name="twitter:card" content="summary">',
+    ].filter(Boolean).join('\n') : '';
     const navbar = {
         service: 'report',
         apiBase: NETWORK,
@@ -143,6 +152,7 @@ ${path && String(path).startsWith('/ai') ? `<link rel="alternate" type="applicat
 <script src="${esc(ovServe.url('kit-data-web.js'))}" defer></script>
 <script src="${esc(ovServe.url('motion.js'))}" defer></script>
 ${(inlineStyles || []).map((css) => `<style>${css}</style>`).join('\n')}
+${ogTags}
 <meta name="ov-boost" content="report@${esc(RELEASE)}">`,
         body: `<a class="skip" href="#main">Skip to content</a>
 <div id="navbar-mount"></div>
@@ -620,7 +630,7 @@ ${(sp.topics || []).length ? `<ul class="rp-chips">${sp.topics.slice(0, 12).map(
 ${(sp.episodes || []).length ? `<p class="rp-meta">${plural(sp.episodes.length, 'stream', 'streams')} written up · <a href="/rundown/s/${encodeURIComponent(username)}">all of it</a></p>` : ''}
 </section>` : '';
     const body = `<header class="rp-page-h rp-person">${kit.mark({ name, src: user.avatar_url || '', size: 64 })}<div><p class="rp-kicker">Your numbers</p><h1>${esc(name)}</h1>
-<p class="rp-lede rp-you-say">${esc(youSentence({ name, days, stats, speaker }))}</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></div></header>
+<p class="rp-lede rp-you-say">${esc(youSentence({ name, days, stats, speaker }))}</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav><p class="rp-meta"><a href="/me">All your stats: your places, activity and what you made</a></p></div></header>
 ${streams}${money}${youAi(ai, days)}${youReports(reports, defaultAudience)}${rundown}
 <section aria-labelledby="rp-you-next" class="rp-you-next"><h2 id="rp-you-next">Coming here</h2><p class="rp-fine">Your agents' work and what your computers ran. Only you see this page.</p></section>`;
     return layout({ title: 'Your numbers', description: 'Your own numbers across OpenVibe: streams, money and The Rundown, in one place.', body, active: '/you', robots: 'noindex, nofollow' });
@@ -1205,8 +1215,206 @@ function staffOnly({ signedIn = false } = {}) {
     return layout({ title: 'Staff only', description: 'Staff only.', robots: 'noindex, nofollow', body: `<header class="rp-page-h"><p class="rp-kicker">OpenVibe.Report</p><h1>Staff only</h1><p class="rp-lede">${esc(text)}</p>${action}</header>` });
 }
 
+// ── A person's stats (the owner, 2026-11-09): private /me, public /u/<name> ─────────────────────────────
+//
+// Every number is a source's: Network's cross-site history (visits, not minutes), Report's analytics (streams and
+// hours), Report's AI meter, Billing's settled Vibes and the person's session reports. A section a source did not
+// answer for is absent, never a zero. The charts are server-drawn SVG with the numbers in their aria-label, and the
+// tables are the same numbers as text.
+const STAT_SECTIONS = [
+    ['sites', 'Sites you used', 'The OpenVibe sites you opened, from Network’s history. A page opened again within ten minutes is one visit.'],
+    ['activity', 'Your activity', 'The days you were around, week by week, and the streak that ends today.'],
+    ['made', 'Things you made', 'What Report can count so far: your streams and hours, and the agent sessions you ran.'],
+    ['ai', 'Your AI', 'Your own calls on the AI meter: what they cost and how many there were.'],
+    ['money', 'Vibes', 'What Billing says reached you. Report stores no money and derives no amount.'],
+];
+const STAT_LABEL = Object.fromEntries(STAT_SECTIONS.map(([k, label]) => [k, label]));
+// The public page speaks about the person, never to the reader: the same sections, in the third person.
+const STAT_PUBLIC_NOTE = {
+    sites: 'The OpenVibe sites they opened, from Network’s history. A page opened again within ten minutes is one visit.',
+    activity: 'The days they were around, week by week, and the streak that ends today.',
+    made: 'What Report can count so far: their streams and hours, and the agent sessions they ran.',
+    ai: 'Their own calls on the AI meter: what they cost and how many there were.',
+    money: 'What Billing says reached them. Report stores no money and derives no amount.',
+};
+
+function statSites(sites) {
+    if (!sites || !Array.isArray(sites.month) || !sites.month.length) {
+        return kit.empty({ icon: 'compass', title: 'No places yet', text: 'When you use OpenVibe signed in, the sites you open show up here. Nothing is recorded for signed-out visits.' });
+    }
+    const week = new Map((Array.isArray(sites.week) ? sites.week : []).map((s) => [s.service, s.visits]));
+    const top = Math.max(1, ...sites.month.map((s) => Number(s.visits) || 0));
+    // Designed 11-09: a bar per site reads at a glance (it was a table of two numbers per site).
+    const rows = sites.month.map((s, i) => {
+        const n = Number(s.visits) || 0, w = week.get(s.service) || 0;
+        return `<li style="--p:${Math.max(3, Math.round(n / top * 100))}%;--i:${i}"><a href="${esc(s.url)}">${esc(s.label)}</a>`
+            + `<span class="rp-sbar" aria-hidden="true"><i></i></span><b>${fmt(n)}</b><small>${w ? `${fmt(w)} this week` : 'none this week'}</small></li>`;
+    }).join('');
+    return `<ol class="rp-sites" aria-label="Visits by site in this window, with this week's">${rows}</ol>
+<p class="rp-fine">Counted from Network’s cross-site history: a visit is a page, not a length of time. Times are UTC.</p>`;
+}
+
+/** Twelve weeks as a grid of days (a column a week, Monday on top), shaded by visits; the numbers stay in a table. */
+function heatmap(weeks) {
+    const all = weeks.flatMap((w) => (w.days || []).map((n) => Number(n) || 0));
+    const max = Math.max(1, ...all);
+    const level = (n) => (n <= 0 ? 0 : Math.min(4, Math.ceil(n / max * 4)));
+    const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const cols = weeks.map((w) => `<span class="rp-heat-col">${DAYS.map((d, j) => {
+        const n = Number((w.days || [])[j]) || 0;
+        return `<i class="l${level(n)}" title="${esc(`${d}, week of ${day(w.week_start)}: ${n} ${n === 1 ? 'visit' : 'visits'}`)}"></i>`;
+    }).join('')}</span>`).join('');
+    return `<div class="rp-heat" role="img" aria-label="${esc(`Visits a day for ${weeks.length} weeks; the table below has every number`)}">
+<span class="rp-heat-days" aria-hidden="true"><i>Mon</i><i></i><i>Wed</i><i></i><i>Fri</i><i></i><i>Sun</i></span><span class="rp-heat-grid">${cols}</span></div>
+<p class="rp-heat-key" aria-hidden="true"><span>${esc(day(weeks[0].week_start))}</span><span class="rp-heat-scale">Fewer <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> More</span><span>${esc(day(weeks[weeks.length - 1].week_start))}</span></p>`;
+}
+
+function statActivity(activity) {
+    if (!activity || !Array.isArray(activity.weeks) || !activity.weeks.length) return '';
+    if (!activity.active_days && !activity.streak_days) {
+        return kit.empty({ icon: 'calendar', title: 'No activity yet', text: 'Your days fill in as you use OpenVibe signed in. Nothing is recorded for signed-out visits.' });
+    }
+    const weeks = activity.weeks.map((w) => ({ week_start: w.week_start, week: day(w.week_start), total: (w.days || []).reduce((a, b) => a + (Number(b) || 0), 0), days: w.days || [] }));
+    const chart = bars(weeks.map((w) => ({ day: w.week_start, n: w.total })), 'Visits a week', { h: 90 });
+    const rows = activity.weeks.map((w, i) => ({
+        week: day(w.week_start),
+        mon: (w.days && w.days[0]) || 0, tue: (w.days && w.days[1]) || 0, wed: (w.days && w.days[2]) || 0, thu: (w.days && w.days[3]) || 0,
+        fri: (w.days && w.days[4]) || 0, sat: (w.days && w.days[5]) || 0, sun: (w.days && w.days[6]) || 0,
+    }));
+    return `<div class="rp-tiles rp-tiles-sm">${tile('Active days', exact(activity.active_days))}${tile('Streak', exact(activity.streak_days), Number(activity.streak_days) === 1 ? 'day in a row' : 'days in a row')}</div>
+${heatmap(activity.weeks)}
+${chart}
+<details class="rp-fold"><summary>Every day as numbers <span>${activity.weeks.length} weeks</span></summary>
+${kit.table({
+        caption: 'Visits by day, last twelve weeks (UTC)',
+        stack: false,
+        columns: [
+            { key: 'week', label: 'Week of', primary: true },
+            { key: 'mon', label: 'Mon', num: true }, { key: 'tue', label: 'Tue', num: true }, { key: 'wed', label: 'Wed', num: true },
+            { key: 'thu', label: 'Thu', num: true }, { key: 'fri', label: 'Fri', num: true }, { key: 'sat', label: 'Sat', num: true }, { key: 'sun', label: 'Sun', num: true },
+        ],
+        rows,
+    })}</details>`;
+}
+
+function statMade(made, { publicView = false } = {}) {
+    const items = made && Array.isArray(made.items) ? made.items : [];
+    if (!items.length) return kit.empty({ icon: 'sparkles', title: 'Nothing counted yet', text: 'Streams, hours and your agent reports appear here when Report has them for this window.' });
+    return `<div class="rp-tiles rp-tiles-sm">${items.map((it) => tile(it.label, `${fmt(it.count)}<small> ${esc(it.unit || '')}</small>`, (it.href && (!publicView || it.key === 'streams') ? `<a href="${esc(it.href)}">See them</a>` : ''))).join('')}</div>`;
+}
+
+function statAi(ai, { publicView = false } = {}) {
+    if (!ai || !(Number(ai.calls) > 0)) return '';
+    const daily = (ai.daily || []).map((d) => ({ day: d.day, n: d.calls }));
+    return `<div class="rp-tiles rp-tiles-sm">${tile('Calls', exact(ai.calls))}${tile('Tokens', fmt(ai.tokens))}${tile('Cost', usd(ai.cost_usd))}</div>
+${daily.length > 1 ? bars(daily, 'AI calls a day', { h: 100 }) : ''}
+${publicView ? '' : '<p class="rp-meta"><a href="/you#rp-you-ai">The whole AI meter</a> · <a href="/api/v1/me/ai/usage">As JSON</a></p>'}`;
+}
+
+function statMoney(money) {
+    if (!money || !(Number(money.transactions) > 0)) return '';
+    return `<div class="rp-tiles rp-tiles-sm">${tile('Vibes earned', exact(money.settled_bits))}${tile('Payments', exact(money.transactions))}</div>
+<p class="rp-fine">These are Billing’s settled amounts. Report never computes a price, a fee or a balance: <a href="https://billing.openvibe.network/">every receipt is on Billing</a>.</p>`;
+}
+
+/** One publish row: a checkbox and its hidden false, so an unchecked box is an explicit "no". */
+function publishRow(key, checked, note) {
+    return `<li class="rp-publish-row"><label><input type="hidden" name="${esc(key)}" value="false"><input class="rp-switch" type="checkbox" role="switch" name="${esc(key)}" value="true"${checked ? ' checked' : ''}> <b>${esc(STAT_LABEL[key] || key)}</b></label> <span class="rp-fine">· ${esc(note)}</span></li>`;
+}
+
+function publishPanel({ doc, username }) {
+    const p = doc.published || {};
+    const any = Object.values(p).some(Boolean);
+    const publicUrl = `${BASE}/u/${encodeURIComponent(username)}`;
+    return `<section class="rp-share" id="rp-share" aria-labelledby="rp-pub-h"><h2 id="rp-pub-h">Share your stats</h2>
+<p class="rp-lede">Private by default: only you see this page. Turn a section on to publish it at <a href="/u/${encodeURIComponent(username)}">/u/${esc(username)}</a>. Each section is a separate choice; a published section shows the numbers in this snapshot.</p>
+<form class="rp-publish" method="post" action="/api/v1/me/stats/published">
+<fieldset><legend class="rp-sr">Public sections</legend><ul>${STAT_SECTIONS.map(([key]) => publishRow(key, p[key], p[key] ? 'Public now' : 'Only you')).join('')}</ul>
+${kit.button({ label: 'Save public sections', icon: 'check' })}
+</fieldset></form>
+${any ? `<div class="rp-share-card"><p class="rp-kicker">Share card</p><h3>${esc(doc.person.display_name || username)}’s OpenVibe stats</h3><p class="rp-fine">Anyone with this link sees only the sections you made public.</p><p><a href="/u/${encodeURIComponent(username)}">${esc(publicUrl)}</a></p></div>` : `<p class="rp-fine">Nothing is public yet. Your public link will be <code>/u/${esc(username)}</code>.</p>`}
+</section>`;
+}
+
+function me({ user, doc, days = 30 } = {}) {
+    const name = String((user && (user.display_name || user.username)) || doc.person.display_name || 'you');
+    const username = String(doc.person.username || (user && user.username) || '');
+    const s = doc.sections || {};
+    const tabs = [7, 30, 90].map((d) => `<a href="/me?days=${d}"${Number(days) === d ? ' aria-current="page"' : ''}>${d} days</a>`).join('');
+    const body = `<header class="rp-page-h">${kit.mark({ name, src: (user && user.avatar_url) || doc.person.avatar_url || '', size: 64 })}<div><p class="rp-kicker">Your stats</p><h1>${esc(name)}</h1>
+<p class="rp-lede">Everything OpenVibe counts for you, in one place. Private by default; you choose what is public.</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></div></header>
+${doc.note ? kit.notice({ kind: 'info', text: doc.note }) : ''}
+${(() => { const n = Object.values(doc.published || {}).filter(Boolean).length; return `<p class="rp-privacy${n ? ' is-public' : ''}"><span>${n ? `${n} ${n === 1 ? 'section is' : 'sections are'} public` : 'Private: only you see this page'}</span> <a href="#rp-share">${n ? 'Change' : 'Share some of it'}</a></p>`; })()}
+${s.sites ? kit.section({ title: 'Sites you used', count: (s.sites.month || []).length, note: STAT_SECTIONS[0][2], body: statSites(s.sites), id: 'rp-me-sites' }) : ''}
+${s.activity ? kit.section({ title: 'Your activity', note: STAT_SECTIONS[1][2], body: statActivity(s.activity), id: 'rp-me-activity' }) : ''}
+${s.made ? kit.section({ title: 'Things you made', note: STAT_SECTIONS[2][2], body: statMade(s.made), id: 'rp-me-made' }) : ''}
+${s.ai ? kit.section({ title: 'Your AI', note: STAT_SECTIONS[3][2], body: statAi(s.ai), id: 'rp-me-ai' }) : ''}
+${s.money ? kit.section({ title: 'Vibes', note: STAT_SECTIONS[4][2], body: statMoney(s.money), id: 'rp-me-money' }) : ''}
+${publishPanel({ doc, username })}
+<p class="rp-fine">Counted ${esc(dayTime(doc.generated_at))}. <a href="/you">Your streams, money, AI and The Rundown</a> · <a href="/api/v1/me/stats?days=${esc(days)}">Your numbers as JSON</a>.</p>`;
+    return layout({ title: 'Your stats', description: 'Your own numbers across OpenVibe: the sites you used, your activity, what you made, your AI and your Vibes.', body, active: '/me', robots: 'noindex, nofollow' });
+}
+
+function meSignedOut() {
+    const body = `<header class="rp-page-h"><p class="rp-kicker">Your stats</p><h1>Your OpenVibe, in numbers</h1>
+<p class="rp-lede">The sites you use, the days you were around, what you made, your AI and the Vibes that reached you. Private by default: you choose which sections, if any, are public.</p>
+<p>${kit.button({ href: `/auth/login?next=${encodeURIComponent('/me')}`, label: 'Sign in to see yours', icon: 'forward' })}</p>
+<p class="rp-fine">A public stats page looks like <a href="/stats">the rest of Report</a>: server-rendered numbers, no account needed to read what someone chose to publish.</p></header>`;
+    return layout({ title: 'Your stats', description: 'Sign in to see your own numbers across OpenVibe.', body, active: '/me', robots: 'noindex, nofollow' });
+}
+
+function meError({ user } = {}) {
+    const name = String((user && (user.display_name || user.username)) || 'there');
+    return layout({ title: 'Your stats', robots: 'noindex, nofollow', body: `<header class="rp-page-h"><p class="rp-kicker">Your stats</p><h1>${esc(name)}, your numbers did not load</h1><p class="rp-lede">One of the sources did not answer. Nothing is shown as a zero. Try again in a moment; <a href="/you">your streams, AI and Rundown</a> are still here.</p></header>` });
+}
+
+function publicStats({ doc } = {}) {
+    const person = doc.person || {};
+    const username = String(person.username || '');
+    const name = String(person.display_name || username);
+    const s = doc.sections || {};
+    const any = Object.values(doc.published || {}).some(Boolean);
+    const body = `<header class="rp-page-h">${kit.mark({ name, src: person.avatar_url || '', size: 64 })}<div><p class="rp-kicker">Public stats</p><h1>${esc(name)}’s OpenVibe</h1>
+<p class="rp-lede">The numbers ${esc(name)} chose to publish. Private by default: nothing else is here.</p></div></header>
+${s.sites ? kit.section({ title: 'Sites used', count: (s.sites.month || []).length, note: STAT_PUBLIC_NOTE.sites, body: statSites(s.sites), id: 'rp-u-sites' }) : ''}
+${s.activity ? kit.section({ title: 'Activity', note: STAT_PUBLIC_NOTE.activity, body: statActivity(s.activity), id: 'rp-u-activity' }) : ''}
+${s.made ? kit.section({ title: 'Things made', note: STAT_PUBLIC_NOTE.made, body: statMade(s.made, { publicView: true }), id: 'rp-u-made' }) : ''}
+${s.ai ? kit.section({ title: 'AI', note: STAT_PUBLIC_NOTE.ai, body: statAi(s.ai, { publicView: true }), id: 'rp-u-ai' }) : ''}
+${s.money ? kit.section({ title: 'Vibes', note: STAT_PUBLIC_NOTE.money, body: statMoney(s.money), id: 'rp-u-money' }) : ''}
+<p class="rp-fine">Published ${esc(dayTime(doc.generated_at))} · ${any ? 'only the sections above' : 'no sections'} · <a href="/stats">the network’s open numbers</a>.</p>`;
+    return layout({
+        title: `${name}: OpenVibe stats`,
+        description: `${name}’s OpenVibe numbers: the sites they used, their activity and what they made. Only the sections they made public.`,
+        path: `/u/${encodeURIComponent(username)}`,
+        robots: 'index, follow',
+        jsonLd: [{
+            '@context': 'https://schema.org',
+            '@type': 'Person',
+            name,
+            alternateName: username,
+            url: canon(`/u/${encodeURIComponent(username)}`),
+            ...(person.avatar_url ? { image: person.avatar_url } : {}),
+            description: `${name}’s public OpenVibe stats, published by them on OpenVibe.Report.`,
+        }],
+        og: { type: 'profile', title: `${name}: OpenVibe stats`, description: `${name}’s public OpenVibe numbers. Private by default.`, url: canon(`/u/${encodeURIComponent(username)}`), image: person.avatar_url || undefined },
+        body,
+        active: '/me',
+    });
+}
+
+function publicStatsPrivate({ doc } = {}) {
+    const person = (doc && doc.person) || {};
+    const name = String(person.display_name || person.username || 'This person');
+    return layout({
+        title: `${name}: private stats`,
+        robots: 'noindex, nofollow',
+        body: `<header class="rp-page-h"><p class="rp-kicker">Private</p><h1>${esc(name)} keeps their numbers private</h1><p class="rp-lede">Nothing has been published from this page. On OpenVibe.Report, a person’s stats are private until they turn a section on.</p><p class="rp-fine"><a href="/stats">The network’s open numbers</a> · <a href="/">OpenVibe.Report</a></p></header>`,
+        active: '/me',
+    });
+}
+
 function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, developers, aiIndex, aiBoard, aiBenchmark, aiModel, aiCompare, aiMethod, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { home, stats, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, me, meSignedOut, meError, publicStats, publicStatsPrivate, developers, aiIndex, aiBoard, aiBenchmark, aiModel, aiCompare, aiMethod, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };

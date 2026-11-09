@@ -90,6 +90,19 @@ function defaults() {
         channel: {
             recaps: [{ stream_id: 7, title: 'Seattle Today', headline: 'A tiny but mighty vibe', grade: 'A', duration_seconds: 2017, ended_at: '2026-10-27 10:33:00' }],
         },
+        // The person's own cross-site history (GET /api/history), used by /me and GET /api/v1/me/stats. A test that
+        // wants "Network did not answer" overrides it with null.
+        history: {
+            items: [
+                { service: 'live', service_label: 'Live', title: 'A stream', url: 'https://openvibe.live/watch/7', updated_at: '2026-11-09 10:00:00', hits: 1 },
+                { service: 'live', service_label: 'Live', title: 'Another stream', url: 'https://openvibe.live/watch/8', updated_at: '2026-11-08 10:00:00', hits: 1 },
+                { service: 'community', service_label: 'Community', title: 'A paste', url: 'https://openvibe.community/paste/1', updated_at: '2026-11-07 10:00:00', hits: 1 },
+                { service: 'chat', service_label: 'Chat', title: 'A room', url: 'https://openvibe.chat/room', updated_at: '2026-10-20 10:00:00', hits: 1 },
+            ],
+            total: 4,
+            paused: false,
+            services: [{ service: 'live', label: 'Live', count: 2 }, { service: 'community', label: 'Community', count: 1 }, { service: 'chat', label: 'Chat', count: 1 }],
+        },
     };
 }
 
@@ -117,6 +130,9 @@ function stubFetch(data = {}, { health = { network: true, live: true } } = {}) {
 
         if (p.endsWith('/api/v1/stats')) {
             return answers.stats == null ? jsonResponse({ error: 'unavailable' }, 404) : jsonResponse(answers.stats);
+        }
+        if (p.endsWith('/api/history')) {
+            return answers.history == null ? jsonResponse({ error: 'unavailable' }, 404) : jsonResponse(answers.history);
         }
         if (p.endsWith('/api/rundown/')) {
             return answers.rundown == null ? jsonResponse({ error: 'unavailable' }, 404) : jsonResponse(answers.rundown);
@@ -178,6 +194,7 @@ async function boot(opts = {}) {
         sso: opts.sso,
         shadow: opts.shadow,
         ...(opts.aiUsage ? { aiUsage: opts.aiUsage } : {}),
+        ...(opts.sessionReports ? { sessionReports: opts.sessionReports } : {}),
         ...(opts.bench ? { bench: opts.bench } : {}),
         ...(opts.aiCatalogue ? { aiCatalogue: opts.aiCatalogue } : {}),
         ...(opts.verifyServiceToken ? { verifyServiceToken: opts.verifyServiceToken } : {}),

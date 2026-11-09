@@ -15,8 +15,9 @@
  * that answered nothing. Every /api/v1 answer is CORS-open and public for two minutes; the app mounts the 120/min
  * per-address limit in front of this router.
  *
- * GET /api/v1/me/ai/usage is the exception: it answers only the person their session names, so it is private, never
- * cached, and has its own tighter per-address limit.
+ * GET /api/v1/me/ai/usage and GET /api/v1/me/stats answer only the person their session names, so they are private,
+ * never cached, and have their own tighter per-address limit. PUT /api/v1/me/stats/published is the one write; GET
+ * /api/v1/u/:name/stats is public and carries only the sections that person published.
  */
 const express = require('express');
 const rateLimit = require('express-rate-limit');
@@ -30,17 +31,33 @@ const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, meStats = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
+
+    // The one write: the person's own publish switches. A browser sends a same-origin request (or an
+    // X-Requested-With); a Bearer caller is not a cookie, so it needs no CSRF token. Everything else is read-only.
+    const isPublishWrite = (req) => req.method === 'PUT' && (req.path === '/me/stats/published' || req.path === '/me/stats/published/');
+    function sameOrigin(req) {
+        if (String((req.headers && req.headers.authorization) || '').startsWith('Bearer ')) return true;
+        const site = String((req.headers && req.headers['sec-fetch-site']) || '');
+        return req.headers['x-requested-with'] === 'fetch' || site === 'same-origin' || site === 'same-site';
+    }
 
     r.use((req, res, next) => {
         res.set('Access-Control-Allow-Origin', '*');
         res.set('Cache-Control', CACHE);
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
+        if (req.method === 'OPTIONS' && req.path === '/me/stats/published') {
+            res.set('Access-Control-Allow-Methods', 'GET, HEAD, PUT, OPTIONS');
+            res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+            return res.status(204).end();
+        }
+        if (req.method !== 'GET' && req.method !== 'HEAD' && !isPublishWrite(req)) {
             res.set('Allow', 'GET, HEAD');
             return problem(req, res, 405, 'method.not_allowed', 'This API is read-only; use GET.');
         }
+        res.set('Access-Control-Allow-Methods', 'GET, HEAD, PUT, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
         return next();
     });
 
@@ -213,6 +230,66 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         const recaps = await live.channelRecaps(username);
         if (!recaps) return notFound(req, res, 'report.channel_not_found', 'No such channel.');
         return res.json(recaps);
+    });
+
+    // ── A person's own numbers (the owner, 2026-11-09) ─────────────────────────────────────────────────
+    //
+    // GET /api/v1/me/stats answers the person the session names, with every section a source answered for. The
+    // per-section switches are the person's own; a section is absent until a source gives it, never a zero. A public
+    // reader gets only what the person published, from their last snapshot (GET /api/v1/u/:name/stats).
+    r.get('/me/stats', async (req, res) => {
+        const user = req.user;
+        if (!user || !user.subject_id) return problem(req, res, 401, 'auth.sign_in_required', 'Sign in to see your own numbers.');
+        if (!meStats) return problem(req, res, 503, 'report.no_me_stats', 'Your numbers are not available in this process.');
+        try {
+            const body = await meStats.compute({ user, token: req.token, days: normaliseDays(req.query.days) });
+            return res.json(body);
+        } catch (err) {
+            log.error('[OpenVibe.Report] the personal stats failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return problem(req, res, 500, 'report.me_stats_failed', 'Your numbers could not be read.');
+        }
+    });
+
+    // The per-section switch. It is the one route that changes something: it writes only this subject's row and
+    // answers the recomputed document, so the page can show what is public now.
+    r.put('/me/stats/published', express.json({ limit: '4kb' }), async (req, res) => {
+        const user = req.user;
+        if (!user || !user.subject_id) return problem(req, res, 401, 'auth.sign_in_required', 'Sign in to publish your numbers.');
+        if (!sameOrigin(req)) return problem(req, res, 403, 'report.csrf', 'Cross-site request refused.');
+        if (!meStats) return problem(req, res, 503, 'report.no_me_stats', 'Your numbers are not available in this process.');
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const published = body.published;
+        if (!published || typeof published !== 'object' || Array.isArray(published)) {
+            return problem(req, res, 422, 'report.me_stats_invalid', 'published must name every section.');
+        }
+        const switches = {};
+        for (const key of meStats.SECTIONS) {
+            if (typeof published[key] !== 'boolean') return problem(req, res, 422, 'report.me_stats_invalid', `published.${key} must be true or false.`);
+            switches[key] = published[key];
+        }
+        try {
+            const out = await meStats.setPublished({ user, token: req.token, days: normaliseDays(body.days), published: switches });
+            return res.json(out);
+        } catch (err) {
+            log.error('[OpenVibe.Report] the stats switches failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return problem(req, res, 500, 'report.me_stats_failed', 'Your public settings could not be saved.');
+        }
+    });
+
+    // A person's published numbers. Only the sections they published are here; a person who has published nothing is
+    // a 404 to a stranger, exactly as if they had never made a page. The answer is the owner's last snapshot.
+    r.get('/u/:name/stats', async (req, res) => {
+        const name = String(req.params.name || '');
+        if (!isUsername(name)) return notFound(req, res, 'report.person_stats_not_found', 'No such person.');
+        if (!meStats) return problem(req, res, 503, 'report.no_me_stats', 'Public numbers are not available in this process.');
+        try {
+            const body = await meStats.publicFor(name);
+            if (!body || !meStats.anyPublished(body.published)) return notFound(req, res, 'report.person_stats_not_found', 'No public numbers for that person.');
+            return res.json(body);
+        } catch (err) {
+            log.error('[OpenVibe.Report] the public stats failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return problem(req, res, 500, 'report.me_stats_failed', 'Those numbers could not be read.');
+        }
     });
 
     // The caller's own session reports of the last days (Today's "Your agents this week", S7). The list is the

@@ -32,7 +32,7 @@ function siteUpdated() {
     }
 }
 
-function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
+function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meStats = null }) {
     const r = express.Router();
     const site = String(config.baseUrl || 'https://openvibe.report').replace(/\/+$/, '');
     const abs = (p) => `${site}${p}`;
@@ -46,8 +46,9 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
     });
 
     r.get('/sitemap.xml', async (_req, res) => {
-        const [ai, overview, reports] = await Promise.all([
+        const [ai, overview, reports, people] = await Promise.all([
             bench.kinds(), bench.overview(), sessionReports ? sessionReports.listPublic({ limit: 500 }) : [],
+            meStats ? meStats.listPublished({ limit: 500 }).catch(() => []) : [],
         ]);
         const kinds = (ai && Array.isArray(ai.data.kinds)) ? ai.data.kinds : [];
         const o = overview && overview.data ? overview.data : {};
@@ -67,6 +68,12 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
             { loc: abs('/ai/method'), changefreq: 'weekly', priority: 0.6 },
             { loc: abs('/ai/compare'), changefreq: 'weekly', priority: 0.6 },
             ...reports.map((rep) => ({ loc: abs('/s/' + encodeURIComponent(rep.id)), changefreq: 'daily', priority: 0.6 })),
+            // A person's public stats page is crawlable only when they published a section; the private default is
+            // never in the sitemap. The last modification is the snapshot they last computed.
+            ...people.filter((p) => p && p.username).map((p) => ({
+                loc: abs(`/u/${encodeURIComponent(p.username)}`), changefreq: 'weekly', priority: 0.5,
+                ...(dayOf(p.generated_at) ? { lastmod: dayOf(p.generated_at) } : {}),
+            })),
             ...kinds.filter((k) => k && bench.isKindId(k.id)).map((k) => ({
                 loc: abs(`/ai/${encodeURIComponent(k.id)}`), changefreq: 'daily', priority: 0.7,
             })),
