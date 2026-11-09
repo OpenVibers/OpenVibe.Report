@@ -105,7 +105,7 @@ const legacy = { model: 'model-a', ratings: [{ kind_id: 'design.page', elo: 1043
         await check('one model page uses the comparison profile and available Bench task data', async () => {
             const r = await t.get('/ai/models/model-a');
             assert.strictEqual(r.status, 200);
-            for (const s of ['30-day rating', 'Not enough data', 'Task ratings', 'Playable games arena', 'snapshot', 'Arena record against the top five', 'Product', 'Try it in Chat', 'Use it from code']) assert.ok(r.text.includes(s), s);
+            for (const s of ['Providers', 'Task ratings', 'Playable games arena', 'snapshot', 'Product', 'Try it in Chat', 'Use it from code']) assert.ok(r.text.includes(s), s);
             assert.ok(!r.text.includes('&lt;span title='), 'a stat is escaped HTML, not markup');
         });
 

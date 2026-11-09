@@ -34,7 +34,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             const row = r.text.slice(r.text.indexOf('gpt-5-nano-2025-08-07'));
             assert.ok(r.text.includes('gpt-5-nano-2025-08-07'), 'the rated model');
             assert.ok(row.includes('$0.05') && row.includes('$0.4'), 'its catalogue prices');
-            assert.ok(r.text.includes('>openai<'), 'its maker from the catalogue slug');
+            assert.ok(r.text.includes('OpenAI') && r.text.includes('ov-aim--openai'), 'its maker, named and marked');
         });
         await check('a catalogue model without Bench games is listed, not rated', async () => {
             const r = await t.get('/ai/leaderboard');

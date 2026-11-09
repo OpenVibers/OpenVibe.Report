@@ -157,12 +157,12 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         try {
             const hub = await fixture.get('/ai');
             assert.ok(hub.text.includes('AI model leaderboard — November 2026'));
-            assert.ok(hub.text.includes('1200–1300') && hub.text.includes('1–2') && hub.text.includes('Dataset') && hub.text.includes('FAQPage'));
+            assert.ok(hub.text.includes('± 50') && hub.text.includes('40 games') && hub.text.includes('1–2') && hub.text.includes('Dataset') && hub.text.includes('FAQPage'));
             assert.ok(hub.text.includes('Maker A') && !hub.text.includes('letter-avatar'));
             const filtered = await fixture.get('/ai/leaderboard?maker=Maker%20A&weights=open&price=low&status=current&kind=code');
             assert.ok(filtered.text.includes('maker/model-a') && !filtered.text.includes('maker/model-b'));
             const provider = await fixture.get('/ai/providers');
-            assert.ok(provider.text.includes('Provider One') && provider.text.includes('Not measured yet'));
+            assert.ok(provider.text.includes('Provider One') && provider.text.includes('No traffic yet'), 'an offer without requests has no measurement');
             assert.strictEqual((await fixture.get('/ai/compare?models=maker%2Fmodel-a,maker%2Fmodel-b')).status, 301);
             assert.strictEqual((await fixture.get('/ai/compare/maker%2Fmodel-a-vs-maker%2Fmodel-b')).status, 200);
             assert.strictEqual((await fixture.get('/ai/compare/maker%2Fmodel-b-vs-maker%2Fmodel-a')).status, 301);

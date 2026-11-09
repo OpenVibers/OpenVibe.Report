@@ -72,7 +72,7 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
             for (const entry of list) {
                 const id = entry.subject || entry.model || entry.name;
                 const cat = findCat(id);
-                rows.push({ id, kind: kinds[i].id, maker: makerOf(cat, id), weights: cat && (cat.weights || (cat.open_weights ? 'open' : null)), status: cat && cat.status || 'current', uncensored: Boolean(cat && cat.uncensored), community: Boolean(cat && cat.community), rating: { value: entry.elo == null || Number(entry.games) === 0 ? null : Number(entry.elo), interval: Number(entry.games) === 0 ? [null, null] : [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null }, benchmark: { value: entry.score == null ? null : Number(entry.score), reason: entry.score == null ? 'No benchmark score.' : undefined }, provider_offers: cat && Array.isArray(cat.offers) ? cat.offers : [], source: { name: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null } });
+                rows.push({ id, kind: kinds[i].id, model_kind: cat && cat.kind || 'chat', maker: makerOf(cat, id), weights: cat && (cat.weights || (cat.open_weights ? 'open' : null)), status: cat && cat.status || 'current', uncensored: Boolean(cat && cat.uncensored), community: Boolean(cat && cat.community), rating: { value: entry.elo == null || Number(entry.games) === 0 ? null : Number(entry.elo), interval: Number(entry.games) === 0 ? [null, null] : [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null }, benchmark: { value: entry.score == null ? null : Number(entry.score), reason: entry.score == null ? 'No benchmark score.' : undefined }, provider_offers: cat && Array.isArray(cat.offers) ? cat.offers : [], source: { name: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null } });
             }
         }
         const grouped = new Map();
@@ -91,7 +91,7 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
             const id = cat.slug || cat.canonical || cat.id;
             if (!id) continue;
             const source = { name: 'OpenVibe.AI', date: catalogue.generated_at || null, sample_size: null };
-            rows.push({ id, kind: cat.kind || null, maker: makerOf(cat, id), weights: cat.weights || (cat.open_weights ? 'open' : null), status: cat.status || 'current', uncensored: Boolean(cat.uncensored), community: Boolean(cat.community), rating: { value: null, interval: [null, null], source: 'OpenVibe.Bench', date: null, sample_size: 0 }, benchmark: { value: null, reason: 'Not rated yet.' }, provider_offers: Array.isArray(cat.offers) ? cat.offers : [], source, task_ratings: [], unrated: true });
+            rows.push({ id, kind: cat.kind || null, model_kind: cat.kind || 'chat', maker: makerOf(cat, id), weights: cat.weights || (cat.open_weights ? 'open' : null), status: cat.status || 'current', uncensored: Boolean(cat.uncensored), community: Boolean(cat.community), rating: { value: null, interval: [null, null], source: 'OpenVibe.Bench', date: null, sample_size: 0 }, benchmark: { value: null, reason: 'Not rated yet.' }, provider_offers: Array.isArray(cat.offers) ? cat.offers : [], source, task_ratings: [], unrated: true });
         }
         for (const kind of kinds) {
             const ranked = rows.map((row) => ({ row, task: row.task_ratings.find((rating) => rating.kind === kind.id) })).filter((x) => x.task).sort((a, b) => (b.task.rating.value ?? -Infinity) - (a.task.rating.value ?? -Infinity));
@@ -118,34 +118,52 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
 
     async function aiComparisonHub() {
         const data = await comparisonData();
-        const rated = data.rows.filter((r) => r.rating.value != null);
-        const cheapest = (r) => Math.min(...(r.provider_offers || []).map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity);
-        const fastest = (r) => Math.min(...(r.provider_offers || []).map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity);
-        const taskRows = (kind) => data.rows.map((row) => { const task = row.task_ratings.find((x) => x.kind === kind); return task ? { ...row, kind, rating: task.rating, benchmark: task.benchmark } : null; }).filter(Boolean);
-        const choose = (id, list, why) => ({ id, model: list || null, why: list ? why : 'Not enough source data to establish this pick.' });
-        data.picks = [choose('overall', rated[0], 'Highest public Bench rating.'), choose('value', rated.filter((r) => Number.isFinite(cheapest(r))).sort((a,b) => cheapest(a)-cheapest(b))[0], 'Lowest listed output price among rated models.'), choose('fastest', data.rows.filter((r) => Number.isFinite(fastest(r))).sort((a,b) => fastest(a)-fastest(b))[0], 'Lowest measured provider p50 response time.'), choose('open', data.rows.find((r) => ['open','open_weights'].includes(r.weights)), 'Listed as open weights in the public catalogue.'), choose('code', taskRows('code').sort((a,b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity))[0], 'Top available public code task rating.'), choose('writing', taskRows('writing').sort((a,b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity))[0], 'Top available public writing task rating.'), choose('uncensored', data.rows.find((r) => r.uncensored), 'Flagged uncensored by the public catalogue; 18+.'), choose('free', data.rows.find((r) => r.provider_offers.some((o) => o.free_tier)), 'A provider lists a free tier.')];
+        const num = (x) => (x == null || x === '' ? NaN : Number(x));
+        const chat = data.rows.filter((r) => (r.model_kind || 'chat') === 'chat');
+        const rated = chat.filter((r) => r.rating.value != null);
+        const best = (list) => [...list].sort((a, b) => b.rating.value - a.rating.value)[0];
+        const cheapest = (r) => Math.min(...(r.provider_offers || []).map((o) => num(o.price && o.price.out)).filter(Number.isFinite), Infinity);
+        const fastest = (r) => Math.min(...(r.provider_offers || []).filter((o) => Number(o.requests_7d) > 0).map((o) => num(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity);
+        const free = (r) => (r.provider_offers || []).some((o) => o.free === true || o.free_now === true || num(o.price && o.price.out) === 0);
+        const taskRows = (kind) => rated.map((row) => { const task = row.task_ratings.find((x) => x.kind === kind && x.rating && x.rating.value != null); return task ? { ...row, kind, rating: task.rating, benchmark: task.benchmark } : null; }).filter(Boolean);
+        const choose = (id, model, why) => ({ id, model: model || null, why: model ? why : 'Not enough source data to establish this pick.' });
+        data.picks = [
+            choose('overall', best(rated), 'Highest rating from blind votes and open runs.'),
+            choose('value', rated.filter((r) => Number.isFinite(cheapest(r))).sort((a, b) => cheapest(a) - cheapest(b))[0], 'Lowest output price among rated models.'),
+            choose('fastest', chat.filter((r) => Number.isFinite(fastest(r))).sort((a, b) => fastest(a) - fastest(b))[0], 'Fastest typical reply on real traffic this week.'),
+            choose('open', best(rated.filter((r) => ['open', 'open_weights'].includes(r.weights))), 'Highest-rated model with open weights.'),
+            choose('code', best(taskRows('code')), 'Highest rating on code tasks.'),
+            choose('writing', best(taskRows('writing')), 'Highest rating on writing tasks.'),
+            choose('uncensored', best(rated.filter((r) => r.uncensored)), 'Highest-rated uncensored model; 18+.'),
+            choose('free', best(rated.filter(free)) || chat.find(free), 'Free to use now through the Exchange.'),
+        ];
+        data.others = data.rows.length - chat.length;
+        data.rows = chat;
         return { html: aiComparisonViews.hub(data) };
     }
     async function aiComparisonLeaderboard(query = {}) {
+        const nz = (x) => (x == null || x === '' ? NaN : Number(x));
         const data = await comparisonData();
         let rows = data.rows;
         if (query.kind) rows = rows.map((x) => {
             const task = x.task_ratings.find((rating) => rating.kind === query.kind);
             return task ? { ...x, kind: query.kind, rating: task.rating, benchmark: task.benchmark } : null;
         }).filter(Boolean);
+        const type = ['chat', 'embedding', 'stt', 'all'].includes(query.type) ? query.type : 'chat';
+        if (type !== 'all') rows = rows.filter((x) => (x.model_kind || 'chat') === type);
         if (query.maker) rows = rows.filter((x) => String(x.maker || '').toLowerCase() === String(query.maker).toLowerCase());
         if (query.weights) rows = rows.filter((x) => x.weights === query.weights || (query.weights === 'open' && x.weights === 'open_weights'));
         if (query.status !== 'all') rows = rows.filter((x) => x.status === (query.status || 'current'));
         if (query.uncensored) rows = rows.filter((x) => x.uncensored);
         if (query.community) rows = rows.filter((x) => x.community);
         if (query.price) rows = rows.filter((x) => x.provider_offers.some((o) => {
-            const p = Number(o.price && o.price.out);
-            return query.price === 'free' ? Boolean(o.free_tier) : !Number.isFinite(p) ? false : query.price === 'low' ? p <= 1 : query.price === 'mid' ? p > 1 && p <= 10 : query.price === 'high' ? p > 10 : true;
+            const p = nz(o.price && o.price.out);
+            return query.price === 'free' ? (o.free === true || o.free_now === true || p === 0) : !Number.isFinite(p) ? false : query.price === 'low' ? p <= 1 : query.price === 'mid' ? p > 1 && p <= 10 : query.price === 'high' ? p > 10 : true;
         }));
         if (query.q) rows = rows.filter((x) => `${x.id} ${x.maker || ''}`.toLowerCase().includes(String(query.q).toLowerCase()));
         if (query.sort === 'name') rows.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-        if (query.sort === 'price') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity));
-        if (query.sort === 'speed') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity));
+        if (query.sort === 'price') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => nz(o.price && o.price.out)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => nz(o.price && o.price.out)).filter(Number.isFinite), Infinity));
+        if (query.sort === 'speed') rows.sort((a, b) => Math.min(...a.provider_offers.filter((o) => Number(o.requests_7d) > 0).map((o) => nz(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.filter((o) => Number(o.requests_7d) > 0).map((o) => nz(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity));
         if (query.sort === 'rating') rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity));
         return { html: aiComparisonViews.leaderboard({ rows, filters: query }) };
     }
@@ -160,7 +178,7 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
     async function aiComparison({ models = [] } = {}) {
         const data = await comparisonData();
         const selected = models.map((id) => data.rows.find((x) => x.id === id) || { id, reason: 'No public model data.' });
-        return { html: aiComparisonViews.compare({ models: selected }) };
+        return { html: aiComparisonViews.compare({ models: selected, options: data.rows.map((x) => x.id) }) };
     }
     function aiArena() { return { html: aiComparisonViews.arena() }; }
 
@@ -303,7 +321,9 @@ function createPageRoutes(ctx) {
     r.get('/ai/providers', async (req, res) => send(req, res, (await publicPages.aiComparisonProviders()).html));
     r.get('/ai/arena', (_req, res) => send(_req, res, publicPages.aiArena().html));
     r.get('/ai/compare', async (req, res) => {
-        const models = String(req.query.models || '').split(',').map((x) => x.trim()).filter(Boolean);
+        // The picker sends a and b; older links send models=a,b.
+        const picked = [req.query.a, req.query.b].map((x) => String(x || '').trim()).filter(Boolean);
+        const models = picked.length ? picked : String(req.query.models || '').split(',').map((x) => x.trim()).filter(Boolean);
         if (models.length === 2) return res.redirect(301, `/ai/compare/${encodeURIComponent(models[0])}-vs-${encodeURIComponent(models[1])}`);
         return send(req, res, (await publicPages.aiComparison({ models })).html);
     });
