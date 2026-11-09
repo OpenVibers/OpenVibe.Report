@@ -20,6 +20,7 @@
  * /api/v1/u/:name/stats is public and carries only the sections that person published.
  */
 const express = require('express');
+const { findCatalogModel, makerOf } = require('../data/ai-join');
 const rateLimit = require('express-rate-limit');
 const contracts = require('openvibe-contracts');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
@@ -113,9 +114,9 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
             const list = board && board.data && board.data.board && board.data.board.rows || [];
             for (const entry of list) {
                 const id = entry.subject || entry.model || entry.name;
-                const catalogue = catalogModels.find((m) => m.slug === id || m.canonical === id || m.id === id) || null;
+                const catalogue = findCatalogModel(catalogModels, id);
                 const elo = entry.elo != null && Number.isFinite(Number(entry.elo)) ? Number(entry.elo) : null;
-                rows.push({ id, kind: kinds[i].id, maker: catalogue && (catalogue.maker || (String(catalogue.slug || '').includes('/') ? String(catalogue.slug).split('/')[0] : null)) || null, weights: catalogue && (catalogue.weights || (catalogue.open_weights === true ? 'open' : null)) || null,
+                rows.push({ id, kind: kinds[i].id, maker: makerOf(catalogue, id), weights: catalogue && (catalogue.weights || (catalogue.open_weights === true ? 'open' : null)) || null,
                     status: catalogue && catalogue.status || 'current', uncensored: catalogue && catalogue.uncensored === true,
                     community: Boolean(catalogue && catalogue.community), rating: elo == null ? { value: null, reason: 'Bench has no rating.' } : { value: elo, interval: [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: board.at, sample_size: entry.games ?? null },
                     benchmark: entry.score == null ? { value: null, reason: 'No benchmark score.' } : { value: entry.score, source: 'OpenVibe.Bench', date: board.at, sample_size: entry.runs ?? null },

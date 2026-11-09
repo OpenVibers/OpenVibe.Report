@@ -25,6 +25,7 @@
  * Markdown twin render the very same page; `agent: true` in those views adds the discovery links.
  */
 const express = require('express');
+const { findCatalogModel, makerOf } = require('../data/ai-join');
 const contracts = require('openvibe-contracts');
 const views = require('../views');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
@@ -64,13 +65,14 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
         const kinds = kindsResult && kindsResult.data && kindsResult.data.kinds || [];
         const boards = await Promise.all(kinds.map((kind) => bench.board(kind.id, 'elo')));
         const catModels = (catalogue && catalogue.models || []).map((model) => ({ ...model, offers: (model.offers || []).map((offer) => ({ ...offer, source: offer.source || { name: 'OpenVibe.AI', date: catalogue.generated_at || null, sample_size: offer.requests_7d ?? null } })) }));
+        const findCat = (id) => findCatalogModel(catModels, id);
         const rows = [];
         for (let i = 0; i < boards.length; i += 1) {
             const list = boards[i] && boards[i].data && boards[i].data.board && boards[i].data.board.rows || [];
             for (const entry of list) {
                 const id = entry.subject || entry.model || entry.name;
-                const cat = catModels.find((m) => [m.slug, m.canonical, m.id].includes(id));
-                rows.push({ id, kind: kinds[i].id, maker: cat && (cat.maker || String(id).split('/')[0]), weights: cat && (cat.weights || (cat.open_weights ? 'open' : null)), status: cat && cat.status || 'current', uncensored: Boolean(cat && cat.uncensored), community: Boolean(cat && cat.community), rating: { value: entry.elo == null ? null : Number(entry.elo), interval: [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null }, benchmark: { value: entry.score == null ? null : Number(entry.score), reason: entry.score == null ? 'No benchmark score.' : undefined }, provider_offers: cat && Array.isArray(cat.offers) ? cat.offers : [], source: { name: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null } });
+                const cat = findCat(id);
+                rows.push({ id, kind: kinds[i].id, maker: makerOf(cat, id), weights: cat && (cat.weights || (cat.open_weights ? 'open' : null)), status: cat && cat.status || 'current', uncensored: Boolean(cat && cat.uncensored), community: Boolean(cat && cat.community), rating: { value: entry.elo == null ? null : Number(entry.elo), interval: [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null }, benchmark: { value: entry.score == null ? null : Number(entry.score), reason: entry.score == null ? 'No benchmark score.' : undefined }, provider_offers: cat && Array.isArray(cat.offers) ? cat.offers : [], source: { name: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null } });
             }
         }
         const grouped = new Map();
@@ -81,6 +83,16 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
         }
         rows.length = 0;
         rows.push(...grouped.values());
+        // Every model the Exchange sells is listed with its prices and speed, rated or not: a model without
+        // Bench games yet shows as not rated, never as missing.
+        const ratedCats = new Set(rows.map((row) => findCat(row.id)).filter(Boolean));
+        for (const cat of catModels) {
+            if (ratedCats.has(cat)) continue;
+            const id = cat.slug || cat.canonical || cat.id;
+            if (!id) continue;
+            const source = { name: 'OpenVibe.AI', date: catalogue.generated_at || null, sample_size: null };
+            rows.push({ id, kind: cat.kind || null, maker: makerOf(cat, id), weights: cat.weights || (cat.open_weights ? 'open' : null), status: cat.status || 'current', uncensored: Boolean(cat.uncensored), community: Boolean(cat.community), rating: { value: null, interval: [null, null], source: 'OpenVibe.Bench', date: null, sample_size: 0 }, benchmark: { value: null, reason: 'Not rated yet.' }, provider_offers: Array.isArray(cat.offers) ? cat.offers : [], source, task_ratings: [], unrated: true });
+        }
         for (const kind of kinds) {
             const ranked = rows.map((row) => ({ row, task: row.task_ratings.find((rating) => rating.kind === kind.id) })).filter((x) => x.task).sort((a, b) => (b.task.rating.value ?? -Infinity) - (a.task.rating.value ?? -Infinity));
             ranked.forEach(({ task }, i) => {
