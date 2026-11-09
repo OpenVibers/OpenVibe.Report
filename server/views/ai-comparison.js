@@ -185,12 +185,16 @@ const ownServer = (p) => /^(local|whisper)$/i.test(String(p.provider || '')) || 
 const providerName = (p) => ownServer(p) ? 'OpenVibe server' : String(p.provider_name || p.provider || 'Provider').replace(/\s*\((?:the |an? )[^)]*\)\s*$/i, '');
 const providerMark = (p) => ownServer(p) ? marks.mark('openvibe', { size: 24, label: false }) : marks.mark(p.provider || p.provider_name, { size: 24, label: false });
 function providerTable(list) {
+    // Status is a word (the state-in-words rule): Up, Degraded with the warning tone, Down with the bad one, each with
+    // its plain reason and since when. The column shows only when some offer is not up (a column earns its place).
+    const notUp = (p) => p.routed !== false && ['down', 'degraded'].includes(String(p.status || 'up'));
     const statusCell = (p) => {
-        const status = String(p.status || 'up');
-        if (status === 'up') return '<span>Up</span>';
-        const why = p.status_reason ? `<br><small>${esc(p.status_reason)}</small>` : '';
-        const since = p.status_since ? `<br><small>since ${esc(String(p.status_since).slice(0, 16).replace('T', ' '))} UTC</small>` : '';
-        return `<b class="ai-bad">${status === 'down' ? 'Down' : 'Degraded'}</b>${why}${since}`;
+        if (p.routed === false) return quiet('Not routed here');
+        if (!notUp(p)) return 'Up';
+        const down = String(p.status) === 'down';
+        const why = p.status_reason ? `<small>${esc(p.status_reason)}</small>` : '';
+        const since = p.status_since ? `<small>since ${esc(String(p.status_since).slice(0, 16).replace('T', ' '))} UTC</small>` : '';
+        return `<b class="${down ? 'ai-bad' : 'ai-warn'}">${down ? 'Down' : 'Degraded'}</b>${why}${since}`;
     };
     const rows = list.map((p) => ({
         provider: `<span class="ai-prov">${providerMark(p)}<b>${esc(providerName(p))}</b></span>`,
@@ -206,7 +210,7 @@ function providerTable(list) {
         columns: [
             { key: 'provider', label: 'Provider', primary: true, html: true },
             { key: 'model', label: 'Model', html: true },
-            { key: 'status', label: 'Status', html: true },
+            list.some(notUp) && { key: 'status', label: 'Status', html: true },
             { key: 'price', label: 'Price per 1M', html: true },
             { key: 'reply', label: 'Reply time', html: true },
             { key: 'errors', label: 'Errors', html: true },
