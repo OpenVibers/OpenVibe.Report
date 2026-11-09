@@ -61,6 +61,9 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
             { loc: abs('/stats'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/design'), changefreq: 'weekly', priority: 0.6 },
             { loc: abs('/ai'), changefreq: 'daily', priority: 0.9 },
+            { loc: abs('/ai/leaderboard'), changefreq: 'daily', priority: 0.9 },
+            { loc: abs('/ai/providers'), changefreq: 'daily', priority: 0.7 },
+            { loc: abs('/ai/arena'), changefreq: 'daily', priority: 0.6 },
             { loc: abs('/ai/method'), changefreq: 'weekly', priority: 0.6 },
             { loc: abs('/ai/compare'), changefreq: 'weekly', priority: 0.6 },
             ...reports.map((rep) => ({ loc: abs('/s/' + encodeURIComponent(rep.id)), changefreq: 'daily', priority: 0.6 })),
@@ -74,6 +77,9 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null }) {
             ...models.filter((m) => bench.isModelName(m)).map((m) => ({
                 loc: abs(`/ai/models/${encodeURIComponent(m)}`), changefreq: 'daily', priority: 0.6,
             })),
+            ...models.filter((m) => bench.isModelName(m)).slice(0, 200).flatMap((a, i, list) => list.slice(i + 1).map((b) => ({
+                loc: abs(`/ai/compare/${encodeURIComponent(a)}-vs-${encodeURIComponent(b)}`), changefreq: 'weekly', priority: 0.5,
+            }))).slice(0, 200),
         ].map((p) => ({ ...p, ...(lastmod && !p.lastmod ? { lastmod } : {}) }));
         res.type('application/xml').set('Cache-Control', CACHE).send(seo.sitemapXml(pages));
     });

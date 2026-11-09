@@ -131,6 +131,11 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         if (q.sort === 'price') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity));
         if (q.sort === 'speed') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity));
         const limit = Math.max(1, Math.min(100, Number(q.limit) || 25)); const offset = Math.max(0, Number(q.cursor) || 0);
+        if (q.format === 'csv') {
+            const csv = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+            const lines = [['id', 'maker', 'rating', 'rank_min', 'rank_max', 'source', 'date', 'sample_size'], ...rows.map((x) => [x.id, x.maker, x.rating && x.rating.value, x.rank && x.rank.min, x.rank && x.rank.max, x.source && x.source.name, x.source && x.source.date, x.source && x.source.sample_size])];
+            return res.type('text/csv; charset=utf-8').send(lines.map((line) => line.map(csv).join(',')).join('\r\n'));
+        }
         return res.json(aiEnvelope('report.ai-leaderboard@1', { count: rows.length, rows: rows.slice(offset, offset + limit), next_cursor: offset + limit < rows.length ? String(offset + limit) : null }));
     });
     r.get('/ai/models/:id', async (req, res) => {

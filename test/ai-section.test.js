@@ -83,11 +83,11 @@ const legacy = { model: 'model-a', ratings: [{ kind_id: 'design.page', elo: 1043
     };
     const t = await boot({ fetchImpl, env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' } });
     try {
-        await check('the AI overview leads with the real leader and states the last run', async () => {
+        await check('the AI overview renders the leaderboard hub from the Bench fixture', async () => {
             const r = await t.get('/ai');
             assert.strictEqual(r.status, 200);
-            for (const s of ['Task kinds and their leaders', 'Design page arena', 'model-a', '1043 ± 38', '$0.02', '1 s', 'Playable games arena', 'Nov 7', 'AI in numbers']) assert.ok(r.text.includes(s), s);
-            assert.ok(r.text.includes('href="/ai/method"') && r.text.includes('href="/ai/compare"') && r.text.includes('/ai/feed.xml'));
+            for (const s of ['AI model leaderboard', 'model-a', '1043', 'Best overall', 'FAQPage', 'Dataset']) assert.ok(r.text.includes(s), s);
+            assert.ok(r.text.includes('href="/ai/leaderboard"') && r.text.includes('/api/v1/ai/leaderboard'));
         });
 
         await check('one task kind shows quality, price and speed side by side and its latest runs', async () => {
@@ -102,20 +102,23 @@ const legacy = { model: 'model-a', ratings: [{ kind_id: 'design.page', elo: 1043
             for (const s of ['Playable games arena', 'Score against cost per run', 'ovk-chart--scatter', 'model-a', '85', '$0.02', 'Cost per solved', 'Latest runs', 'version 1']) assert.ok(r.text.includes(s), s);
         });
 
-        await check('one model page has its history, best and worst tasks and cost', async () => {
+        await check('one model page uses the comparison profile and available Bench task data', async () => {
             const r = await t.get('/ai/models/model-a');
             assert.strictEqual(r.status, 200);
-            for (const s of ['Score over time', 'Best and worst tasks', 't1', 't2', 'spent on runs', '$0.04', 'Published', 'Blind-board ratings', 'Playable games arena']) assert.ok(r.text.includes(s), s);
+            for (const s of ['30-day rating', 'Not enough data', 'Tasks it is good at', 'Playable games arena', 'snapshot', 'Arena record against the top five', 'Product', 'Try it in Chat', 'Use it from code']) assert.ok(r.text.includes(s), s);
             assert.ok(!r.text.includes('&lt;span title='), 'a stat is escaped HTML, not markup');
         });
 
-        await check('compare puts two models side by side, and refuses one', async () => {
+        await check('the old query compare redirects to a canonical pair page', async () => {
             const two = await t.get('/ai/compare?models=model-a,model-b');
-            assert.strictEqual(two.status, 200);
-            assert.ok(two.text.includes('Playable games arena') && two.text.includes('model-a') && two.text.includes('model-b'), 'both models');
+            assert.strictEqual(two.status, 301);
+            assert.strictEqual(two.headers.get('location'), '/ai/compare/model-a-vs-model-b');
+            const pair = await t.get('/ai/compare/model-a-vs-model-b');
+            assert.strictEqual(pair.status, 200);
+            assert.ok(pair.text.includes('model-a') && pair.text.includes('model-b'), 'both models');
             const one = await t.get('/ai/compare?models=model-a');
             assert.strictEqual(one.status, 200);
-            assert.ok(one.text.includes('Pick at least two model ids'), 'the refusal');
+            assert.ok(one.text.includes('Choose two models to compare'), 'ask for a second model');
         });
 
         await check('an unknown benchmark id is a 404 once Bench has answered its list', async () => {
