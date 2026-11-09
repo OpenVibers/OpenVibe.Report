@@ -28,6 +28,8 @@ const { boot, check } = require('./helpers/boot');
             const notEnough = await t.get('/api/v1/ai/leaderboard?maker=vendor');
             assert.strictEqual(notEnough.json().rows[0].rating.value, null);
             assert.match(notEnough.json().rows[0].rating.reason, /no rating/i);
+            const picks = await t.get('/api/v1/ai/picks');
+            assert.match(picks.json().picks.find((x) => x.id === 'open').why, /not enough source data/i);
             assert.strictEqual((await t.get('/api/v1/ai/leaderboard?limit=1&cursor=1')).json().rows.length, 1);
         });
     } finally { await t.close(); }

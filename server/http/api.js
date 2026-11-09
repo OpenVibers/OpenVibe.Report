@@ -162,7 +162,10 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         const value = rows.filter((x) => x.rating.value != null && x.provider_offers.some((o) => o.price && Number(o.price.out) > 0)).sort((a, b) => Number(a.provider_offers.find((o) => o.price && Number(o.price.out) > 0).price.out) / a.rating.value - Number(b.provider_offers.find((o) => o.price && Number(o.price.out) > 0).price.out) / b.rating.value)[0] || null;
         const fastest = rows.filter((x) => x.provider_offers.some((o) => Number.isFinite(Number(o.speed && o.speed.p50_ms)))).sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite)) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite)))[0] || null;
         const picks = [{ id: 'overall', model: best, why: best ? 'Highest Bench rating.' : 'Not enough data.' }, { id: 'value', model: value, why: value ? 'Bench rating relative to listed provider output price.' : 'Not enough paired rating and price data.' }, { id: 'fastest', model: fastest, why: fastest ? 'Lowest measured p50 response time.' : 'Not enough measured speed data.' }];
-        for (const id of ['open', 'code', 'writing', 'uncensored', 'free']) picks.push({ id, model: rows.find((x) => id === 'open' ? x.weights === 'open' : id === 'uncensored' ? x.uncensored : id === 'free' ? x.provider_offers.some((o) => o.free_tier) : x.kind === id) || null, why: 'Based on currently available public source data.' });
+        for (const id of ['open', 'code', 'writing', 'uncensored', 'free']) {
+            const model = rows.find((x) => id === 'open' ? x.weights === 'open' : id === 'uncensored' ? x.uncensored : id === 'free' ? x.provider_offers.some((o) => o.free_tier) : x.kind === id) || null;
+            picks.push({ id, model, why: model ? 'Based on currently available public source data.' : `Not enough source data to establish a ${id} pick.` });
+        }
         return res.json(aiEnvelope('report.ai-picks@1', { picks }));
     });
     r.get('/design-health/:site', (req, res) => {
