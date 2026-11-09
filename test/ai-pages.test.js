@@ -145,7 +145,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
 
     await check('comparison pages show fixture measurements, filter parameters and canonical model pairs', async () => {
         const fixture = await boot({
-            aiCatalogue: { catalog: async () => ({ generated_at: '2026-11-09T00:00:00Z', models: [{ slug: 'maker/model-a', maker: 'Maker A', weights: 'open', status: 'current', offers: [{ provider: 'Provider One', price: { in: 1, out: 0.5 }, speed: { p50_ms: 120 }, uptime: 0.99 }] }, { slug: 'maker/model-b', maker: 'Maker B', weights: 'closed', status: 'current', offers: [] }] }) },
+            aiCatalogue: { catalog: async () => ({ generated_at: '2026-11-09T00:00:00Z', models: [{ slug: 'maker/model-a', maker: 'Maker A', weights: 'open', status: 'current', offers: [{ provider: 'Provider One', price: { in: 1, out: 0.5 }, speed: { p50_ms: 120 }, uptime: 0.99, status: 'down', status_reason: 'the provider says the account is out of credit', status_since: '2026-11-09T09:00:00Z' }] }, { slug: 'maker/model-b', maker: 'Maker B', weights: 'closed', status: 'current', offers: [] }] }) },
             fetchImpl: async (url, opts) => {
                 const u = new URL(String(url));
                 if (u.port === '5230' && u.pathname === '/api/v1/kinds') return jsonResponse({ kinds: [{ id: 'code', name: 'Code' }] });
@@ -163,6 +163,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             assert.ok(filtered.text.includes('maker/model-a') && !filtered.text.includes('maker/model-b'));
             const provider = await fixture.get('/ai/providers');
             assert.ok(provider.text.includes('Provider One') && provider.text.includes('Not measured yet'), 'an offer without requests has no measurement');
+            assert.ok(provider.text.includes('Down') && provider.text.includes('the provider says the account is out of credit') && provider.text.includes('since 2026-11-09 09:00 UTC'), 'the measured status and its reason are shown');
             assert.strictEqual((await fixture.get('/ai/compare?models=maker%2Fmodel-a,maker%2Fmodel-b')).status, 301);
             assert.strictEqual((await fixture.get('/ai/compare/maker%2Fmodel-a-vs-maker%2Fmodel-b')).status, 200);
             assert.strictEqual((await fixture.get('/ai/compare/maker%2Fmodel-b-vs-maker%2Fmodel-a')).status, 301);

@@ -185,9 +185,21 @@ const ownServer = (p) => /^(local|whisper)$/i.test(String(p.provider || '')) || 
 const providerName = (p) => ownServer(p) ? 'OpenVibe server' : String(p.provider_name || p.provider || 'Provider').replace(/\s*\((?:the |an? )[^)]*\)\s*$/i, '');
 const providerMark = (p) => ownServer(p) ? marks.mark('openvibe', { size: 24, label: false }) : marks.mark(p.provider || p.provider_name, { size: 24, label: false });
 function providerTable(list) {
+    // Status is a word (the state-in-words rule): Up, Degraded with the warning tone, Down with the bad one, each with
+    // its plain reason and since when. The column shows only when some offer is not up (a column earns its place).
+    const notUp = (p) => p.routed !== false && ['down', 'degraded'].includes(String(p.status || 'up'));
+    const statusCell = (p) => {
+        if (p.routed === false) return quiet('Not routed here');
+        if (!notUp(p)) return 'Up';
+        const down = String(p.status) === 'down';
+        const why = p.status_reason ? `<small>${esc(p.status_reason)}</small>` : '';
+        const since = p.status_since ? `<small>since ${esc(String(p.status_since).slice(0, 16).replace('T', ' '))} UTC</small>` : '';
+        return `<b class="${down ? 'ai-bad' : 'ai-warn'}">${down ? 'Down' : 'Degraded'}</b>${why}${since}`;
+    };
     const rows = list.map((p) => ({
         provider: `<span class="ai-prov">${providerMark(p)}<b>${esc(providerName(p))}</b></span>`,
         model: `<a href="${idPath(p.model)}">${esc(shortName(p.model))}</a>`,
+        status: statusCell(p),
         price: p.price && value(p.price.out) != null ? `<b>${esc(money(p.price.out))}</b> out · ${esc(money(p.price.in) || '–')} in` : quiet('No price listed'),
         reply: p.routed === false ? quiet('Not routed here') : measured(p) && p.speed && value(p.speed.p50_ms) != null ? `<b>${esc(ms(p.speed.p50_ms))}</b><small>p95 ${esc(ms(p.speed.p95_ms) || '–')}</small>` : quiet('Not measured yet'),
         errors: p.routed === false ? quiet('Not routed here') : measured(p) && share(p.error_rate) != null ? `<b class="${Number(typeof p.error_rate === 'object' ? p.error_rate.value : p.error_rate) > 0.05 ? 'ai-bad' : ''}">${esc(share(p.error_rate))}</b>` : quiet('Not measured yet'),
@@ -198,6 +210,7 @@ function providerTable(list) {
         columns: [
             { key: 'provider', label: 'Provider', primary: true, html: true },
             { key: 'model', label: 'Model', html: true },
+            list.some(notUp) && { key: 'status', label: 'Status', html: true },
             { key: 'price', label: 'Price per 1M', html: true },
             { key: 'reply', label: 'Reply time', html: true },
             { key: 'errors', label: 'Errors', html: true },
@@ -210,7 +223,7 @@ function providerTable(list) {
 function providers({ providers: list = [] } = {}) {
     const sorted = [...list].sort((a, b) => (Number(b.requests_7d) || 0) - (Number(a.requests_7d) || 0));
     const body = `<header class="ai-head ai-head--page"><p class="ai-kicker"><a href="/ai">AI comparison</a></p><h1>AI providers</h1>`
-        + `<p class="ai-lede">Every model and provider offer in the market. Prices come from each provider's own page. Reply time, errors and uptime are measured on real requests over the last seven days; offers outside the router say “Not routed here”, while routed offers without measurements say “Not measured yet”.</p></header>`
+        + `<p class="ai-lede">Every model and provider offer in the market. Prices come from each provider's own page. Reply time, errors and uptime are measured on real requests over the last seven days; offers outside the router say “Not routed here”, while routed offers without measurements say “Not measured yet”. Status is measured from the Exchange catalogue: down while an offer\'s circuit is open, degraded when more than 5% of at least 10 requests in the last hour failed, with the plain reason.</p></header>`
         + providerTable(sorted);
     return page('AI providers', 'AI providers compared: price per million tokens, reply time, error rate and uptime measured on real traffic.', body, '/ai/providers');
 }
