@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const { boot, check } = require('./helpers/boot');
+const { boot, check, done } = require('./helpers/boot');
 
 (async () => {
     const bench = {
@@ -36,4 +36,5 @@ const { boot, check } = require('./helpers/boot');
             assert.ok(csv.text.startsWith('"id","maker","rating"'));
         });
     } finally { await t.close(); }
+    done();
 })().catch((error) => { console.error(error); process.exitCode = 1; });

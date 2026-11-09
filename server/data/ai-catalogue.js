@@ -4,7 +4,7 @@ const { requestJson, trim } = require('./source');
 
 const TTL_MS = 120_000;
 function createAiCatalogue({ config = {}, fetchImpl = globalThis.fetch, log = console, now = () => Date.now(), timeoutMs } = {}) {
-    const baseUrl = trim(config.aiUrl || 'https://ai.openvibe.services');
+    const baseUrl = trim(config.aiUrl || 'https://api.openvibe.exchange');
     let hit = null;
     let pending = null;
     async function catalog() {
