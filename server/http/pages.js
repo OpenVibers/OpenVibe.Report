@@ -416,6 +416,32 @@ function createPageRoutes(ctx) {
         return send(req, res, views.recap({ recap }));
     });
 
+    // A person's stats (the owner, 2026-11-09): /me is private and signed in only, with a switch per section; /u/<name>
+    // is the same document with only the sections the person made public. Both are server-rendered, so the words and
+    // the numbers are crawlable when published; /me is never indexed. The public page is the owner's last snapshot,
+    // dated in the page, because Network's history can only be read with the person's own token.
+    r.get('/me', async (req, res) => {
+        const user = req.user;
+        if (!user || !isUsername(String(user.username || ''))) return send(req, res, views.meSignedOut(), 200, 'private, no-store');
+        const days = normaliseDays(req.query.days);
+        try {
+            const doc = await ctx.meStats.compute({ user, token: req.token, days });
+            return send(req, res, views.me({ user, doc, days }), 200, 'private, no-store');
+        } catch (err) {
+            ctx.log.error('[OpenVibe.Report] the /me page failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return send(req, res, views.meError({ user }), 500, 'private, no-store');
+        }
+    });
+
+    r.get('/u/:username', async (req, res) => {
+        const { username } = req.params;
+        if (!isUsername(username)) return notFound(req, res);
+        const doc = ctx.meStats ? await ctx.meStats.publicFor(username) : null;
+        if (!doc) return notFound(req, res);
+        const published = ctx.meStats.anyPublished(doc.published);
+        return send(req, res, published ? views.publicStats({ doc }) : views.publicStatsPrivate({ doc }), 200, published ? CACHE : 'private, no-store');
+    });
+
     // A person's own numbers (plan L41 R1). Signed out: what it is and a sign-in. Signed in: their channel's streams and
     // after-show reports, the payments Billing says reached them, and The Rundown, over 7, 30 or 90 days. Private.
     r.get('/you', async (req, res) => {

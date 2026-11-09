@@ -31,15 +31,16 @@ function warn(log, message) {
 
 /**
  * GET a JSON document with an 8 s timeout. Returns the parsed body, or null after one log line.
- * A 404 is the source answering "no such thing", so it is null without a log line.
+ * A 404 is the source answering "no such thing", so it is null without a log line. `headers` carries a caller's
+ * own Authorization for the routes that answer one person (Network's history); it is never logged.
  */
-async function requestJson(url, { fetchImpl = globalThis.fetch, log = console, label = 'source', timeoutMs = TIMEOUT_MS } = {}) {
+async function requestJson(url, { fetchImpl = globalThis.fetch, log = console, label = 'source', timeoutMs = TIMEOUT_MS, headers = null } = {}) {
     let res;
     try {
         const signal = typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
             ? AbortSignal.timeout(timeoutMs)
             : undefined;
-        res = await fetchImpl(url, { headers: { Accept: 'application/json' }, signal });
+        res = await fetchImpl(url, { headers: { Accept: 'application/json', ...(headers || {}) }, signal });
     } catch (err) {
         warn(log, `${label} failed: ${reasonOf(err)}`);
         return null;

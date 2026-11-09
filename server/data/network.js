@@ -30,7 +30,23 @@ function createNetworkClient({ config = {}, fetchImpl = globalThis.fetch, log = 
         return cache.set(window, data, STATS_TTL_MS);
     }
 
-    return { stats, cache, baseUrl, ttlMs: STATS_TTL_MS };
+    /**
+     * The person's own cross-site history (GET /api/history), with their own Network session token. Report's sign-in
+     * token is a Network user session (openvibe-sdk/sso, audience openvibe.network + report), so Network answers it.
+     * Returns the rows, or null when Network cannot answer. Never cached: it is one person's and changes.
+     */
+    async function history(token, { limit = 200 } = {}) {
+        const bearer = typeof token === 'string' ? token.trim() : '';
+        if (!bearer) return null;
+        const cap = Math.max(1, Math.min(200, Number(limit) || 200));
+        const data = await requestJson(`${baseUrl}/api/history?limit=${cap}`, {
+            fetchImpl, log, timeoutMs, label: 'network history', headers: { Authorization: `Bearer ${bearer}` },
+        });
+        if (!data || !Array.isArray(data.items)) return null;
+        return data.items;
+    }
+
+    return { stats, history, cache, baseUrl, ttlMs: STATS_TTL_MS };
 }
 
 module.exports = { createNetworkClient, STATS_TTL_MS };
