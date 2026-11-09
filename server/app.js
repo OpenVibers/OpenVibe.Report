@@ -298,6 +298,7 @@ async function createApp(opts = {}) {
     // mounts after the page routes, which keep their own cache policy and answer the HTML (with the discovery links),
     // and before the 404, so an unknown twin is still a 404. A .md path skips the page routes (http/pages.js).
     const publicPages = createPublicPages(ctx);
+    app.use(require('./http/arena').createArenaRoutes(ctx));
     app.use(createPageRoutes({ ...ctx, publicPages }));
     require('openvibe-shared/agent-layer').mount(app, {
         descriptor: require('./agent-descriptor'),
