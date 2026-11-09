@@ -70,6 +70,19 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             assert.ok(org && Array.isArray(org.sameAs) && org.sameAs.includes('https://github.com/OpenVibers'), 'Organization');
         });
 
+        await check('the home and the stats page carry Dataset JSON-LD with the JSON endpoints', async () => {
+            for (const path of ['/', '/stats']) {
+                const r = await t.get(path);
+                const ld = [...r.text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).flatMap((b) => b['@graph'] || [b]);
+                const dataset = ld.find((x) => x['@type'] === 'Dataset');
+                assert.ok(dataset, `${path}: Dataset`);
+                assert.strictEqual(dataset.url, 'https://openvibe.report/stats', `${path}: Dataset url`);
+                const urls = (dataset.distribution || []).map((d) => d.contentUrl);
+                assert.ok(urls.includes('https://openvibe.report/api/v1/stats'), `${path}: stats JSON`);
+                assert.ok(urls.includes('https://openvibe.report/api/v1/ai/results'), `${path}: AI JSON`);
+            }
+        });
+
         await check('The Rundown pages name OpenVibe.Live as canonical and mount the Frame for service report', async () => {
             const r = await t.get('/rundown/t/seattle');
             assert.ok(r.text.includes('<link rel="canonical" href="https://openvibe.live/rundown/t/seattle">'), 'the topic is Live\'s page');
