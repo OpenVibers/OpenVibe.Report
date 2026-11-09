@@ -42,6 +42,7 @@ const createAiExchangeConfig = require('./ai-exchange-config').create;
 const { createSearchIndex } = require('./search-index');
 const { createSessionReports } = require('./session-reports');
 const { createMeStats } = require('./me-stats');
+const { createPopularity } = require('./popularity');
 const { createSessionReportRoutes } = require('./http/session-reports');
 const sharing = require('./sharing');
 const { createShadow } = require('./analytics/shadow');
@@ -110,6 +111,8 @@ async function createApp(opts = {}) {
     // snapshot is stored here; the public page reads only what the person published. With no store, /me computes but
     // nothing can be published.
     const meStats = opts.meStats || createMeStats({ store, network, analytics, aiUsage, sessionReports, config, now, log });
+    // The front door's and "Try next"'s numbers: Report's own tables, five-minute memo, aggregate only.
+    const popularity = opts.popularity || createPopularity({ store, now, log });
     // The sharing system (openvibe-sdk/share, share.v1): a report's four audiences live in its share row, the owner's
     // Share sheet changes it, and every read path asks canView (server/sharing.js). Built before the session-report
     // writer, so the first write registers its row.
@@ -126,7 +129,7 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, aiCatalogue, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports, meStats };
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, aiCatalogue, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports, meStats, popularity };
     const app = express();
     if (exchangeConfig) exchangeConfig.mount(app);
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts
@@ -319,7 +322,7 @@ async function createApp(opts = {}) {
         legacyHeaders: false,
         handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
     }));
-    app.use('/api/v1', createApi({ network, live, bench, aiCatalogue, analytics, aiUsage, aiExchange, sessionReports, meStats, config, now, log }));
+    app.use('/api/v1', createApi({ network, live, bench, aiCatalogue, analytics, aiUsage, aiExchange, sessionReports, meStats, popularity, config, now, log }));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 
     // ── Crawl artifacts, then the pages ─────────────────────

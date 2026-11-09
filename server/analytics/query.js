@@ -3,7 +3,7 @@
 /**
  * Report's read side: the same numbers Network answers, computed from Report's own tables.
  *
- *   reportStats(days)     GET /api/v1/stats' shape: network totals, sites, accounts, OpenCoins, Live and day series
+ *   reportStats(days)     GET /api/v1/stats' shape: network totals, sites, tools, accounts, OpenCoins, Live and day series
  *   channelStats(channel) creator analytics from the live.stream.ended events, plus Billing's revenue read
  *   metrics(scope,id)     the flat report.metric@1 rows the shadow job and operators inspect
  *
@@ -105,6 +105,30 @@ async function reportStats(store, days = 30, { now = () => Date.now() } = {}) {
     for (const r of idx.rows) if (r.scope === 'site' && r.day >= w.currentStart) siteIds.add(r.scope_id);
     for (const r of idx.winRows) if (r.scope === 'site') siteIds.add(r.scope_id);
     for (const d of idx.dims) if (d.kind === 'site') siteIds.add(d.id);
+    const toolIds = new Set();
+    for (const r of idx.rows) if (r.scope === 'tool' && r.day >= w.currentStart) toolIds.add(r.scope_id);
+    for (const r of idx.winRows) if (r.scope === 'tool') toolIds.add(r.scope_id);
+    for (const d of idx.dims) if (d.kind === 'tool') toolIds.add(d.id);
+
+    // The rolling windows: today (UTC, still counting) and the last seven finished days against the seven before.
+    const sevenFrom = w.days[Math.max(0, w.days.length - 7)];
+    const prevSevenFrom = w.days.length >= 14 ? w.days[w.days.length - 14] : null;
+    const prevSevenTo = w.days.length >= 8 ? w.days[w.days.length - 8] : null;
+    const today = w.currentEnd;
+    const windowFields = (idx, scope, id) => {
+        const opens24 = winGet(idx, 'opens_24h', scope, id) ?? dayGet(idx, 'pageviews', scope, id, today);
+        const opens7 = winGet(idx, 'opens_7d', scope, id) ?? daySum(idx, 'pageviews', scope, id, sevenFrom, w.currentEnd);
+        const opensPrev7 = winGet(idx, 'opens_prev_7d', scope, id)
+            ?? (prevSevenFrom && prevSevenTo ? daySum(idx, 'pageviews', scope, id, prevSevenFrom, prevSevenTo) : null);
+        const uses24 = winGet(idx, 'uses_24h', scope, id);
+        const uses7 = winGet(idx, 'uses_7d', scope, id);
+        const usesPrev7 = winGet(idx, 'uses_prev_7d', scope, id);
+        const growth = winGet(idx, 'growth_7d_pct', scope, id) ?? change(opens7, opensPrev7);
+        return {
+            opens_24h: opens24, opens_7d: opens7, opens_prev_7d: opensPrev7,
+            uses_24h: uses24, uses_7d: uses7, uses_prev_7d: usesPrev7, growth_7d_pct: growth,
+        };
+    };
 
     const sites = [];
     for (const id of siteIds) {
@@ -121,18 +145,35 @@ async function reportStats(store, days = 30, { now = () => Date.now() } = {}) {
                 server_errors: winGet(idx, 'traffic_server_errors', 'site', id),
                 p95_ms: winGet(idx, 'traffic_p95_ms', 'site', id),
             } : null;
+        const rolling = windowFields(idx, 'site', id);
         sites.push({
             ...meta,
             pageviews: pageviews == null ? null : pageviews,
             pageviews_prev: prev == null ? null : prev,
             change_pct: pct,
             daily: hasDaily ? daySeries(idx, 'pageviews', 'site', id, w.days) : null,
+            ...Object.fromEntries(Object.entries(rolling).filter(([, v]) => v != null)),
             ...(winGet(idx, 'unique_visitors', 'site', id) != null ? { unique_visitors: winGet(idx, 'unique_visitors', 'site', id) } : {}),
             ...(winGet(idx, 'signed_in_people', 'site', id) != null ? { signed_in_people: winGet(idx, 'signed_in_people', 'site', id) } : {}),
             traffic_24h: traffic,
         });
     }
     sites.sort((a, b) => (b.pageviews || 0) - (a.pageviews || 0) || String(a.name).localeCompare(String(b.name)));
+
+    const tools = [];
+    for (const id of toolIds) {
+        const meta = dimOf('tool', id) || { id, name: id, short: id };
+        const hasDaily = dayHas(idx, 'pageviews', 'tool', id);
+        const hasAny = hasDaily || winHas(idx, 'tool', id);
+        if (!hasAny) continue;
+        const rolling = windowFields(idx, 'tool', id);
+        tools.push({
+            ...meta,
+            ...Object.fromEntries(Object.entries(rolling).filter(([, v]) => v != null)),
+            daily: hasDaily ? daySeries(idx, 'pageviews', 'tool', id, w.days) : null,
+        });
+    }
+    tools.sort((a, b) => (b.opens_7d || 0) - (a.opens_7d || 0) || String(a.name).localeCompare(String(b.name)));
 
     const networkHasDaily = dayHas(idx, 'pageviews', 'network', 'network');
     let pageviews = winGet(idx, 'pageviews', 'network', 'network') ?? daySum(idx, 'pageviews', 'network', 'network', w.currentStart, w.currentEnd);
@@ -195,6 +236,7 @@ async function reportStats(store, days = 30, { now = () => Date.now() } = {}) {
         ...(hasLive ? { live } : {}),
         busiest_pages_24h: idx.json.get('network|network|busiest_pages') || null,
         sites,
+        ...(tools.length ? { tools } : {}),
     };
 }
 
