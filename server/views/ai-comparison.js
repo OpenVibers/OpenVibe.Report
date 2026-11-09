@@ -31,6 +31,7 @@ function makerName(row) {
 const shortName = (id) => String(id || '').replace(/^[^/]+\//, '') || String(id || '');
 function tags(row) {
     const t = [];
+    if (typeof row.routed === 'boolean') t.push(kit.badge(row.routed ? 'Routed here' : 'Not routed here'));
     if (row.weights === 'open' || row.weights === 'open_weights') t.push(kit.badge('Open weights'));
     if (row.uncensored) t.push(kit.badge('18+', 'warn'));
     if (row.community) t.push(kit.badge('Community machines'));
@@ -55,7 +56,7 @@ function ratingCell(row, { range = false } = {}) {
 }
 const rankText = (row, i) => row.rank && row.rank.min != null ? (row.rank.min === row.rank.max ? String(row.rank.min) : `${row.rank.min}–${row.rank.max}`) : (rated(row) ? String(i + 1) : '–');
 const offersOf = (row) => (row && row.provider_offers || []).filter(Boolean);
-const measured = (o) => Number(o.requests_7d) > 0;
+const measured = (o) => o.routed !== false && Number(o.requests_7d) > 0;
 function cheapest(row) {
     const priced = offersOf(row).filter((o) => o.price && value(o.price.out) != null);
     return priced.sort((a, b) => Number(a.price.out) - Number(b.price.out))[0] || null;
@@ -188,10 +189,10 @@ function providerTable(list) {
         provider: `<span class="ai-prov">${providerMark(p)}<b>${esc(providerName(p))}</b></span>`,
         model: `<a href="${idPath(p.model)}">${esc(shortName(p.model))}</a>`,
         price: p.price && value(p.price.out) != null ? `<b>${esc(money(p.price.out))}</b> out · ${esc(money(p.price.in) || '–')} in` : quiet('No price listed'),
-        reply: measured(p) && p.speed && value(p.speed.p50_ms) != null ? `<b>${esc(ms(p.speed.p50_ms))}</b><small>p95 ${esc(ms(p.speed.p95_ms) || '–')}</small>` : quiet('No traffic yet'),
-        errors: measured(p) && share(p.error_rate) != null ? `<b class="${Number(typeof p.error_rate === 'object' ? p.error_rate.value : p.error_rate) > 0.05 ? 'ai-bad' : ''}">${esc(share(p.error_rate))}</b>` : quiet('–'),
-        uptime: measured(p) && share(p.uptime) != null ? `<b class="${Number(p.uptime) < 0.95 ? 'ai-bad' : ''}">${esc(share(p.uptime))}</b>` : quiet('–'),
-        requests: measured(p) ? Number(p.requests_7d).toLocaleString('en-US') : quiet('0'),
+        reply: p.routed === false ? quiet('Not routed here') : measured(p) && p.speed && value(p.speed.p50_ms) != null ? `<b>${esc(ms(p.speed.p50_ms))}</b><small>p95 ${esc(ms(p.speed.p95_ms) || '–')}</small>` : quiet('Not measured yet'),
+        errors: p.routed === false ? quiet('Not routed here') : measured(p) && share(p.error_rate) != null ? `<b class="${Number(typeof p.error_rate === 'object' ? p.error_rate.value : p.error_rate) > 0.05 ? 'ai-bad' : ''}">${esc(share(p.error_rate))}</b>` : quiet('Not measured yet'),
+        uptime: p.routed === false ? quiet('Not routed here') : measured(p) && share(p.uptime) != null ? `<b class="${Number(p.uptime) < 0.95 ? 'ai-bad' : ''}">${esc(share(p.uptime))}</b>` : quiet('Not measured yet'),
+        requests: p.routed === false ? quiet('Not routed here') : measured(p) ? Number(p.requests_7d).toLocaleString('en-US') : quiet('Not measured yet'),
     }));
     return kit.table({
         columns: [
@@ -209,7 +210,7 @@ function providerTable(list) {
 function providers({ providers: list = [] } = {}) {
     const sorted = [...list].sort((a, b) => (Number(b.requests_7d) || 0) - (Number(a.requests_7d) || 0));
     const body = `<header class="ai-head ai-head--page"><p class="ai-kicker"><a href="/ai">AI comparison</a></p><h1>AI providers</h1>`
-        + `<p class="ai-lede">Every provider and model the Exchange lists. Prices come from each provider's own page. Reply time, errors and uptime are measured on real requests over the last seven days; a provider with no traffic yet has no measurement.</p></header>`
+        + `<p class="ai-lede">Every model and provider offer in the market. Prices come from each provider's own page. Reply time, errors and uptime are measured on real requests over the last seven days; offers outside the router say “Not routed here”, while routed offers without measurements say “Not measured yet”.</p></header>`
         + providerTable(sorted);
     return page('AI providers', 'AI providers compared: price per million tokens, reply time, error rate and uptime measured on real traffic.', body, '/ai/providers');
 }
