@@ -22,7 +22,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         if (u.pathname === '/api/v1/kinds') return jsonResponse({ count: 1, kinds: [{ id: 'design.dataviz', room: 'design', name: 'Data viz' }] });
         if (u.pathname === '/api/v1/boards/design.dataviz') {
             if (u.searchParams.get('type') !== 'elo') return jsonResponse({ board: { kind_id: 'design.dataviz', rows: [] } });
-            return jsonResponse({ board: { kind_id: 'design.dataviz', type: 'elo', rows: [{ subject: 'gpt-5-nano-2025-08-07', elo: 1000, ci_lower: 960, ci_upper: 1040, games: 4 }] } });
+            return jsonResponse({ board: { kind_id: 'design.dataviz', type: 'elo', rows: [{ subject: 'gpt-5-nano-2025-08-07', elo: 1000, ci_lower: 960, ci_upper: 1040, games: 4 }, { subject: 'model-zero', elo: 1000, games: 0 }] } });
         }
         return jsonResponse({}, 404);
     };
@@ -41,6 +41,14 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             assert.ok(r.text.includes('deepseek/deepseek-chat'), 'the unrated model is listed');
             assert.ok(r.text.indexOf('gpt-5-nano-2025-08-07') < r.text.indexOf('deepseek/deepseek-chat'), 'rated models come first');
             assert.ok(r.text.includes('$0.28'), 'with its real price');
+        });
+        await check('a base rating with no games is not a rating', async () => {
+            const r = await t.get('/api/v1/ai/leaderboard');
+            const zero = r.json().rows.find((x) => x.id === 'model-zero');
+            assert.ok(zero, 'listed');
+            assert.strictEqual(zero.rating.value, null);
+            const page = await t.get('/ai/models/model-zero');
+            assert.ok(page.text.includes('Not rated on any task yet'), 'the model page says so');
         });
         await check('the providers page lists every offer', async () => {
             const r = await t.get('/ai/providers');
