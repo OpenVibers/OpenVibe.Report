@@ -1226,20 +1226,30 @@ function statSites(sites) {
         return kit.empty({ icon: 'compass', title: 'No places yet', text: 'When you use OpenVibe signed in, the sites you open show up here. Nothing is recorded for signed-out visits.' });
     }
     const week = new Map((Array.isArray(sites.week) ? sites.week : []).map((s) => [s.service, s.visits]));
-    const rows = sites.month.map((s) => ({
-        site: `<a href="${esc(s.url)}">${esc(s.label)}</a>`,
-        month: s.visits,
-        week: week.get(s.service) || 0,
-    }));
-    return kit.table({
-        caption: 'Visits by site, this month and this week',
-        columns: [
-            { key: 'site', label: 'Site', primary: true, html: true },
-            { key: 'month', label: 'Visits, 30 days', num: true },
-            { key: 'week', label: 'Visits, 7 days', num: true },
-        ],
-        rows,
-    }) + '<p class="rp-fine">Counted from Network’s cross-site history: a visit is a page, not a length of time. Times are UTC.</p>';
+    const top = Math.max(1, ...sites.month.map((s) => Number(s.visits) || 0));
+    // Designed 11-09: a bar per site reads at a glance (it was a table of two numbers per site).
+    const rows = sites.month.map((s, i) => {
+        const n = Number(s.visits) || 0, w = week.get(s.service) || 0;
+        return `<li style="--p:${Math.max(3, Math.round(n / top * 100))}%;--i:${i}"><a href="${esc(s.url)}">${esc(s.label)}</a>`
+            + `<span class="rp-sbar" aria-hidden="true"><i></i></span><b>${fmt(n)}</b><small>${w ? `${fmt(w)} this week` : 'none this week'}</small></li>`;
+    }).join('');
+    return `<ol class="rp-sites" aria-label="Visits by site in this window, with this week's">${rows}</ol>
+<p class="rp-fine">Counted from Network’s cross-site history: a visit is a page, not a length of time. Times are UTC.</p>`;
+}
+
+/** Twelve weeks as a grid of days (a column a week, Monday on top), shaded by visits; the numbers stay in a table. */
+function heatmap(weeks) {
+    const all = weeks.flatMap((w) => (w.days || []).map((n) => Number(n) || 0));
+    const max = Math.max(1, ...all);
+    const level = (n) => (n <= 0 ? 0 : Math.min(4, Math.ceil(n / max * 4)));
+    const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const cols = weeks.map((w) => `<span class="rp-heat-col">${DAYS.map((d, j) => {
+        const n = Number((w.days || [])[j]) || 0;
+        return `<i class="l${level(n)}" title="${esc(`${d}, week of ${day(w.week_start)}: ${n} ${n === 1 ? 'visit' : 'visits'}`)}"></i>`;
+    }).join('')}</span>`).join('');
+    return `<div class="rp-heat" role="img" aria-label="${esc(`Visits a day for ${weeks.length} weeks; the table below has every number`)}">
+<span class="rp-heat-days" aria-hidden="true"><i>Mon</i><i></i><i>Wed</i><i></i><i>Fri</i><i></i><i>Sun</i></span><span class="rp-heat-grid">${cols}</span></div>
+<p class="rp-heat-key" aria-hidden="true"><span>${esc(day(weeks[0].week_start))}</span><span class="rp-heat-scale">Fewer <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> More</span><span>${esc(day(weeks[weeks.length - 1].week_start))}</span></p>`;
 }
 
 function statActivity(activity) {
@@ -1255,7 +1265,9 @@ function statActivity(activity) {
         fri: (w.days && w.days[4]) || 0, sat: (w.days && w.days[5]) || 0, sun: (w.days && w.days[6]) || 0,
     }));
     return `<div class="rp-tiles rp-tiles-sm">${tile('Active days', exact(activity.active_days))}${tile('Streak', exact(activity.streak_days), Number(activity.streak_days) === 1 ? 'day in a row' : 'days in a row')}</div>
+${heatmap(activity.weeks)}
 ${chart}
+<details class="rp-fold"><summary>Every day as numbers <span>${activity.weeks.length} weeks</span></summary>
 ${kit.table({
         caption: 'Visits by day, last twelve weeks (UTC)',
         stack: false,
@@ -1265,7 +1277,7 @@ ${kit.table({
             { key: 'thu', label: 'Thu', num: true }, { key: 'fri', label: 'Fri', num: true }, { key: 'sat', label: 'Sat', num: true }, { key: 'sun', label: 'Sun', num: true },
         ],
         rows,
-    })}`;
+    })}</details>`;
 }
 
 function statMade(made, { publicView = false } = {}) {
@@ -1290,17 +1302,17 @@ function statMoney(money) {
 
 /** One publish row: a checkbox and its hidden false, so an unchecked box is an explicit "no". */
 function publishRow(key, checked, note) {
-    return `<li class="rp-publish-row"><label><input type="hidden" name="${esc(key)}" value="false"><input type="checkbox" name="${esc(key)}" value="true"${checked ? ' checked' : ''}> <b>${esc(STAT_LABEL[key] || key)}</b></label> <span class="rp-fine">· ${esc(note)}</span></li>`;
+    return `<li class="rp-publish-row"><label><input type="hidden" name="${esc(key)}" value="false"><input class="rp-switch" type="checkbox" role="switch" name="${esc(key)}" value="true"${checked ? ' checked' : ''}> <b>${esc(STAT_LABEL[key] || key)}</b></label> <span class="rp-fine">· ${esc(note)}</span></li>`;
 }
 
 function publishPanel({ doc, username }) {
     const p = doc.published || {};
     const any = Object.values(p).some(Boolean);
     const publicUrl = `${BASE}/u/${encodeURIComponent(username)}`;
-    return `<section aria-labelledby="rp-pub-h"><h2 id="rp-pub-h">Make my stats public</h2>
+    return `<section class="rp-share" id="rp-share" aria-labelledby="rp-pub-h"><h2 id="rp-pub-h">Share your stats</h2>
 <p class="rp-lede">Private by default: only you see this page. Turn a section on to publish it at <a href="/u/${encodeURIComponent(username)}">/u/${esc(username)}</a>. Each section is a separate choice; a published section shows the numbers in this snapshot.</p>
 <form class="rp-publish" method="post" action="/api/v1/me/stats/published">
-<fieldset><legend>Public sections</legend><ul>${STAT_SECTIONS.map(([key]) => publishRow(key, p[key], p[key] ? 'Public now' : 'Only you')).join('')}</ul>
+<fieldset><legend class="rp-sr">Public sections</legend><ul>${STAT_SECTIONS.map(([key]) => publishRow(key, p[key], p[key] ? 'Public now' : 'Only you')).join('')}</ul>
 ${kit.button({ label: 'Save public sections', icon: 'check' })}
 </fieldset></form>
 ${any ? `<div class="rp-share-card"><p class="rp-kicker">Share card</p><h3>${esc(doc.person.display_name || username)}’s OpenVibe stats</h3><p class="rp-fine">Anyone with this link sees only the sections you made public.</p><p><a href="/u/${encodeURIComponent(username)}">${esc(publicUrl)}</a></p></div>` : `<p class="rp-fine">Nothing is public yet. Your public link will be <code>/u/${esc(username)}</code>.</p>`}
@@ -1315,12 +1327,13 @@ function me({ user, doc, days = 30 } = {}) {
     const body = `<header class="rp-page-h">${kit.mark({ name, src: (user && user.avatar_url) || doc.person.avatar_url || '', size: 64 })}<div><p class="rp-kicker">Your stats</p><h1>${esc(name)}</h1>
 <p class="rp-lede">Everything OpenVibe counts for you, in one place. Private by default; you choose what is public.</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></div></header>
 ${doc.note ? kit.notice({ kind: 'info', text: doc.note }) : ''}
-${publishPanel({ doc, username })}
+${(() => { const n = Object.values(doc.published || {}).filter(Boolean).length; return `<p class="rp-privacy${n ? ' is-public' : ''}"><span>${n ? `${n} ${n === 1 ? 'section is' : 'sections are'} public` : 'Private: only you see this page'}</span> <a href="#rp-share">${n ? 'Change' : 'Share some of it'}</a></p>`; })()}
 ${s.sites ? kit.section({ title: 'Sites you used', count: (s.sites.month || []).length, note: STAT_SECTIONS[0][2], body: statSites(s.sites), id: 'rp-me-sites' }) : ''}
 ${s.activity ? kit.section({ title: 'Your activity', note: STAT_SECTIONS[1][2], body: statActivity(s.activity), id: 'rp-me-activity' }) : ''}
 ${s.made ? kit.section({ title: 'Things you made', note: STAT_SECTIONS[2][2], body: statMade(s.made), id: 'rp-me-made' }) : ''}
 ${s.ai ? kit.section({ title: 'Your AI', note: STAT_SECTIONS[3][2], body: statAi(s.ai), id: 'rp-me-ai' }) : ''}
 ${s.money ? kit.section({ title: 'Vibes', note: STAT_SECTIONS[4][2], body: statMoney(s.money), id: 'rp-me-money' }) : ''}
+${publishPanel({ doc, username })}
 <p class="rp-fine">Counted ${esc(dayTime(doc.generated_at))}. <a href="/you">Your streams, money, AI and The Rundown</a> · <a href="/api/v1/me/stats?days=${esc(days)}">Your numbers as JSON</a>.</p>`;
     return layout({ title: 'Your stats', description: 'Your own numbers across OpenVibe: the sites you used, your activity, what you made, your AI and your Vibes.', body, active: '/me', robots: 'noindex, nofollow' });
 }

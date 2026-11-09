@@ -126,7 +126,7 @@ const sessionReports = {
             assert.strictEqual(r.status, 200);
             assert.strictEqual(r.headers.get('cache-control'), 'private, no-store');
             assert.match(r.text, /<meta name="robots" content="noindex, nofollow">/);
-            for (const words of ['Make my stats public', 'Sites you used', 'Your activity', 'Things you made', 'Your AI', 'Vibes', 'Visits, 30 days', 'Visits by day, last twelve weeks', 'Live', 'Community', 'Chat']) {
+            for (const words of ['Share your stats', 'Private: only you see this page', 'Sites you used', 'Your activity', 'Things you made', 'Your AI', 'Vibes', 'this week', 'Visits by day, last twelve weeks', 'Every day as numbers', 'Live', 'Community', 'Chat']) {
                 assert.ok(r.text.includes(words), `the page says ${words}`);
             }
             assert.ok(r.text.includes('Only you'), 'each switch says its private state');
