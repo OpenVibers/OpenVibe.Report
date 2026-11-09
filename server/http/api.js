@@ -116,7 +116,7 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
                 const id = entry.subject || entry.model || entry.name;
                 const catalogue = findCatalogModel(catalogModels, id);
                 const elo = entry.elo != null && Number.isFinite(Number(entry.elo)) && Number(entry.games) !== 0 ? Number(entry.elo) : null;
-                rows.push({ id, routed: catalogue ? catalogue.routed !== false : false, kind: kinds[i].id, maker: makerOf(catalogue, id), weights: catalogue && (catalogue.weights || (catalogue.open_weights === true ? 'open' : null)) || null,
+                rows.push({ id, routed: catalogue ? catalogue.routed !== false : false, kind: kinds[i].id, maker: makerOf(catalogue, id), weights: catalogue && (catalogue.weights || (catalogue.open_weights == null ? null : catalogue.open_weights ? 'open' : 'closed')) || null,
                     status: catalogue && catalogue.status || 'current', uncensored: catalogue && catalogue.uncensored === true,
                     community: Boolean(catalogue && catalogue.community), rating: elo == null ? { value: null, reason: 'Bench has no rating.' } : { value: elo, interval: [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: board.at, sample_size: entry.games ?? null },
                     benchmark: entry.score == null ? { value: null, reason: 'No benchmark score.' } : { value: entry.score, source: 'OpenVibe.Bench', date: board.at, sample_size: entry.runs ?? null },
