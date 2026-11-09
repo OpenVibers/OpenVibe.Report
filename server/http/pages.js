@@ -32,11 +32,12 @@ const { twinPath } = require('../agent-pages');
 const designViews = require('../views/design');
 const designHealth = require('../data/design-health');
 const sharing = require('../sharing');
+const aiComparisonViews = require('../views/ai-comparison');
 
 const CACHE = 'public, max-age=120';
 
 /** The pages the agent layer twins: their data, then the view. Each returns { html } or null (nothing to show). */
-function createPublicPages({ sessionReports, network, live, bench, analytics = null }) {
+function createPublicPages({ sessionReports, network, live, bench, aiCatalogue = null, analytics = null }) {
     const numbers = (days) => (analytics ? analytics.stats(days) : network.stats(days));
 
     async function home() {
@@ -55,15 +56,92 @@ function createPublicPages({ sessionReports, network, live, bench, analytics = n
     }
 
     async function aiIndex() {
-        const [overview, kinds] = await Promise.all([bench.overview(), bench.kinds()]);
-        const list = kinds && Array.isArray(kinds.data.kinds) ? kinds.data.kinds : [];
-        const benches = overview && overview.data && Array.isArray(overview.data.list) ? overview.data.list : [];
-        const [boards, rankings] = await Promise.all([
-            Promise.all(list.map((kind) => bench.board(kind.id, 'elo'))),
-            Promise.all(benches.map((b) => bench.rankings(b.id, 'score'))),
-        ]);
-        return { html: views.aiIndex({ overview, kinds, boards, rankings }) };
+        return aiComparisonHub();
     }
+
+    async function comparisonData() {
+        const [kindsResult, catalogue] = await Promise.all([bench.kinds(), aiCatalogue && aiCatalogue.catalog()]);
+        const kinds = kindsResult && kindsResult.data && kindsResult.data.kinds || [];
+        const boards = await Promise.all(kinds.map((kind) => bench.board(kind.id, 'elo')));
+        const catModels = (catalogue && catalogue.models || []).map((model) => ({ ...model, offers: (model.offers || []).map((offer) => ({ ...offer, source: offer.source || { name: 'OpenVibe.AI', date: catalogue.generated_at || null, sample_size: offer.requests_7d ?? null } })) }));
+        const rows = [];
+        for (let i = 0; i < boards.length; i += 1) {
+            const list = boards[i] && boards[i].data && boards[i].data.board && boards[i].data.board.rows || [];
+            for (const entry of list) {
+                const id = entry.subject || entry.model || entry.name;
+                const cat = catModels.find((m) => [m.slug, m.canonical, m.id].includes(id));
+                rows.push({ id, kind: kinds[i].id, maker: cat && (cat.maker || String(id).split('/')[0]), weights: cat && (cat.weights || (cat.open_weights ? 'open' : null)), status: cat && cat.status || 'current', uncensored: Boolean(cat && cat.uncensored), community: Boolean(cat && cat.community), rating: { value: entry.elo == null ? null : Number(entry.elo), interval: [entry.ci_lower ?? null, entry.ci_upper ?? null], source: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null }, benchmark: { value: entry.score == null ? null : Number(entry.score), reason: entry.score == null ? 'No benchmark score.' : undefined }, provider_offers: cat && Array.isArray(cat.offers) ? cat.offers : [], source: { name: 'OpenVibe.Bench', date: boards[i].at || null, sample_size: entry.games ?? null } });
+            }
+        }
+        const grouped = new Map();
+        for (const row of rows) {
+            const existing = grouped.get(row.id);
+            if (existing) existing.task_ratings.push({ kind: row.kind, rating: row.rating, benchmark: row.benchmark });
+            else grouped.set(row.id, { ...row, task_ratings: [{ kind: row.kind, rating: row.rating, benchmark: row.benchmark }] });
+        }
+        rows.length = 0;
+        rows.push(...grouped.values());
+        rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity));
+        rows.forEach((row, i) => {
+            const [lo, hi] = row.rating.interval || [];
+            if (lo == null || hi == null) row.rank = null;
+            else {
+                const overlap = rows.map((other, j) => ({ other, rank: j + 1 })).filter(({ other }) => other.rating.interval && other.rating.interval[0] != null && other.rating.interval[1] != null && other.rating.interval[0] <= hi && other.rating.interval[1] >= lo).map(({ rank }) => rank);
+                row.rank = overlap.length ? { min: Math.min(...overlap), max: Math.max(...overlap), position: i + 1 } : null;
+            }
+        });
+        const tasks = kinds.map((kind) => ({ id: kind.id, name: kind.name }));
+        const providers = catalogue && Array.isArray(catalogue.models) ? catalogue.models.flatMap((m) => (m.offers || []).map((o) => ({ ...o, model: m.slug }))) : [];
+        return { rows, providers, tasks, picks: [], catalogue };
+    }
+
+    async function aiComparisonHub() {
+        const data = await comparisonData();
+        const rated = data.rows.filter((r) => r.rating.value != null);
+        const cheapest = (r) => Math.min(...(r.provider_offers || []).map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity);
+        const fastest = (r) => Math.min(...(r.provider_offers || []).map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity);
+        const taskRows = (kind) => data.rows.map((row) => { const task = row.task_ratings.find((x) => x.kind === kind); return task ? { ...row, kind, rating: task.rating, benchmark: task.benchmark } : null; }).filter(Boolean);
+        const choose = (id, list, why) => ({ id, model: list || null, why: list ? why : 'Not enough source data to establish this pick.' });
+        data.picks = [choose('overall', rated[0], 'Highest public Bench rating.'), choose('value', rated.filter((r) => Number.isFinite(cheapest(r))).sort((a,b) => cheapest(a)-cheapest(b))[0], 'Lowest listed output price among rated models.'), choose('fastest', data.rows.filter((r) => Number.isFinite(fastest(r))).sort((a,b) => fastest(a)-fastest(b))[0], 'Lowest measured provider p50 response time.'), choose('open', data.rows.find((r) => ['open','open_weights'].includes(r.weights)), 'Listed as open weights in the public catalogue.'), choose('code', taskRows('code').sort((a,b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity))[0], 'Top available public code task rating.'), choose('writing', taskRows('writing').sort((a,b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity))[0], 'Top available public writing task rating.'), choose('uncensored', data.rows.find((r) => r.uncensored), 'Flagged uncensored by the public catalogue; 18+.'), choose('free', data.rows.find((r) => r.provider_offers.some((o) => o.free_tier)), 'A provider lists a free tier.')];
+        return { html: aiComparisonViews.hub(data) };
+    }
+    async function aiComparisonLeaderboard(query = {}) {
+        const data = await comparisonData();
+        let rows = data.rows;
+        if (query.kind) rows = rows.map((x) => {
+            const task = x.task_ratings.find((rating) => rating.kind === query.kind);
+            return task ? { ...x, kind: query.kind, rating: task.rating, benchmark: task.benchmark } : null;
+        }).filter(Boolean);
+        if (query.maker) rows = rows.filter((x) => String(x.maker || '').toLowerCase() === String(query.maker).toLowerCase());
+        if (query.weights) rows = rows.filter((x) => x.weights === query.weights || (query.weights === 'open' && x.weights === 'open_weights'));
+        if (query.status !== 'all') rows = rows.filter((x) => x.status === (query.status || 'current'));
+        if (query.uncensored) rows = rows.filter((x) => x.uncensored);
+        if (query.community) rows = rows.filter((x) => x.community);
+        if (query.price) rows = rows.filter((x) => x.provider_offers.some((o) => {
+            const p = Number(o.price && o.price.out);
+            return query.price === 'free' ? Boolean(o.free_tier) : !Number.isFinite(p) ? false : query.price === 'low' ? p <= 1 : query.price === 'mid' ? p > 1 && p <= 10 : query.price === 'high' ? p > 10 : true;
+        }));
+        if (query.q) rows = rows.filter((x) => `${x.id} ${x.maker || ''}`.toLowerCase().includes(String(query.q).toLowerCase()));
+        if (query.sort === 'name') rows.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        if (query.sort === 'price') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.price && o.price.out)).filter(Number.isFinite), Infinity));
+        if (query.sort === 'speed') rows.sort((a, b) => Math.min(...a.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity) - Math.min(...b.provider_offers.map((o) => Number(o.speed && o.speed.p50_ms)).filter(Number.isFinite), Infinity));
+        if (query.sort === 'rating') rows.sort((a, b) => (b.rating.value ?? -Infinity) - (a.rating.value ?? -Infinity));
+        return { html: aiComparisonViews.leaderboard({ rows, filters: query }) };
+    }
+    async function aiComparisonProviders() { const data = await comparisonData(); return { html: aiComparisonViews.providers(data) }; }
+    async function aiComparisonModel(id) {
+        if (!bench.isModelName(id)) return null;
+        const data = await comparisonData();
+        const row = data.rows.find((x) => x.id === id);
+        const detail = await bench.modelDetail(id);
+        return { html: aiComparisonViews.model({ id, detail: detail && detail.data, row, providers: data.providers }) };
+    }
+    async function aiComparison({ models = [] } = {}) {
+        const data = await comparisonData();
+        const selected = models.map((id) => data.rows.find((x) => x.id === id) || { id, reason: 'No public model data.' });
+        return { html: aiComparisonViews.compare({ models: selected }) };
+    }
+    function aiArena() { return { html: aiComparisonViews.arena() }; }
 
     async function aiBoard(kindId, tab) {
         if (!bench.isKindId(kindId)) return null;
@@ -129,7 +207,7 @@ function createPublicPages({ sessionReports, network, live, bench, analytics = n
         return { html: views.rundown({ rundown: r, topics, reports }) };
     }
 
-    return { home, stats, developers, design, rundown, aiIndex, aiBoard, aiBenchmark, aiModel, aiMethod, aiCompare, aiFeed };
+    return { home, stats, developers, design, rundown, aiIndex, aiBoard, aiBenchmark, aiModel, aiMethod, aiCompare, aiFeed, aiComparisonHub, aiComparisonLeaderboard, aiComparisonProviders, aiComparisonModel, aiComparison, aiArena };
 }
 
 /** The new-results feed: one item per public run, with its own Bench date and no invented number. */
@@ -198,12 +276,29 @@ function createPageRoutes(ctx) {
         return send(req, res, page.html);
     });
 
-    r.get('/ai', async (req, res) => send(req, res, (await publicPages.aiIndex()).html, 200, 'no-store'));
+    r.get('/ai', async (_req, res) => send(_req, res, (await publicPages.aiComparisonHub()).html));
+
+    r.get('/ai/leaderboard', async (req, res) => send(req, res, (await publicPages.aiComparisonLeaderboard(req.query)).html));
+    r.get('/ai/providers', async (req, res) => send(req, res, (await publicPages.aiComparisonProviders()).html));
+    r.get('/ai/arena', (_req, res) => send(_req, res, publicPages.aiArena().html));
+    r.get('/ai/compare', async (req, res) => {
+        const models = String(req.query.models || '').split(',').map((x) => x.trim()).filter(Boolean);
+        if (models.length === 2) return res.redirect(301, `/ai/compare/${encodeURIComponent(models[0])}-vs-${encodeURIComponent(models[1])}`);
+        return send(req, res, (await publicPages.aiComparison({ models })).html);
+    });
+    r.get('/ai/compare/:pair', async (req, res) => {
+        const match = String(req.params.pair).match(/^(.+)-vs-(.+)$/);
+        if (!match) return notFound(req, res);
+        const ordered = [decodeURIComponent(match[1]), decodeURIComponent(match[2])].sort();
+        const canonical = `/ai/compare/${encodeURIComponent(ordered[0])}-vs-${encodeURIComponent(ordered[1])}`;
+        if (req.path !== canonical) return res.redirect(301, canonical);
+        return send(req, res, (await publicPages.aiComparison({ models: ordered })).html);
+    });
 
     r.get('/ai/models/:model', async (req, res) => {
-        const page = await publicPages.aiModel(req.params.model);
+        const page = await publicPages.aiComparisonModel(req.params.model);
         if (!page) return notFound(req, res);
-        return send(req, res, page.html, 200, 'no-store');
+        return send(req, res, page.html);
     });
 
     // The AI section's method, comparison and feed. They must sit before /ai/:ref, which would read them as a kind.

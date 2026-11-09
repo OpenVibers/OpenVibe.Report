@@ -31,6 +31,9 @@ const { boot, check } = require('./helpers/boot');
             const picks = await t.get('/api/v1/ai/picks');
             assert.match(picks.json().picks.find((x) => x.id === 'open').why, /not enough source data/i);
             assert.strictEqual((await t.get('/api/v1/ai/leaderboard?limit=1&cursor=1')).json().rows.length, 1);
+            const csv = await t.get('/api/v1/ai/leaderboard?format=csv');
+            assert.match(csv.headers.get('content-type'), /text\/csv/);
+            assert.ok(csv.text.startsWith('"id","maker","rating"'));
         });
     } finally { await t.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

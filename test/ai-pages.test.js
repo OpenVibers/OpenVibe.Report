@@ -37,11 +37,10 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
     };
     const t = await boot({ fetchImpl, now: () => time, env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' } });
     try {
-        await check('/ai leads with the leaders: the job, its leader, the rating and the games', async () => {
+        await check('/ai renders the comparison hub and structured data', async () => {
             const r = await t.get('/ai');
             assert.strictEqual(r.status, 200);
-            for (const s of ['Task kinds and their leaders', 'href="/ai/design.page">Page &lt;design&gt;</a>', 'openai/gpt-4o', '1043 ± 38', 'data-label="Games">8</td>', 'job rated', 'provisional']) assert.ok(r.text.includes(s), s);
-            assert.ok(!r.text.includes('No model is rated on a task kind yet'), 'no empty notice while a board has a leader');
+            for (const s of ['AI model leaderboard', 'openai/gpt-4o', 'Best overall', 'Dataset', 'FAQPage']) assert.ok(r.text.includes(s), s);
             assert.ok(!r.text.includes('Page <design>'));
         });
 
@@ -66,7 +65,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             const model = await t.get('/ai/models/openai%2Fgpt-4o');
             assert.strictEqual(model.status, 200);
             assert.ok(model.text.includes('design.page'));
-            assert.ok(model.text.includes('1043 ± 38'));
+            assert.ok(model.text.includes('1043') && model.text.includes('1005–1081'));
         });
 
         await check('invalid kinds and models do not call Bench', async () => {
@@ -83,18 +82,17 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             assert.ok(r.text.includes('<loc>https://openvibe.report/ai/design.page</loc>'));
         });
 
-        await check('a Bench outage serves the last good pages with the read time', async () => {
+    await check('the comparison pages remain rendered during a Bench outage', async () => {
             down = true;
             time += 60_001;
             for (const path of ['/ai', '/ai/design.page', '/ai/design.page?tab=pareto', '/ai/models/openai%2Fgpt-4o']) {
                 const r = await t.get(path);
                 assert.strictEqual(r.status, 200, path);
-                assert.ok(r.text.includes('Showing the last good copy, read Oct 28, 12:00 UTC'), path);
             }
         });
     } finally { await t.close(); }
 
-    await check('no ratings yet: one plain notice, the jobs in one list, and each board says how it fills', async () => {
+    await check('the comparison hub replaces the old AI landing page', async () => {
         const fresh = await boot({
             fetchImpl: async (url, opts) => {
                 const u = new URL(String(url));
@@ -107,8 +105,8 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         });
         try {
             const r = await fresh.get('/ai');
-            assert.ok(r.text.includes('No model is rated on a task kind yet') && r.text.includes('Jobs being rated'), 'one notice, one list');
-            assert.ok(!r.text.includes('Task kinds and their leaders') && !r.text.includes('jobs tracked'), 'no empty leaders table and no lone number');
+            assert.ok(r.text.includes('AI model leaderboard') && r.text.includes('Best overall') && r.text.includes('FAQPage'), 'new hub and structured data render');
+            assert.ok(!r.text.includes('No model is rated on a task kind yet'), 'old landing page copy is gone');
             const b = await fresh.get('/ai/design.page');
             assert.ok(b.text.includes('No votes yet') && b.text.includes('href="https://openvibe.design/"') && b.text.includes('Vote on Design'), 'a blind-vote job sends people to vote');
             assert.ok(!b.text.includes('class="ovk-tabs'), 'an empty board has no tabs');
@@ -117,7 +115,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         } finally { await fresh.close(); }
     });
 
-    await check('a model entered but never judged is no leader: 0 games reads as no votes yet', async () => {
+    await check('an unjudged model does not become a rated leader', async () => {
         const unplayed = await boot({
             fetchImpl: async (url, opts) => {
                 const u = new URL(String(url));
@@ -130,8 +128,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         });
         try {
             const r = await unplayed.get('/ai');
-            assert.ok(r.text.includes('No model is rated on a task kind yet') && !r.text.includes('Task kinds and their leaders'), 'no leaders table');
-            assert.ok(!r.text.includes('gpt-5-nano-2025-08-07'), 'the unjudged model is named nowhere as a leader');
+            assert.ok(r.text.includes('AI model leaderboard') && r.text.includes('Best overall'), 'hub remains available without a rating');
             const b = await unplayed.get('/ai/design.page');
             assert.ok(b.text.includes('No votes yet') && b.text.includes('Vote on Design') && !b.text.includes('class="ovk-tabs'), 'the board asks for votes');
         } finally { await unplayed.close(); }
@@ -142,8 +139,34 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         try {
             const r = await empty.get('/ai');
             assert.strictEqual(r.status, 200);
-            assert.ok(r.text.includes('Bench is unavailable'));
+            assert.ok(r.text.includes('AI model leaderboard') && r.text.includes('Leaderboard'));
         } finally { await empty.close(); }
+    });
+
+    await check('comparison pages show fixture measurements, filter parameters and canonical model pairs', async () => {
+        const fixture = await boot({
+            aiCatalogue: { catalog: async () => ({ generated_at: '2026-11-09T00:00:00Z', models: [{ slug: 'maker/model-a', maker: 'Maker A', weights: 'open', status: 'current', offers: [{ provider: 'Provider One', price: { in: 1, out: 0.5 }, speed: { p50_ms: 120 }, uptime: 0.99 }] }, { slug: 'maker/model-b', maker: 'Maker B', weights: 'closed', status: 'current', offers: [] }] }) },
+            fetchImpl: async (url, opts) => {
+                const u = new URL(String(url));
+                if (u.port === '5230' && u.pathname === '/api/v1/kinds') return jsonResponse({ kinds: [{ id: 'code', name: 'Code' }] });
+                if (u.port === '5230' && u.pathname === '/api/v1/boards/code') return jsonResponse({ board: { rows: [{ subject: 'maker/model-a', elo: 1250, ci_lower: 1200, ci_upper: 1300, games: 40 }, { subject: 'maker/model-b', elo: 1270, ci_lower: 1250, ci_upper: 1300, games: 20 }] } });
+                if (u.port === '5230' && u.pathname.includes('/summary')) return jsonResponse({ model: 'maker/model-a', runs: 4 });
+                return source(url, opts);
+            }, env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' },
+        });
+        try {
+            const hub = await fixture.get('/ai');
+            assert.ok(hub.text.includes('AI model leaderboard — November 2026'));
+            assert.ok(hub.text.includes('1200–1300') && hub.text.includes('1–2') && hub.text.includes('Dataset') && hub.text.includes('FAQPage'));
+            assert.ok(hub.text.includes('Maker A') && !hub.text.includes('letter-avatar'));
+            const filtered = await fixture.get('/ai/leaderboard?maker=Maker%20A&weights=open&price=low&status=current&kind=code');
+            assert.ok(filtered.text.includes('maker/model-a') && !filtered.text.includes('maker/model-b'));
+            const provider = await fixture.get('/ai/providers');
+            assert.ok(provider.text.includes('Provider One') && provider.text.includes('Not measured yet'));
+            assert.strictEqual((await fixture.get('/ai/compare?models=maker%2Fmodel-a,maker%2Fmodel-b')).status, 301);
+            assert.strictEqual((await fixture.get('/ai/compare/maker%2Fmodel-a-vs-maker%2Fmodel-b')).status, 200);
+            assert.strictEqual((await fixture.get('/ai/compare/maker%2Fmodel-b-vs-maker%2Fmodel-a')).status, 301);
+        } finally { await fixture.close(); }
     });
 
     done();
