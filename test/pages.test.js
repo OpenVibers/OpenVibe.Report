@@ -87,7 +87,7 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             const r = await t.get('/rundown/t/seattle');
             assert.ok(r.text.includes('<link rel="canonical" href="https://openvibe.live/rundown/t/seattle">'), 'the topic is Live\'s page');
             assert.ok(!r.text.includes('<link rel="canonical" href="https://openvibe.report/rundown/t/seattle">'), 'Report must not claim it');
-            assert.ok(r.text.includes('<div id="navbar-mount"></div>'), 'no navbar mount');
+            assert.ok(r.text.includes('<div id="navbar-mount"'), 'no navbar mount (4.190.0: the mount wraps the server-rendered nav, with the site name\u2019s dropdown inside)');
             assert.ok(r.text.includes('id="ov-footer"'), 'no Shared footer');
             assert.ok(r.text.includes('"service":"report"'), 'the Frame is not initialised for report');
             assert.ok(r.text.includes('theme-loader.js'), 'no theme loader');
