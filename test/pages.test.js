@@ -17,7 +17,7 @@ const { boot, check, done, defaults } = require('./helpers/boot');
             ['/rundown/t/seattle', ['Seattle', 'A headline', 'A take']],
             ['/rundown/e/7', ['A written-up stream', 'The logline.', 'A segment']],
             ['/rundown/s/goosely', ['goosely', 'A written-up stream', 'Seattle']],
-            ['/after-show/7', ['Seattle Today', 'After-show report']],
+            ['/after-show/7', ['Seattle Today', 'After-show report', '>@goosely</a>']],
             ['/c/goosely', ['goosely', 'Seattle Today', 'A tiny but mighty vibe', 'Grade A']],
         ];
         for (const [path, expected] of pages) {
