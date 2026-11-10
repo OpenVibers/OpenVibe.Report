@@ -48,6 +48,9 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
     r.use((req, res, next) => {
         res.set('Access-Control-Allow-Origin', '*');
         res.set('Cache-Control', CACHE);
+        if (req.method === 'OPTIONS' && /^\/ai\/ratings\/[^/]+$/.test(req.path)) {
+            return res.set('Access-Control-Allow-Methods', 'GET, OPTIONS').set('Access-Control-Allow-Headers', 'Accept, Content-Type, traceparent, X-OpenVibe-Request-Id').status(204).end();
+        }
         if (req.method === 'OPTIONS' && req.path === '/me/stats/published') {
             res.set('Access-Control-Allow-Methods', 'GET, HEAD, PUT, OPTIONS');
             res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
@@ -158,6 +161,13 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         });
         return rows;
     };
+
+    r.get('/ai/ratings/:kind', async (req, res) => {
+        if (!bench.isKindId(req.params.kind)) return problem(req, res, 422, 'report.invalid_kind', 'Use a Bench task kind.');
+        const result = await bench.board(req.params.kind, 'elo');
+        if (!result) return problem(req, res, 503, 'report.ai_source_unavailable', 'OpenVibe.Bench did not answer.');
+        return res.set('Cache-Control', 'public, max-age=60').set('Access-Control-Allow-Origin', '*').json({ ...result.data, source_at: result.at, stale: result.stale });
+    });
 
     r.get('/ai/leaderboard', async (req, res) => {
         const all = await aiRows();

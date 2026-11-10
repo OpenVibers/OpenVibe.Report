@@ -54,5 +54,19 @@ const { check, done, jsonResponse } = require('./helpers/boot');
         assert.strictEqual(bench.normaliseLimit(1000), 100);
     });
 
+    await check('rating boards use the anonymous SDK read and withhold sparse scores', async () => {
+        const requests = [];
+        const shared = createBenchClient({ config: { benchUrl: 'http://bench.test' }, fetchImpl: async (url, init) => {
+            requests.push(String(url));
+            assert.strictEqual(new Headers(init.headers).has('authorization'), false);
+            return jsonResponse({ board: { minimum_samples: 20, rows: [{ subject: 'sparse', games: 19, elo: 1500 }, { subject: 'rated', games: 20, elo: 1100, ci_lower: 1050, ci_upper: 1150 }] } });
+        } });
+        const board = await shared.board('design.page');
+        assert.strictEqual(requests[0], 'http://bench.test/api/v1/ratings/design.page');
+        assert.deepStrictEqual(board.data.board.rows, [{ subject: 'rated', games: 20, elo: 1100, ci_lower: 1050, ci_upper: 1150 }]);
+        assert.strictEqual((await shared.board('design.page')).data.board.rows[0].elo, 1100);
+        assert.strictEqual(requests.length, 1);
+    });
+
     done();
 })().catch((e) => { console.error(e); process.exit(1); });

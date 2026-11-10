@@ -43,7 +43,7 @@ const catalogue = { models:[{ slug:'openai/gpt-5-nano', offers:[{provider:'opena
         if(u.pathname==='/api/v1/exchange/market')return jsonResponse({...market,next_cursor:null});
         if(u.pathname==='/api/v1/exchange/catalog')return jsonResponse(catalogue);
         if(u.pathname==='/api/v1/kinds')return jsonResponse({kinds:[{id:'chat.arena',name:'Chat'}]});
-        if(u.pathname==='/api/v1/boards/chat.arena')return jsonResponse({board:{rows:[{subject:'gpt-5-nano-2025-08-07',elo:1000,games:4}]}});
+        if(u.pathname==='/api/v1/ratings/chat.arena')return jsonResponse({board:{rows:[{subject:'gpt-5-nano-2025-08-07',elo:1000,games:20}]}});
         return source(url,opts);
     }});
     try {

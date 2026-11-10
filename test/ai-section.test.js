@@ -55,7 +55,7 @@ const modelDetail = {
     ],
 };
 
-const legacy = { model: 'model-a', ratings: [{ kind_id: 'design.page', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 8, win_rate: 0.75 }], entries: [], total_cost_usd: 0.04 };
+const legacy = { model: 'model-a', ratings: [{ kind_id: 'design.page', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 20, win_rate: 0.75 }], entries: [], total_cost_usd: 0.04 };
 
 (async () => {
     const source = stubFetch();
@@ -64,10 +64,10 @@ const legacy = { model: 'model-a', ratings: [{ kind_id: 'design.page', elo: 1043
         if (u.port !== '5230') return source(url, opts);
         const p = u.pathname;
         if (p === '/api/v1/kinds') return jsonResponse({ count: 1, kinds: [{ id: 'design.page', room: 'design', name: 'Design page arena', judge: 'human_pairwise' }] });
-        if (p === '/api/v1/boards/design.page') {
-            const type = u.searchParams.get('type');
+        if (['/api/v1/boards/design.page', '/api/v1/ratings/design.page'].includes(p)) {
+            const type = p.includes('/ratings/') ? 'elo' : u.searchParams.get('type');
             const rows = type === 'elo'
-                ? [{ subject: 'model-a', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 8, win_rate: 0.75, median_cost_usd: 0.02, median_ms: 1000, provisional: true }]
+                ? [{ subject: 'model-a', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 20, win_rate: 0.75, median_cost_usd: 0.02, median_ms: 1000, provisional: false }]
                 : type === 'pareto' ? [{ subject: 'model-a', quality: 0.8 }] : [{ subject: 'model-a', entries: 2, solved: 2, total_cost_usd: 0.04, cost_per_solved: 0.02, median_ms: 1000 }];
             return jsonResponse({ board: { kind_id: 'design.page', type, rows } });
         }
