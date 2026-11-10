@@ -175,7 +175,6 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-eps > div { padding: 12px 14px; border-radius: 14px; background: var(--bg-card, #0f1729); border: 1px solid var(--border, #1f2d47); }
 .rp-eps dt code { font: 600 .92rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--room-strong); overflow-wrap: anywhere; }
 .rp-eps dd { margin: 6px 0 0; color: var(--text-secondary, #96a7c2); line-height: 1.5; }
-@media (prefers-reduced-motion: reduce) { .rp-topic { transition: none; } }
 
 /* AI boards: rooms side by side, tables that fit a phone, and a chart that scrolls rather than shrinking its labels */
 .rp-ai-rooms { display: grid; gap: 0 24px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start; }
@@ -430,5 +429,4 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-switch:focus-visible { outline: 2px solid var(--accent, #3b82f6); outline-offset: 2px; }
 .rp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 520px) { .rp-sites li { grid-template-columns: minmax(70px, 6.5rem) minmax(0, 1fr) auto; column-gap: 10px; } }
-@media (prefers-reduced-motion: reduce) { .rp-sbar i { animation: none; } .rp-switch, .rp-switch::after { transition: none; } }
 .rp-share-card { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border, rgba(255,255,255,.1)); }
