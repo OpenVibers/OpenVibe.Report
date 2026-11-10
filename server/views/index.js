@@ -537,7 +537,7 @@ function recap({ recap: d } = {}) {
     const takes = (r.takes || []).filter((t) => t && t.title).sort((a, b) => (n(a.sec) ?? 1e9) - (n(b.sec) ?? 1e9)).slice(0, 8);
     const at = (sec) => (vod && vod.id && n(sec) != null ? `https://openvibe.video/v/${encodeURIComponent(vod.id)}?t=${Math.max(0, Math.floor(Number(sec)))}` : null);
     const body = `<header class="rp-page-h rp-recap-h"><p class="rp-kicker">After-show report</p><h1>${esc(w.headline || s.title || 'Stream')}</h1>
-<p class="rp-meta">${kit.mark({ name: who(u), src: u.avatar_url, size: 28 })} <a href="https://openvibe.live/@${encodeURIComponent(u.username || '')}">${esc(who(u))}</a>${s.title && w.headline ? ` · ${esc(s.title)}` : ''}${s.started_at ? ` · ${esc(dayTime(s.started_at))}` : ''}${n(s.duration_seconds) ? ` · ${esc(mins(s.duration_seconds))}` : ''}</p>
+<p class="rp-meta">${kit.mark({ name: who(u), src: u.avatar_url, size: 28 })} <a href="https://openvibe.live/@${encodeURIComponent(u.username || '')}">@${esc(u.username || '')}</a>${s.title && w.headline ? ` · ${esc(s.title)}` : ''}${s.started_at ? ` · ${esc(dayTime(s.started_at))}` : ''}${n(s.duration_seconds) ? ` · ${esc(mins(s.duration_seconds))}` : ''}</p>
 ${w.summary ? `<p class="rp-summary">${esc(w.summary)}</p><p class="rp-meta">${AI}</p>` : ''}</header>
 <section class="rp-tiles" aria-label="The stream in numbers">
 ${tile('Peak viewers', n(s.peak_viewers) != null ? exact(s.peak_viewers) : null, v.peak_at ? esc(dayTime(v.peak_at)) : '')}
