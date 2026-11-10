@@ -20,9 +20,8 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         }
         if (u.port !== '5230') return source(url, opts);
         if (u.pathname === '/api/v1/kinds') return jsonResponse({ count: 1, kinds: [{ id: 'design.dataviz', room: 'design', name: 'Data viz' }] });
-        if (u.pathname === '/api/v1/boards/design.dataviz') {
-            if (u.searchParams.get('type') !== 'elo') return jsonResponse({ board: { kind_id: 'design.dataviz', rows: [] } });
-            return jsonResponse({ board: { kind_id: 'design.dataviz', type: 'elo', rows: [{ subject: 'gpt-5-nano-2025-08-07', elo: 1000, ci_lower: 960, ci_upper: 1040, games: 4 }, { subject: 'model-zero', elo: 1000, games: 0 }] } });
+        if (u.pathname === '/api/v1/ratings/design.dataviz') {
+            return jsonResponse({ board: { kind_id: 'design.dataviz', type: 'elo', rows: [{ subject: 'gpt-5-nano-2025-08-07', elo: 1000, ci_lower: 960, ci_upper: 1040, games: 20 }, { subject: 'model-zero', elo: 1000, games: 0 }] } });
         }
         return jsonResponse({}, 404);
     };
@@ -45,8 +44,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         await check('a base rating with no games is not a rating', async () => {
             const r = await t.get('/api/v1/ai/leaderboard');
             const zero = r.json().rows.find((x) => x.id === 'model-zero');
-            assert.ok(zero, 'listed');
-            assert.strictEqual(zero.rating.value, null);
+            assert.strictEqual(zero, undefined, 'a sparse Bench-only subject is withheld, including its count');
             const page = await t.get('/ai/models/model-zero');
             assert.ok(page.text.includes('Not rated on any task yet'), 'the model page says so');
         });

@@ -14,12 +14,12 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
         calls.push(u.pathname + u.search);
         if (down) throw new Error('Bench offline');
         if (u.pathname === '/api/v1/kinds') return jsonResponse({ count: 1, kinds: [{ id: 'design.page', room: 'design', name: 'Page <design>', judge: 'human_pairwise' }] });
-        if (u.pathname === '/api/v1/boards/design.page') {
-            const type = u.searchParams.get('type');
+        if (['/api/v1/boards/design.page', '/api/v1/ratings/design.page'].includes(u.pathname)) {
+            const type = u.pathname.includes('/ratings/') ? 'elo' : u.searchParams.get('type');
             const rows = {
                 elo: [
-                    { subject: 'openai/gpt-4o', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 8, win_rate: 0.75, provisional: true },
-                    { subject: 'model-b', elo: 980, ci_lower: 940, ci_upper: 1020, games: 8, win_rate: 0.25, provisional: true },
+                    { subject: 'openai/gpt-4o', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 20, win_rate: 0.75, provisional: false },
+                    { subject: 'model-b', elo: 980, ci_lower: 940, ci_upper: 1020, games: 20, win_rate: 0.25, provisional: false },
                 ],
                 pareto: [
                     { subject: 'openai/gpt-4o', quality: 0.8 },
@@ -32,7 +32,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             }[type];
             return rows ? jsonResponse({ board: { kind_id: 'design.page', type, rows } }) : jsonResponse({}, 404);
         }
-        if (u.pathname === '/api/v1/models/openai%2Fgpt-4o') return jsonResponse({ model: 'openai/gpt-4o', ratings: [{ kind_id: 'design.page', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 8, win_rate: 0.75 }], entries: [{ kind_id: 'design.page' }], total_cost_usd: 0.8 });
+        if (u.pathname === '/api/v1/models/openai%2Fgpt-4o') return jsonResponse({ model: 'openai/gpt-4o', ratings: [{ kind_id: 'design.page', elo: 1043, ci_lower: 1005, ci_upper: 1081, games: 20, win_rate: 0.75 }], entries: [{ kind_id: 'design.page' }], total_cost_usd: 0.8 });
         return jsonResponse({}, 404);
     };
     const t = await boot({ fetchImpl, now: () => time, env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' } });
@@ -44,10 +44,18 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             assert.ok(!r.text.includes('Page <design>'));
         });
 
-        await check('Elo shows ranks, intervals, win rates and provisional state', async () => {
+        await check('Shared Elo shows ranks, intervals and win rates', async () => {
             const r = await t.get('/ai/design.page');
             assert.strictEqual(r.status, 200);
-            for (const s of ['<ol class="ovk-rank"', '<b>1,043</b><small>± 38</small>', '75% won', 'provisional', 'Ranking', '95% interval', 'dataset JSONL']) assert.ok(r.text.includes(s), s);
+            for (const s of ['<ol class="ovk-rank"', '<b>1,043</b><small>± 38</small>', '75% won', 'Ranking', '95% interval', 'dataset JSONL']) assert.ok(r.text.includes(s), s);
+            const data = await t.get('/api/v1/ai/ratings/design.page');
+            assert.strictEqual(data.status, 200, data.text);
+            assert.strictEqual(data.json().board.rows[0].elo, 1043);
+            assert.strictEqual(data.json().board.rows[0].games, 20);
+            assert.strictEqual(data.headers.get('access-control-allow-origin'), '*');
+            const preflight = await t.get('/api/v1/ai/ratings/design.page', { method: 'OPTIONS' });
+            assert.strictEqual(preflight.status, 204);
+            assert.match(preflight.headers.get('access-control-allow-headers'), /traceparent/);
         });
 
         await check('Pareto has an inline SVG, frontier labels and an exact-value table', async () => {
@@ -98,7 +106,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
                 const u = new URL(String(url));
                 if (u.port !== '5230') return source(url, opts);
                 if (u.pathname === '/api/v1/kinds') return jsonResponse({ count: 2, kinds: [{ id: 'design.page', room: 'design', name: 'Page', judge: 'human_pairwise' }, { id: 'speech.asr', room: 'speech', name: 'Speech', judge: 'automatic_grader' }] });
-                if (u.pathname.startsWith('/api/v1/boards/')) return jsonResponse({ board: { rows: [] } });
+                if ((/^\/api\/v1\/(boards|ratings)\//.test(u.pathname))) return jsonResponse({ board: { rows: [] } });
                 return jsonResponse({}, 404);
             },
             env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' },
@@ -121,7 +129,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
                 const u = new URL(String(url));
                 if (u.port !== '5230') return source(url, opts);
                 if (u.pathname === '/api/v1/kinds') return jsonResponse({ count: 1, kinds: [{ id: 'design.page', room: 'design', name: 'Page', judge: 'human_pairwise' }] });
-                if (u.pathname.startsWith('/api/v1/boards/')) return jsonResponse({ board: { rows: [{ subject: 'gpt-5-nano-2025-08-07', elo: 1000, games: 0, provisional: true }] } });
+                if ((/^\/api\/v1\/(boards|ratings)\//.test(u.pathname))) return jsonResponse({ board: { rows: [{ subject: 'gpt-5-nano-2025-08-07', elo: 1000, games: 0, provisional: true }] } });
                 return jsonResponse({}, 404);
             },
             env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' },
@@ -149,7 +157,7 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             fetchImpl: async (url, opts) => {
                 const u = new URL(String(url));
                 if (u.port === '5230' && u.pathname === '/api/v1/kinds') return jsonResponse({ kinds: [{ id: 'code', name: 'Code' }] });
-                if (u.port === '5230' && u.pathname === '/api/v1/boards/code') return jsonResponse({ board: { rows: [{ subject: 'maker/model-a', elo: 1250, ci_lower: 1200, ci_upper: 1300, games: 40 }, { subject: 'maker/model-b', elo: 1270, ci_lower: 1250, ci_upper: 1300, games: 20 }] } });
+                if (u.port === '5230' && u.pathname === '/api/v1/ratings/code') return jsonResponse({ board: { rows: [{ subject: 'maker/model-a', elo: 1250, ci_lower: 1200, ci_upper: 1300, games: 40 }, { subject: 'maker/model-b', elo: 1270, ci_lower: 1250, ci_upper: 1300, games: 20 }] } });
                 if (u.port === '5230' && u.pathname.includes('/summary')) return jsonResponse({ model: 'maker/model-a', runs: 4 });
                 return source(url, opts);
             }, env: { OV_BENCH_INTERNAL_URL: 'http://127.0.0.1:5230' },

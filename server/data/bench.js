@@ -19,6 +19,8 @@
  * before any request is made.
  */
 const { trim, requestJson, TIMEOUT_MS } = require('./source');
+const { createClient } = require('openvibe-sdk/core');
+const { createBenchClient: createSdkBench } = require('openvibe-sdk/bench');
 
 const TTL_MS = 60_000;
 const KIND_RE = /^[a-z0-9][a-z0-9._-]{0,79}$/;
@@ -59,6 +61,7 @@ function normaliseTab(value) {
 function createBenchClient({ config = {}, fetchImpl = globalThis.fetch, log = console, now = () => Date.now(), timeoutMs = TIMEOUT_MS } = {}) {
     const baseUrl = trim(config.benchUrl || 'http://127.0.0.1:5230');
     const clock = typeof now === 'function' ? now : () => Date.now();
+    const shared = createSdkBench(createClient({ fetch: fetchImpl, retries: 0 }), { baseUrl });
 
     // The last good copy of every read, kept beyond its minute so a Bench outage never empties a page. Kinds and
     // boards are a fixed small set; models are capped, the oldest inserted out first.
@@ -73,12 +76,16 @@ function createBenchClient({ config = {}, fetchImpl = globalThis.fetch, log = co
     }
 
     /** One read: the fresh copy, the last good one (stale) while Bench is down, or null when there is none yet. */
-    async function read(store, key, path, label, cap) {
+    async function read(store, key, path, label, cap, loader = null) {
         const atMs = clock();
         const hit = store.get(key);
         if (hit && hit.atMs + TTL_MS > atMs) return { data: hit.data, at: hit.at, stale: false };
         if (hit && hit.retryAtMs > atMs) return { data: hit.data, at: hit.at, stale: true };
-        const data = await requestJson(`${baseUrl}${path}`, { fetchImpl, log, timeoutMs, label });
+        let data = null;
+        if (loader) {
+            try { data = await loader(); }
+            catch (err) { log.warn(`[report] ${label} unavailable: ${String(err.message || err).slice(0, 160)}`); }
+        } else data = await requestJson(`${baseUrl}${path}`, { fetchImpl, log, timeoutMs, label });
         if (data === null) {
             if (hit) hit.retryAtMs = atMs + TTL_MS;
             return hit ? { data: hit.data, at: hit.at, stale: true } : null;
@@ -102,6 +109,10 @@ function createBenchClient({ config = {}, fetchImpl = globalThis.fetch, log = co
             `/api/v1/boards/${encodeURIComponent(kindId)}?type=${type}`,
             `bench board (${kindId}, ${type})`,
             500,
+            type === 'elo' ? async () => {
+                const data = await shared.ratings.get(kindId, { signal: AbortSignal.timeout(timeoutMs) });
+                return { ...data, board: { ...data.board, rows: (data.board?.rows || []).filter((row) => row.games >= 20) } };
+            } : null,
         );
     }
 

@@ -149,6 +149,11 @@ async function createApp(opts = {}) {
             }
             if (Object.keys(kept).some((k) => METHODS.has(k))) paths[p] = kept;
         }
+        paths['/api/v1/ai/ratings/{kind}'] = { get: {
+            operationId: 'report.ai.ratings', security: [], summary: 'The shared fitted Bench rating board',
+            parameters: [{ name: 'kind', in: 'path', required: true, schema: { type: 'string' } }],
+            responses: { '200': { description: 'Ratings with at least twenty eligible games and the source time' }, '422': { description: 'Invalid kind' }, '503': { description: 'Bench unavailable' } },
+        } };
         res.set('Cache-Control', 'public, max-age=3600').set('Access-Control-Allow-Origin', '*').json({ ...doc, paths });
     });
     app.disable('x-powered-by');
