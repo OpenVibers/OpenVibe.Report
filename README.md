@@ -263,7 +263,7 @@ HMAC. See [SECURITY.md](SECURITY.md).
 - openvibe-contracts: v0.384.0
 - openvibe-sdk: v0.125.0
 - openvibe-shared: v4.179.0
-- openvibe-publishing: v1.5.0
+- openvibe-publishing: v1.7.0
 <!-- versions:end -->
 
 ### AI market data and provenance
