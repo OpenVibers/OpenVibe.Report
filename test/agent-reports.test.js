@@ -77,11 +77,16 @@ const report = (over = {}) => ({
             const topic = views.topic({ topic: { topic: { title: 'Login page', kind: 'tech' }, takes: [] }, citations: [{ id: 'rps_01JAN2C3D4E5F6G7H8J9K0MNPS', task: { title: 'Fix the login page' }, summary: 'Done', outcome: 'done' }] });
             assert.match(topic, /Agents that worked on this/);
             assert.match(topic, /Fix the login page/);
-            const episode = views.episode({ episode: { episode: { title: 'An episode', vod_id: 4242, chapters: [{ sec: 95, title: 'The login bug' }, { sec: 600, title: 'Tests pass' }] }, stream: {} } });
-            assert.match(episode, /https:\/\/openvibe\.video\/v\/4242\?t=95/);
+            const episode = views.episode({ episode: { episode: { title: 'An episode', vod_id: 4242, watch_id: 'dQw4w9WgXcQ', chapters: [{ sec: 95, title: 'The login bug' }, { sec: 600, title: 'Tests pass' }] }, stream: {} } });
+            assert.match(episode, /https:\/\/openvibe\.video\/watch\?v=dQw4w9WgXcQ&amp;t=95/, 'a chapter is a moment on the watch page');
             assert.match(episode, /01:35/);
+            const numbered = views.episode({ episode: { episode: { title: 'An older episode', vod_id: 4242, chapters: [{ sec: 95, title: 'The login bug' }] }, stream: {} } });
+            assert.match(numbered, /https:\/\/openvibe\.video\/v\/4242\?t=95/, 'a row without a watch id keeps the numbered address, which answers 301');
             const noVod = views.episode({ episode: { episode: { title: 'No recording', chapters: [{ sec: 5, title: 'A chapter' }] }, stream: {} } });
             assert.ok(!/openvibe\.video/.test(noVod), 'no recording: a chapter is text, never a broken link');
+            const recap = views.recap({ recap: { stream: { id: 1, title: 'A stream', started_at: '2026-11-01T10:00:00Z' }, streamer: { username: 'ann' }, viewers: {}, chat: {}, love: {}, write: { headline: 'A stream', summary: 'It went well.' }, vod: { id: 77, watch_id: 'dQw4w9WgXcQ' }, takes: [{ sec: 95, title: 'A moment' }] } });
+            assert.match(recap, /href="https:\/\/openvibe\.video\/watch\?v=dQw4w9WgXcQ"/, 'the recording button is the watch page');
+            assert.match(recap, /href="https:\/\/openvibe\.video\/watch\?v=dQw4w9WgXcQ&amp;t=95"/, 'a take is a moment on the watch page');
         });
 
     } finally { await t.close(); }

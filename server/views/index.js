@@ -494,12 +494,21 @@ ${(d.related || []).length ? `<section aria-labelledby="rp-rel-h"><h2 id="rp-rel
     return layout({ title: `${t.title}: The Rundown`, description: t.headline || `What streamers said about ${t.title}.`, body, active: '/rundown', path: `/rundown/t/${encodeURIComponent(t.slug || '')}`, canonical: `${LIVE}/rundown/t/${encodeURIComponent(t.slug || '')}` });
 }
 
-/** A chapter's moment in the recording on OpenVibe.Video (the same link Live's own Rundown draws). */
-function chapterHref(vodId, sec) {
+/**
+ * A recording's or clip's moment on OpenVibe.Video, in YouTube's shape: /watch?v=<watch id> (and &t=<seconds>).
+ * The watch id is Media's; without one the numbered /v/<id> address still answers 301 to the watch page.
+ */
+function videoHref(vodId, sec, watchId = null) {
+    const watch = /^[A-Za-z0-9_-]{11}$/.test(String(watchId || '')) ? String(watchId) : null;
+    const t = sec != null && Number.isFinite(Number(sec)) && Number(sec) > 0 ? Math.floor(Number(sec)) : null;
+    if (watch) return `https://openvibe.video/watch?v=${encodeURIComponent(watch)}${t ? `&t=${t}` : ''}`;
     const id = String(vodId == null ? '' : vodId).trim();
     if (!/^\d{1,16}$/.test(id)) return null;
-    const t = Math.max(0, Math.floor(Number(sec) || 0));
     return `https://openvibe.video/v/${encodeURIComponent(id)}${t ? `?t=${t}` : ''}`;
+}
+
+function chapterHref(vodId, sec, watchId = null) {
+    return videoHref(vodId, sec, watchId);
 }
 
 function episode({ episode: d, citations = [] } = {}) {
@@ -507,9 +516,10 @@ function episode({ episode: d, citations = [] } = {}) {
     const segs = (d.segments || []).slice(0, 60);
     // S7: the chapters are the recording's moments, linked into OpenVibe.Video; a chapter with no recording stays text.
     const vod = e.vod_id || s.vod_id || null;
+    const watch = e.watch_id || s.watch_id || null;
     const chapters = (Array.isArray(e.chapters) ? e.chapters : []).slice(0, 40);
     const chaptersHTML = chapters.length ? `<section aria-labelledby="rp-ch-h"><h2 id="rp-ch-h">Chapters</h2><ol class="rp-chapters">${chapters.map((c) => {
-        const href = vod ? chapterHref(vod, c.sec) : null;
+        const href = (vod || watch) ? chapterHref(vod, c.sec, watch) : null;
         const stamp = `<span class="rp-stamp">${esc(String(Math.floor((Number(c.sec) || 0) / 60)).padStart(2, '0'))}:${esc(String((Number(c.sec) || 0) % 60).padStart(2, '0'))}</span>`;
         return `<li>${href ? `<a href="${esc(href)}">${stamp} ${esc(c.title)}</a>` : `${stamp} ${esc(c.title)}`}</li>`;
     }).join('')}</ol></section>` : '';
@@ -535,7 +545,8 @@ function recap({ recap: d } = {}) {
     const r = d.recap || d;
     const s = r.stream || {}, u = r.streamer || {}, v = r.viewers || {}, c = r.chat || {}, love = r.love || {}, w = r.write || {}, vod = r.vod;
     const takes = (r.takes || []).filter((t) => t && t.title).sort((a, b) => (n(a.sec) ?? 1e9) - (n(b.sec) ?? 1e9)).slice(0, 8);
-    const at = (sec) => (vod && vod.id && n(sec) != null ? `https://openvibe.video/v/${encodeURIComponent(vod.id)}?t=${Math.max(0, Math.floor(Number(sec)))}` : null);
+    const at = (sec) => (vod && (vod.id || vod.watch_id) && n(sec) != null ? videoHref(vod.id, sec, vod.watch_id) : null);
+    const watching = vod ? videoHref(vod.id, null, vod.watch_id) : null;
     const body = `<header class="rp-page-h rp-recap-h"><p class="rp-kicker">After-show report</p><h1>${esc(w.headline || s.title || 'Stream')}</h1>
 <p class="rp-meta">${kit.mark({ name: who(u), src: u.avatar_url, size: 28 })} <a href="https://openvibe.live/@${encodeURIComponent(u.username || '')}">@${esc(u.username || '')}</a>${s.title && w.headline ? ` · ${esc(s.title)}` : ''}${s.started_at ? ` · ${esc(dayTime(s.started_at))}` : ''}${n(s.duration_seconds) ? ` · ${esc(mins(s.duration_seconds))}` : ''}</p>
 ${w.summary ? `<p class="rp-summary">${esc(w.summary)}</p><p class="rp-meta">${AI}</p>` : ''}</header>
@@ -550,7 +561,7 @@ ${tile('Length', n(s.duration_seconds) ? esc(mins(s.duration_seconds)) : null)}
 ${curve(v.curve) ? `<section aria-labelledby="rp-cv-h"><h2 id="rp-cv-h">Minute by minute</h2>${curve(v.curve)}</section>` : ''}
 ${takes.length ? `<section aria-labelledby="rp-rt-h"><h2 id="rp-rt-h">The moments</h2><ol class="rp-moments">${takes.map((t) => `<li>${at(t.sec) ? `<a class="rp-at" href="${esc(at(t.sec))}">${kit.icon('play')}<span>${esc(mins(t.sec) || '0 min')}</span></a>` : ''}<span><b>${esc(t.title)}</b>${t.topic ? `<a class="rp-kind" href="/rundown/t/${encodeURIComponent(t.slug || '')}">${esc(t.topic)}</a>` : ''}</span></li>`).join('')}</ol><p class="rp-meta">${AI}</p></section>` : ''}
 ${(c.top || []).length ? `<section aria-labelledby="rp-ch-h"><h2 id="rp-ch-h">Most active in chat</h2><ul class="rp-chips">${c.top.slice(0, 8).map((x) => `<li><span>${esc(x.display_name || x.username)} <b>${exact(x.n)}</b></span></li>`).join('')}</ul></section>` : ''}
-<p class="rp-act">${vod && vod.id ? `<a class="rp-btn" href="https://openvibe.video/v/${encodeURIComponent(vod.id)}">Watch the recording</a>` : ''} <a class="rp-btn is-quiet" href="/c/${encodeURIComponent(u.username || '')}">More from ${esc(who(u))}</a>${s.id ? ` <a class="rp-btn is-quiet" href="/rundown/e/${encodeURIComponent(s.id)}">In The Rundown</a>` : ''}</p>`;
+<p class="rp-act">${watching ? `<a class="rp-btn" href="${esc(watching)}">Watch the recording</a>` : ''} <a class="rp-btn is-quiet" href="/c/${encodeURIComponent(u.username || '')}">More from ${esc(who(u))}</a>${s.id ? ` <a class="rp-btn is-quiet" href="/rundown/e/${encodeURIComponent(s.id)}">In The Rundown</a>` : ''}</p>`;
     return layout({ title: `${w.headline || s.title}: after-show report`, description: w.summary || `How ${who(u)}'s stream went, in numbers.`, body, active: '/rundown', path: `/after-show/${encodeURIComponent(s.id || '')}` });
 }
 
