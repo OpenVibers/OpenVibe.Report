@@ -48,6 +48,7 @@ const sharing = require('./sharing');
 const { createShadow } = require('./analytics/shadow');
 const { createApi } = require('./http/api');
 const { createPageRoutes, createPublicPages } = require('./http/pages');
+const { createViewsClient } = require('./data/views');
 const { createDiscoveryRoutes } = require('./http/discovery');
 const { createInternalRoutes } = require('./http/internal');
 const { createServiceReadiness } = require('./observability');
@@ -129,7 +130,8 @@ async function createApp(opts = {}) {
         secureCookies: /^https:/.test(config.baseUrl), fetch: fetchImpl, log,
     });
 
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, aiCatalogue, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports, meStats, popularity };
+    const viewsData = createViewsClient({ config, fetchImpl, log, now });
+    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, aiCatalogue, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports, meStats, popularity, viewsData };
     const app = express();
     if (exchangeConfig) exchangeConfig.mount(app);
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts
@@ -327,7 +329,7 @@ async function createApp(opts = {}) {
         legacyHeaders: false,
         handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }),
     }));
-    app.use('/api/v1', createApi({ network, live, bench, aiCatalogue, analytics, aiUsage, aiExchange, sessionReports, meStats, popularity, config, now, log }));
+    app.use('/api/v1', createApi({ network, live, bench, aiCatalogue, analytics, aiUsage, aiExchange, sessionReports, meStats, popularity, viewsData, config, now, log }));
     app.use('/api', (req, res) => contracts.http.sendProblem(res, 404, 'route.not_found', { detail: 'No such API route', ctx: req.ov }));
 
     // ── Crawl artifacts, then the pages ─────────────────────

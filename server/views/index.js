@@ -305,7 +305,45 @@ function home({ stats, rundown, topics } = {}) {
     });
 }
 
-function stats({ stats: d, days = 30 } = {}) {
+// ── Views (OpenVibe.Media's one view store): per item, per creator and per site ──────────────
+// A row is { id, service?, kind?, item_id?, site, creator, views, engaged, previews, preview_share, peak_concurrent }.
+// Every number came from Media's GET /api/v1/views/aggregate; a missing dimension leaves its table out, never a zero.
+const pctShare = (v) => (v == null ? '—' : `${Math.round(Number(v) * 1000) / 10}%`);
+function viewRow(row, label, href) {
+    const name = href ? `<a href="${esc(href)}">${esc(label)}</a>` : esc(label || 'Unknown');
+    return `<div class="rp-tr" role="row"><span role="cell" class="rp-site">${name}<small>${esc(row.site || '')}</small></span>`
+        + `<span role="cell" data-l="Views">${exact(row.views)}</span>`
+        + `<span role="cell" data-l="Engaged">${exact(row.engaged)}</span>`
+        + `<span role="cell" data-l="From previews">${pctShare(row.preview_share)}</span>`
+        + `<span role="cell" data-l="Peak live">${row.peak_concurrent == null ? '—' : exact(row.peak_concurrent)}</span></div>`;
+}
+function viewTable(title, rows, kind) {
+    if (!rows || !rows.length) return '';
+    const body = rows.map((row) => {
+        if (kind === 'item') {
+            const name = `${row.kind} ${row.item_id}`;
+            const href = row.service === 'media' && row.kind === 'vod' ? `https://openvibe.media/v/${encodeURIComponent(row.item_id)}`
+                : row.service === 'media' && row.kind === 'clip' ? `https://openvibe.media/c/${encodeURIComponent(row.item_id)}` : null;
+            return viewRow(row, name, href);
+        }
+        if (kind === 'creator') return viewRow(row, row.creator || row.id || 'Unknown', row.creator ? `/c/${encodeURIComponent(row.creator)}` : null);
+        return viewRow(row, row.site || row.id || 'Unknown', null);
+    }).join('');
+    return `<section aria-labelledby="rp-v-${esc(kind)}"><h2 id="rp-v-${esc(kind)}">${esc(title)}</h2>
+<div class="rp-table" role="table" aria-label="${esc(title)}"><div class="rp-tr rp-th" role="row"><span role="columnheader">${kind === 'item' ? 'Item' : kind === 'creator' ? 'Creator' : 'Site'}</span><span role="columnheader">Views</span><span role="columnheader">Engaged</span><span role="columnheader">From previews</span><span role="columnheader">Peak live</span></div>${body}</div></section>`;
+}
+function viewsSection(v) {
+    if (!v) return '';
+    const items = v.items && v.items.rows || [];
+    const creators = v.creators && v.creators.rows || [];
+    const sites = v.sites && v.sites.rows || [];
+    if (!items.length && !creators.length && !sites.length) return '';
+    return `<section aria-labelledby="rp-views-h"><h2 id="rp-views-h">Views and engaged viewers</h2>
+<p class="rp-fine">Counted by OpenVibe.Media for every kind: a Feed preview counts from one second, once per person per item per 30 minutes, and a viewer is engaged after 30 seconds or a third of the video (60 seconds live). The peak is the most people watching a live stream at once. A preview is the share of views that started in the Feed.</p>
+${viewTable('Top items', items, 'item')}${viewTable('Top creators', creators, 'creator')}${viewTable('By site', sites, 'site')}</section>`;
+}
+
+function stats({ stats: d, days = 30, views: v = null } = {}) {
     const T = d.totals || {}, L = d.live, C = d.coins, A = d.accounts;
     const tabs = [7, 30, 90].map((x) => `<a href="/stats?days=${x}"${Number(days) === x ? ' aria-current="page"' : ''}>${x} days</a>`).join('');
     const sites = (d.sites || []).filter((s) => s && s.name).map((s) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><a href="${esc(s.url || '#')}">${esc(s.name || s.short)}</a><small>${esc(s.host || '')}</small></span>`
@@ -323,6 +361,7 @@ ${T.requests_24h != null ? tile('Requests, 24 h', fmt(T.requests_24h), T.sites_o
 ${L ? tile('Live right now', exact(L.live_now), L.watching != null ? `${exact(L.watching)} watching` : '') : ''}
 ${C ? tile('OpenCoins earned', fmt(C.earned), C.earned_window != null ? `+${fmt(C.earned_window)} in ${d.window_days || days} days` : '') : ''}
 </section>
+${viewsSection(v)}
 ${d.pageviews_daily && d.pageviews_daily.length > 1 ? `<section aria-labelledby="rp-pv-h"><h2 id="rp-pv-h">Page views a day</h2>${bars(d.pageviews_daily, 'Page views a day')}</section>` : ''}
 ${sites ? `<section aria-labelledby="rp-sites-h"><h2 id="rp-sites-h">Every site</h2><p class="rp-fine">Most visited first over ${esc(d.window_days || days)} days; requests and speed (95% of answers were at least this fast) over the last 24 hours.</p>
 <div class="rp-table" role="table" aria-label="Every site"><div class="rp-tr rp-th" role="row"><span role="columnheader">Site</span><span role="columnheader">Page views</span><span role="columnheader">Visitors</span><span role="columnheader">Requests, 24 h</span><span role="columnheader">95% answered in</span></div>${sites}</div></section>` : ''}
@@ -565,10 +604,11 @@ ${(c.top || []).length ? `<section aria-labelledby="rp-ch-h"><h2 id="rp-ch-h">Mo
     return layout({ title: `${w.headline || s.title}: after-show report`, description: w.summary || `How ${who(u)}'s stream went, in numbers.`, body, active: '/rundown', path: `/after-show/${encodeURIComponent(s.id || '')}` });
 }
 
-function channel({ username, recaps } = {}) {
+function channel({ username, recaps, views: v = null } = {}) {
     const list = (recaps && recaps.recaps) || [];
     const cards = list.slice(0, 30).map((x) => kit.card({ href: `/after-show/${x.stream_id}`, title: x.headline || x.title || 'Stream', peek: x.headline && x.title ? x.title : '', type: 'stream', image: x.thumbnail_url || '', badge: x.grade ? `Grade ${x.grade}` : '', corner: n(x.duration_seconds) ? mins(x.duration_seconds) : '', count: n(x.peak_viewers) ? [x.peak_viewers, 'peak'] : null, when: x.ended_at ? ts(x.ended_at) : null }));
     const body = `<header class="rp-page-h"><p class="rp-kicker">After-show reports</p><h1>${esc(username)}</h1><p class="rp-meta"><a href="https://openvibe.live/@${encodeURIComponent(username)}">Channel on OpenVibe.Live</a> · <a href="/rundown/s/${encodeURIComponent(username)}">In The Rundown</a></p></header>
+${viewsSection(v && v.rows ? { creators: v } : null)}
 ${cards.length ? `<ul class="rp-grid">${cards.map((c) => `<li>${c}</li>`).join('')}</ul>` : kit.empty({ title: 'No reports yet', text: 'A report is written a few minutes after each stream ends.' })}`;
     return layout({ title: `${username}: after-show reports`, description: `How each of ${username}'s streams went.`, body, active: '/rundown', path: `/c/${encodeURIComponent(username)}` });
 }

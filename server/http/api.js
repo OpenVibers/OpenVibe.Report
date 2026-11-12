@@ -32,7 +32,7 @@ const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, meStats = null, popularity = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, meStats = null, popularity = null, viewsData = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
 
@@ -93,6 +93,36 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
     function notFound(req, res, code = 'report.not_found', detail = 'No such answer from the source.') {
         return problem(req, res, 404, code, detail);
     }
+
+    // The one view store (OpenVibe.Media): every kind's views and engaged viewers, per item, per creator or per
+    // site, with the Feed-preview share and a live stream's peak concurrent. Report quotes Media's numbers.
+    r.get('/views', async (req, res) => {
+        if (!viewsData) return problem(req, res, 503, 'report.no_views_source', 'The view store is not configured in this process.');
+        const scope = ['item', 'creator', 'site'].includes(String(req.query.scope)) ? String(req.query.scope) : 'item';
+        const days = normaliseDays(req.query.days);
+        let out = null;
+        if (scope === 'item') {
+            const service = String(req.query.service || '');
+            const kind = String(req.query.kind || '');
+            const id = String(req.query.id || '');
+            if (!/^[a-z][a-z0-9-]{1,39}$/.test(service) || !/^[a-z][a-z0-9_]{1,39}$/.test(kind) || !id) return notFound(req, res, 'report.views_ref', 'A view item is service, kind and id.');
+            out = await viewsData.item({ service, kind, id, days });
+        } else {
+            const id = String(req.query.id || '');
+            if (!id) return notFound(req, res, 'report.views_ref', `A view ${scope} is its id.`);
+            out = scope === 'creator' ? await viewsData.creator(id, days) : await viewsData.site(id, days);
+        }
+        if (!out) return notFound(req, res, 'report.views_not_found', 'The view store did not answer for this window.');
+        return res.json(out);
+    });
+
+    // The three dimensions the room's tables use, in one answer (items, creators, sites).
+    r.get('/views/top', async (req, res) => {
+        if (!viewsData) return problem(req, res, 503, 'report.no_views_source', 'The view store is not configured in this process.');
+        const out = await viewsData.top(normaliseDays(req.query.days));
+        if (!out) return notFound(req, res, 'report.views_not_found', 'The view store did not answer for this window.');
+        return res.json(out);
+    });
 
     r.get('/stats', async (req, res) => {
         const days = normaliseDays(req.query.days);
