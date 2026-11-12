@@ -26,6 +26,7 @@ const contracts = require('openvibe-contracts');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
 const { createServiceAuth, CAPS } = require('../auth');
 const { GROUPS: AI_USAGE_GROUPS, PERSON_GROUPS } = require('../analytics/ai-usage');
+const { PERFORMANCE_GROUPS, PUBLIC_GROUPS, FILTERS: PERFORMANCE_FILTERS, PUBLIC_FILTERS, PUBLIC_CALL_FLOOR } = require('../analytics/ai-performance');
 const GROUPS = Object.keys(AI_USAGE_GROUPS);
 const designHealth = require('../data/design-health');
 const sharing = require('../sharing');
@@ -449,6 +450,60 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         } catch (err) {
             log.error('[OpenVibe.Report] the AI usage rows failed:', err && err.message ? String(err.message).slice(0, 200) : err);
             return problem(req, res, 500, 'report.ai_usage_failed', 'The AI usage rows could not be read.');
+        }
+    });
+
+    // The AI performance rows (plan L40/L41, report.ai-performance@1): public for model, provider and operation,
+    // with a floor of 20 calls and no system, task or person in the answer. System, task, place and harness are for
+    // staff: a signed-in person with staff.site.view (the HTML staff gate) or a Network service token with
+    // report.ai_usage.read (the JSON operator gate), and those answers are never cached.
+    r.get('/ai/performance', async (req, res) => {
+        if (!aiUsage) return problem(req, res, 503, 'report.no_database', 'Report has no database in this process.');
+        const group = String(req.query.group || 'model');
+        if (!PERFORMANCE_GROUPS.includes(group)) {
+            return problem(req, res, 422, 'ai.invalid', 'group must be one of ' + PERFORMANCE_GROUPS.join(', '));
+        }
+        const staffGroup = !PUBLIC_GROUPS.includes(group);
+        const roleStaff = Boolean(req.user && contracts.staff.can(req.user, 'staff.site.view'));
+        let staff = roleStaff;
+        let denied = null;
+        if (!staff) {
+            const v = await serviceAuth.authenticate(req);
+            if (v.ok && serviceAuth.hasCap(v.claims, CAPS.aiUsageRead)) staff = true;
+            else if (v.ok) denied = { status: 403, code: 'capability.denied', detail: 'report.ai_usage.read is not granted to this token.' };
+            else if (!req.user && v && v.status && v.status !== 401) denied = v;
+        }
+        if (staffGroup && !staff) {
+            res.set('Cache-Control', 'private, no-store');
+            if (req.user) return problem(req, res, 403, 'capability.denied', 'staff.site.view is not granted to this account.');
+            if (denied) return problem(req, res, denied.status, denied.code, denied.detail);
+            return problem(req, res, 401, 'auth.sign_in_required', 'Sign in with a staff account, or use a service token with report.ai_usage.read, for this AI performance group.');
+        }
+        const days = Number(req.query.days == null ? 30 : req.query.days);
+        if (![7, 30, 90].includes(days)) return problem(req, res, 422, 'ai.invalid', 'days must be 7, 30 or 90');
+        const filters = {};
+        for (const key of PERFORMANCE_FILTERS) {
+            const raw = req.query[key];
+            if (raw === undefined) continue;
+            if (!staff && !PUBLIC_FILTERS.includes(key)) {
+                res.set('Cache-Control', 'private, no-store');
+                return problem(req, res, 403, 'capability.denied', key + ' is a staff filter.');
+            }
+            if (typeof raw !== 'string' || raw.length === 0 || raw.length > 200) {
+                return problem(req, res, 422, 'ai.invalid', 'filter ' + key + ' must be one non-empty value of at most 200 characters');
+            }
+            filters[key] = raw;
+        }
+        const to = new Date(now()).toISOString().slice(0, 10);
+        const from = new Date(Date.parse(`${to}T00:00:00Z`) - (days - 1) * 86400000).toISOString().slice(0, 10);
+        try {
+            const rows = await aiUsage.performance({ group, from, to, filters, minCalls: staffGroup ? 0 : PUBLIC_CALL_FLOOR });
+            if (staff) res.set('Cache-Control', 'private, no-store');
+            return res.json({ group, range: { from, to }, rows });
+        } catch (err) {
+            if (err instanceof RangeError) return problem(req, res, 422, 'ai.invalid', err.message);
+            log.error('[OpenVibe.Report] the AI performance rows failed:', err && err.message ? String(err.message).slice(0, 200) : err);
+            return problem(req, res, 500, 'report.ai_usage_failed', 'The AI performance rows could not be read.');
         }
     });
 

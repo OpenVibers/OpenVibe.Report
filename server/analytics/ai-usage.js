@@ -17,6 +17,8 @@
  * A group that fewer than ten people share reads 'fewer than 10' instead of counting them.
  */
 
+const { recordPerformance, recordTask, performance } = require('./ai-performance');
+
 const GROUPS = { day: 'day', site: 'attribution', model: 'model', system: 'system', paid_by: 'paid_by' };
 /** The groups a person may ask for their own rows. */
 const PERSON_GROUPS = Object.freeze(['day', 'week', 'month', 'provider', 'model', 'surface', 'paid_by']);
@@ -50,26 +52,37 @@ const weekOf = (day) => {
 
 /**
  * Write one record inside the delivery's own transaction. The same call twice is one row: the key is the system
- * and the run id (or the turn id).
+ * and the run id (or the turn id), and only the insert that claimed the row adds to the performance and task
+ * roll-ups, so a replay changes nothing.
  */
 async function recordUsage(t, payload, { occurredAt = null, source = 'events' } = {}) {
     const p = payload && typeof payload === 'object' ? payload : {};
     const at = p.at || occurredAt || new Date().toISOString();
     const key = recordKey(p);
-    const sql = 'INSERT INTO report_ai_usage (record_key, system, run_id, turn_id, subject, attribution, surface, provider, model, effort,'
-        + ' paid_by, paid_by_detail, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, cache_write_ttl,'
+    const day = dayOf(at);
+    const text = (v, max) => (v == null ? '' : String(v).slice(0, max));
+    const sql = 'INSERT INTO report_ai_usage (record_key, system, run_id, turn_id, subject, attribution, surface, operation, task, task_id, task_ms,'
+        + ' provider, model, effort, paid_by, paid_by_detail, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, cache_write_ttl,'
         + ' images, audio_seconds, video_seconds, list_cost_usd, charged_usd, fee_usd, cache_saved_usd, price_source, price_date,'
-        + ' latency_ms, ttft_ms, attempts, outcome, at, day, source)'
-        + ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        + ' latency_ms, ttft_ms, attempts, outcome, streamed, tps, queue_ms, harness, place, error_class, fallbacks, cache_hit, tool_calls, region, at, day, source)'
+        + ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         + ' ON CONFLICT (record_key) DO NOTHING';
     const r = await t.prepare(sql)
         .run(key, String(p.system || 'ai'), p.run_id || null, p.turn_id || null, p.subject || null, String(p.attribution || EMPTY),
-            String(p.surface || EMPTY), p.provider || null, p.model || null, p.effort || null, String(p.paid_by || EMPTY), p.paid_by_detail || null,
+            String(p.surface || EMPTY), text(p.operation, 64), text(p.task, 120), p.task_id || null, p.task_ms == null ? null : int(p.task_ms),
+            p.provider || null, p.model || null, p.effort || null, String(p.paid_by || EMPTY), p.paid_by_detail || null,
             int(p.input), int(p.output), int(p.reasoning), int(p.cache_read), int(p.cache_write), p.cache_write_ttl || null,
             int(p.images), num(p.audio_seconds), num(p.video_seconds), money(p.list_cost_usd), money(p.charged_usd), money(p.fee_usd), money(p.cache_saved_usd),
             String(p.price_source || EMPTY), p.price_date || null, p.latency_ms == null ? null : int(p.latency_ms), p.ttft_ms == null ? null : int(p.ttft_ms),
-            int(p.attempts) || 1, String(p.outcome || 'succeeded'), at, dayOf(at), String(source || 'events'));
-    return Number(r && r.changes) ? 'usage:recorded' : 'usage:duplicate';
+            int(p.attempts) || 1, String(p.outcome || 'succeeded'), p.streamed === true ? true : p.streamed === false ? false : null,
+            p.tps == null ? null : num(p.tps), p.queue_ms == null ? null : int(p.queue_ms), text(p.harness, 60), text(p.place, 40),
+            p.error_class == null ? null : text(p.error_class, 60), p.fallbacks == null ? null : int(p.fallbacks),
+            p.cache_hit === true ? true : p.cache_hit === false ? false : null, p.tool_calls == null ? null : int(p.tool_calls),
+            p.region == null ? null : text(p.region, 40), at, day, String(source || 'events'));
+    if (!Number(r && r.changes)) return 'usage:duplicate';
+    await recordPerformance(t, p, day);
+    await recordTask(t, p, day);
+    return 'usage:recorded';
 }
 
 /** The rows of one day, recomputed from the raw records (delete-then-insert, so a second pass counts nothing twice). */
@@ -456,6 +469,7 @@ function createAiUsage({ store, now = () => Date.now(), log = console } = {}) {
         groups: PERSON_GROUPS,
         forPerson: (opts = {}) => personUsage(store, { now: now(), ...opts }),
         usage: (opts = {}) => usage(store, opts),
+        performance: (opts = {}) => performance(store, { now: now(), ...opts }),
         openTotals: (opts = {}) => openTotals(store, opts),
         totalsOf,
         rollup: (opts = {}) => rollup(store, opts),
@@ -468,5 +482,5 @@ function createAiUsage({ store, now = () => Date.now(), log = console } = {}) {
 module.exports = {
     GROUPS, PERSON_GROUPS, RAW_RETENTION_DAYS, DEFAULT_RANGE_DAYS, MAX_RANGE_DAYS, PEOPLE_FLOOR,
     recordKey, recordUsage, rollup, rollupDay, prune, usage, personUsage, personRange, totalsOf, daily, openTotals,
-    exportFor, eraseFor, createAiUsage, weekOf, dayOf, money, usdText, periodText, personInsights,
+    performance, exportFor, eraseFor, createAiUsage, weekOf, dayOf, money, usdText, periodText, personInsights,
 };
