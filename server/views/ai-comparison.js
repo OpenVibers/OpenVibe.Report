@@ -8,6 +8,7 @@
 //  - speed and uptime are measured on the Exchange's real traffic, shown only where traffic went.
 // A column or section earns its place: it shows when some row has a value, and a missing value reads in words.
 const kit = require('openvibe-shared/kit');
+const { parts, PARTS_CSS } = require('openvibe-shared/showcase');
 const marks = require('openvibe-shared/ai-marks');
 const { asset } = require('../assets');
 const { layout } = require('./index');
@@ -110,7 +111,7 @@ function board(rows, { full = false } = {}) {
 }
 
 function page(title, description, body, path) {
-    return layout({ title, description, body: `<link rel="stylesheet" href="${asset('css/ai-comparison.css')}"><style>${marks.CSS}</style><div class="ai-page">${body}</div>`, active: '/ai', path });
+    return layout({ title, description, body: `<link rel="stylesheet" href="${asset('css/ai-comparison.css')}"><style>${marks.CSS}\n${PARTS_CSS}</style><div class="ai-page">${body}</div>`, active: '/ai', path });
 }
 const dataLinks = () => `<p class="ai-data">Data: <a href="/api/v1/ai/leaderboard">JSON</a> · <a href="/api/v1/ai/leaderboard?format=csv&amp;limit=100">CSV</a> · <a href="/ai/method">How it is measured</a></p>`;
 
@@ -146,13 +147,17 @@ function hub({ rows = [], picks = [], providers = [], others = 0, month = new Da
         + kit.stats([[ratedRows.length, 'rated'], [rows.length, 'models listed'], [providerNames.size, 'providers'], [measuredOffers.length, 'measured endpoints']], { label: 'The leaderboard in numbers' })
         + `</header>`
         + (pickList || pending.length ? kit.section({ title: 'Top picks', body: `${pickList ? `<ul class="ai-picks">${pickList}</ul>` : ''}${pending.length ? `<p class="ai-fine">Not enough data yet for ${esc(pending.join(', '))}.</p>` : ''}` }) : '')
-        + kit.section({ title: 'Leaderboard', count: rows.length, actions: [act('/ai/leaderboard', rows.length > 25 ? `All ${rows.length} models` : 'Filter and sort')], body: board(rows.slice(0, 25)) + (others ? `<p class="ai-fine">Chat models only. ${others} embedding and speech ${others === 1 ? 'model is' : 'models are'} in the <a href="/ai/leaderboard?type=all">full list</a>.</p>` : '') + dataLinks() })
-        + (arena && (arena.answers || []).length ? kit.section({ title: 'One prompt, many answers', body: `<p class="ai-prompt">${esc(arena.prompt || '')}</p><div class="ai-answers">${arena.answers.slice(0, 3).map((a) => `<article>${modelCell({ id: a.model || 'Model', maker: a.maker })}<p>${esc(a.text || '')}</p></article>`).join('')}</div>` }) : '')
-        + (tasks.length ? kit.section({ title: 'Boards by task', body: `<ul class="ai-chips">${tasks.slice(0, 16).map((x) => `<li><a href="/ai/${encodeURIComponent(x.id)}">${esc(x.name || x.id)}</a></li>`).join('')}</ul>` }) : '')
-        + (measuredOffers.length ? kit.section({ title: 'Providers', actions: [act('/ai/providers', 'Every provider')], body: providerTable(measuredOffers.slice(0, 6)) }) : '')
-        + (pairs.length ? kit.section({ title: 'Popular comparisons', body: `<ul class="ai-chips">${pairs.map(([a, b]) => `<li><a href="/ai/compare/${encodeURIComponent(a.id)}-vs-${encodeURIComponent(b.id)}">${esc(shortName(a.id))} vs ${esc(shortName(b.id))}</a></li>`).join('')}</ul>` }) : '')
-        + (changed.length ? kit.section({ title: 'What changed this month', body: `<ul>${changed.slice(0, 8).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` }) : '')
-        + kit.section({ title: 'Questions', body: faq.map(([q, a]) => kit.fold({ title: q, body: `<p>${esc(a)}</p>` })).join('') })
+        // A phone shows the parts below the top picks one at a time as tabs (the owner, 11-11: "self-contained tabs, so
+        // the page isn't so freaking huge … at least on mobile"); every part stays in the HTML, a wide screen stacks them.
+        + parts({ name: 'board', label: 'The leaderboard\'s parts', items: [
+            { id: 'leaderboard', label: 'Leaderboard', count: rows.length, html: kit.section({ title: 'Leaderboard', count: rows.length, actions: [act('/ai/leaderboard', rows.length > 25 ? `All ${rows.length} models` : 'Filter and sort')], body: board(rows.slice(0, 25)) + (others ? `<p class="ai-fine">Chat models only. ${others} embedding and speech ${others === 1 ? 'model is' : 'models are'} in the <a href="/ai/leaderboard?type=all">full list</a>.</p>` : '') + dataLinks() }) },
+            { id: 'answers', label: 'Answers', html: (arena && (arena.answers || []).length ? kit.section({ title: 'One prompt, many answers', body: `<p class="ai-prompt">${esc(arena.prompt || '')}</p><div class="ai-answers">${arena.answers.slice(0, 3).map((a) => `<article>${modelCell({ id: a.model || 'Model', maker: a.maker })}<p>${esc(a.text || '')}</p></article>`).join('')}</div>` }) : '') },
+            { id: 'tasks', label: 'By task', count: tasks.length || '', html: (tasks.length ? kit.section({ title: 'Boards by task', body: `<ul class="ai-chips">${tasks.slice(0, 16).map((x) => `<li><a href="/ai/${encodeURIComponent(x.id)}">${esc(x.name || x.id)}</a></li>`).join('')}</ul>` }) : '') },
+            { id: 'providers', label: 'Providers', count: measuredOffers.length || '', html: (measuredOffers.length ? kit.section({ title: 'Providers', actions: [act('/ai/providers', 'Every provider')], body: providerTable(measuredOffers.slice(0, 6)) }) : '') },
+            { id: 'compare', label: 'Compare', html: (pairs.length ? kit.section({ title: 'Popular comparisons', body: `<ul class="ai-chips">${pairs.map(([a, b]) => `<li><a href="/ai/compare/${encodeURIComponent(a.id)}-vs-${encodeURIComponent(b.id)}">${esc(shortName(a.id))} vs ${esc(shortName(b.id))}</a></li>`).join('')}</ul>` }) : '') },
+            { id: 'changes', label: 'Changes', html: (changed.length ? kit.section({ title: 'What changed this month', body: `<ul>${changed.slice(0, 8).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` }) : '') },
+            { id: 'questions', label: 'Questions', html: kit.section({ title: 'Questions', body: faq.map(([q, a]) => kit.fold({ title: q, body: `<p>${esc(a)}</p>` })).join('') }) },
+        ] })
         + `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) }).replace(/</g, '\\u003c')}</script>`
         + `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Dataset', name: 'OpenVibe AI model leaderboard', url: 'https://openvibe.report/ai', variableMeasured: ['Bench rating', 'Provider price', 'Provider reply time', 'Provider uptime'], distribution: { '@type': 'DataDownload', contentUrl: 'https://openvibe.report/api/v1/ai/leaderboard', encodingFormat: 'application/json' } }).replace(/</g, '\\u003c')}</script>`;
     return page(`AI model leaderboard — ${month}`, `${rows.length} AI models compared: ratings from blind votes, provider prices and measured speed.`, body, '/ai');

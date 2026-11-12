@@ -42,6 +42,11 @@ const { boot, check, done, stubFetch, jsonResponse } = require('./helpers/boot')
             assert.strictEqual(r.status, 200);
             for (const s of ['AI model leaderboard', 'openai/gpt-4o', 'Best overall', 'Dataset', 'FAQPage']) assert.ok(r.text.includes(s), s);
             assert.ok(!r.text.includes('Page <design>'));
+            // A phone shows the parts below the top picks as tabs, the leaderboard first; every part stays in the HTML.
+            assert.ok(r.text.includes('<div class="ov-parts" data-parts='), 'the parts are tabs on a phone');
+            assert.ok(r.text.includes('<label for="ovp-board-leaderboard">Leaderboard <span class="ov-parts-n">'), 'the leaderboard tab names its count');
+            assert.ok(r.text.indexOf('ovp-board-leaderboard') < r.text.indexOf('ovp-board-questions'), 'the leaderboard first, the questions last');
+            assert.ok(r.text.includes('.ov-parts-bar{display:flex}'), 'its look is in the page, so nothing jumps');
         });
 
         await check('Shared Elo shows ranks, intervals and win rates', async () => {
