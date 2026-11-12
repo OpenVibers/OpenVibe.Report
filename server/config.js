@@ -46,6 +46,8 @@ function load(env = process.env) {
         networkPublicUrl,
         networkInternalUrl: trim(env.OV_NETWORK_INTERNAL_URL || 'http://127.0.0.1:4000'),
         liveUrl: trim(env.OV_LIVE_INTERNAL_URL || 'http://127.0.0.1:3000'),
+        // OpenVibe.Media's one view store (GET /api/v1/views/aggregate): every kind's views and engaged viewers.
+        mediaUrl: trim(env.OV_MEDIA_INTERNAL_URL || 'http://127.0.0.1:4100'),
 
         // OpenVibe.Bench's public reads (kinds, boards, models, datasets) — the AI boards under /ai. Public HTML
         // boards render here; Bench stays the benchmark authority that owns the numbers.

@@ -38,7 +38,7 @@ const aiComparisonViews = require('../views/ai-comparison');
 const CACHE = 'public, max-age=120';
 
 /** The pages the agent layer twins: their data, then the view. Each returns { html } or null (nothing to show). */
-function createPublicPages({ sessionReports, network, live, bench, aiCatalogue = null, analytics = null }) {
+function createPublicPages({ sessionReports, network, live, bench, aiCatalogue = null, analytics = null, viewsData = null }) {
     const numbers = (days) => (analytics ? analytics.stats(days) : network.stats(days));
 
     async function home() {
@@ -48,8 +48,8 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
     }
 
     async function stats(days) {
-        const data = await numbers(days);
-        return data ? { html: views.stats({ stats: data, days }) } : null;
+        const [data, viewData] = await Promise.all([numbers(days), viewsData ? viewsData.top(days) : null]);
+        return data ? { html: views.stats({ stats: data, days, views: viewData }) } : null;
     }
 
     function developers() {
@@ -274,7 +274,7 @@ function rssFeed({ runs, overview, base }) {
 }
 
 function createPageRoutes(ctx) {
-    const { live, bench, sessionReports } = ctx;
+    const { live, bench, sessionReports, viewsData } = ctx;
     const r = express.Router();
     const publicPages = ctx.publicPages || createPublicPages(ctx);
     // The Rundown's pages canonicalise to OpenVibe.Live, and so does its Markdown twin: the generic agent layer
@@ -503,9 +503,9 @@ function createPageRoutes(ctx) {
     r.get('/c/:username', async (req, res) => {
         const { username } = req.params;
         if (!isUsername(username)) return notFound(req, res);
-        const recaps = await live.channelRecaps(username);
+        const [recaps, viewRows] = await Promise.all([live.channelRecaps(username), viewsData ? viewsData.creator(username, 30) : null]);
         if (!recaps) return notFound(req, res);
-        return send(req, res, views.channel({ username, recaps }));
+        return send(req, res, views.channel({ username, recaps, views: viewRows }));
     });
 
     return r;
