@@ -46,7 +46,7 @@ const { boot, check, done } = require('./helpers/boot');
             for (const rel of ['css/app.css', 'js/app.js']) {
                 const plain = await healthy.get(`/${rel}`);
                 assert.strictEqual(plain.status, 200);
-                assert.strictEqual(plain.headers.get('cache-control'), 'public, max-age=300, stale-while-revalidate=86400');
+                assert.strictEqual(plain.headers.get('cache-control'), 'public, max-age=300, stale-while-revalidate=300');
                 const pinned = await healthy.get(`/${rel}?v=${assetVersion(rel)}`);
                 assert.strictEqual(pinned.status, 200);
                 assert.strictEqual(pinned.headers.get('cache-control'), 'public, max-age=31536000, immutable');
