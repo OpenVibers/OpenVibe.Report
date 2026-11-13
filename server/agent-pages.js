@@ -6,26 +6,16 @@
 const { normaliseDays } = require('./data/source');
 
 // /design and /rundown since 11-03: llms.txt listed them as HTML pages with no twin.
-const twinPath = (path) => /^\/(?:|stats|developers|design|rundown|ai|ai\/[^/]+|ai\/models\/[^/]+)$/.test(String(path || '/'));
+// The /ai pages moved to OpenVibe.Compare on 2026-11-13 (their twins with them).
+const twinPath = (path) => /^\/(?:|stats|developers|design|rundown)$/.test(String(path || '/'));
 
-function createAgentPages({ publicPages, bench }) {
+function createAgentPages({ publicPages }) {
     async function renderPublicPage(path, { query } = {}) {
         let page = null;
-        const model = /^\/ai\/models\/([^/]+)$/.exec(path);
-        const kind = /^\/ai\/([^/]+)$/.exec(path);
         if (path === '/') page = await publicPages.home();
         else if (path === '/developers') page = publicPages.developers();
         else if (path === '/design') page = publicPages.design();
         else if (path === '/stats') page = await publicPages.stats(normaliseDays(query && query.get('days')));
-        else if (path === '/ai') page = await publicPages.aiIndex();
-        else if (path === '/ai/method') page = await publicPages.aiMethod();
-        else if (path === '/ai/compare') {
-            const models = String((query && query.get('models')) || '').split(',').map((x) => x.trim()).filter(Boolean);
-            page = await publicPages.aiCompare(models);
-        }
-        else if (model) page = await publicPages.aiModel(decodeURIComponent(model[1]));
-        else if (kind && bench.isBenchmarkId(kind[1])) page = await publicPages.aiBenchmark(kind[1]);
-        else if (kind) page = await publicPages.aiBoard(kind[1], bench.normaliseTab(query && query.get('tab')));
         return page ? { html: page.html } : null;
     }
 

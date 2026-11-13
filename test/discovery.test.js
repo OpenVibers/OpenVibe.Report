@@ -31,7 +31,7 @@ const STATUS_UPDATED = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ST
             assert.strictEqual(r.status, 200);
             assert.match(r.headers.get('content-type') || '', /^application\/xml/);
             assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=3600');
-            for (const p of ['/', '/stats', '/design', '/ai']) {
+            for (const p of ['/', '/stats', '/design']) {   // /ai moved to OpenVibe.Compare (2026-11-13)
                 assert.ok(r.text.includes(`<loc>https://openvibe.report${p}</loc>`), `no ${p} entry`);
             }
             for (const p of ['/rundown', '/rundown/t/seattle', '/rundown/t/ai-progress']) {
