@@ -1,49 +1,39 @@
 'use strict';
-// The Arena on Report: anyone reads it, a POST needs a signed-in person and this site's Origin, asks and votes pass
-// through to Exchange's Arena API with the person's token, and Exchange's /arena links point at /ai/arena.
+// The Arena moved to OpenVibe.Compare (11-13): Report's old addresses answer in one hop. A page or a round is a 301 to
+// the same place on openvibe.compare/arena; a POST from an old open tab (an ask or a vote) is a 303 to the round there,
+// because a vote cannot cross sites; anything else falls through.
 const assert = require('node:assert/strict');
 const express = require('express');
-const { createArenaRoutes } = require('../server/http/arena');
+const { createArenaRoutes, targetOf } = require('../server/http/arena');
 
 (async () => {
+    assert.equal(targetOf(null), 'https://openvibe.compare/arena');
+    assert.equal(targetOf('rnd_01ABC'), 'https://openvibe.compare/arena/rnd_01ABC');
+    assert.equal(targetOf('../../etc'), 'https://openvibe.compare/arena', 'an id that is not one goes to the front door');
+
     const app = express();
-    const calls = [];
-    app.use((req, res, next) => {
-        if (req.get('x-test-user')) { req.user = { id: 'test' }; req.token = 'test-token'; }
-        next();
-    });
-    app.use(createArenaRoutes({
-        config: { baseUrl: 'https://openvibe.report' },
-        fetchImpl: async (url, opts) => {
-            calls.push({ url, opts });
-            const body = opts.method === 'POST' ? { location: '/ai/arena/round1' } : { html: '<form action="/arena/ask"><button>Ask</button></form>' };
-            return new Response(JSON.stringify(body), { status: 200 });
-        },
-    }));
+    app.use(createArenaRoutes());
+    app.use((_req, res) => res.status(404).send('nope'));
     const server = app.listen(0, '127.0.0.1');
     await new Promise((r) => server.once('listening', r));
     const base = `http://127.0.0.1:${server.address().port}`;
     try {
-        const anon = await fetch(`${base}/ai/arena`, { redirect: 'manual' });
-        assert.equal(anon.status, 200, 'anyone reads the Arena');
-        const page = await fetch(`${base}/ai/arena`, { headers: { 'x-test-user': '1' } });
-        assert.ok((await page.text()).includes('action="/ai/arena"'), "Exchange's /arena links point here");
-        const bad = await fetch(`${base}/ai/arena`, { method: 'POST', headers: { 'x-test-user': '1', origin: 'https://evil.example' } });
-        assert.equal(bad.status, 403, 'another Origin may not post');
-        const signedOut = await fetch(`${base}/ai/arena`, { method: 'POST', redirect: 'manual', headers: { origin: 'https://openvibe.report' } });
-        assert.equal(signedOut.status, 303, 'a signed-out POST goes to sign-in');
-        assert.match(signedOut.headers.get('location'), /^\/auth\/login\?next=/);
-        const vote = await fetch(`${base}/ai/arena/round1/vote`, {
-            method: 'POST', redirect: 'manual',
-            headers: { 'x-test-user': '1', origin: 'https://openvibe.report', 'content-type': 'application/x-www-form-urlencoded' },
-            body: 'outcome=left',
-        });
-        assert.equal(vote.status, 303);
-        assert.ok(calls.at(-1).url.endsWith('/rounds/round1/votes'));
-        assert.equal(JSON.parse(calls.at(-1).opts.body).outcome, 'left');
-        assert.equal(calls.at(-1).opts.headers.authorization, 'Bearer test-token', "the person's own token");
-        console.log('Report Arena: sign-in, Origin, the API pass-through and redirects passed');
+        const front = await fetch(base + '/ai/arena', { redirect: 'manual' });
+        assert.equal(front.status, 301);
+        assert.equal(front.headers.get('location'), 'https://openvibe.compare/arena');
+        const round = await fetch(base + '/ai/arena/rnd_01ABC', { redirect: 'manual' });
+        assert.equal(round.status, 301);
+        assert.equal(round.headers.get('location'), 'https://openvibe.compare/arena/rnd_01ABC');
+        const vote = await fetch(base + '/ai/arena/rnd_01ABC/vote', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'winner=a' });
+        assert.equal(vote.status, 303, 'an old tab\'s vote is sent to the round on Compare');
+        assert.equal(vote.headers.get('location'), 'https://openvibe.compare/arena/rnd_01ABC');
+        const ask = await fetch(base + '/ai/arena', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'prompt=hi' });
+        assert.equal(ask.status, 303);
+        assert.equal(ask.headers.get('location'), 'https://openvibe.compare/arena');
+        const put = await fetch(base + '/ai/arena', { method: 'PUT', redirect: 'manual' });
+        assert.equal(put.status, 404, 'other methods fall through');
+        console.log('arena-page: Report\'s Arena addresses go to openvibe.compare/arena in one hop');
     } finally {
-        await new Promise((r) => server.close(r));
+        server.close();
     }
-})().catch((e) => { console.error(e); process.exitCode = 1; });
+})().catch((e) => { console.error(e); process.exit(1); });

@@ -10,7 +10,7 @@
  *   /me, /u/:username                                          a person's stats: private by default, the published
  *                                                              sections at /u (the owner, 2026-11-09)
  *   /auth/*                                                    sign-in with OpenVibe.Network (openvibe-sdk/sso)
- *   /ai…                                                     301 to OpenVibe.Compare, except /ai/arena (http/arena.js) and /ai/exchange
+ *   /ai…                                                     301 to OpenVibe.Compare, except /ai/arena (http/arena.js: one hop to openvibe.compare/arena) and /ai/exchange
  *   /api/v1/*                                                  the JSON API (http/api.js)
  *   /robots.txt, /sitemap.xml, /llms.txt                       crawl artifacts (http/discovery.js)
  *   /api/health, /api/ready, /release.json, /release-metrics   the plumbing (loopback scrape for /metrics)

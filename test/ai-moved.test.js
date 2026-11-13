@@ -18,9 +18,10 @@ const { boot, check, done } = require('./helpers/boot');
                 assert.strictEqual(r.headers.get('location'), `https://openvibe.compare${path}`, path);
             }
         });
-        await check('the Arena and the staff page stay on Report', async () => {
+        await check('the Arena goes to Compare in one hop; the staff page stays on Report', async () => {
             const arena = await t.get('/ai/arena');
-            assert.notStrictEqual(arena.status, 301, 'the Arena is served here');
+            assert.strictEqual(arena.status, 301, 'the Arena moved (11-13)');
+            assert.strictEqual(arena.headers.get('location'), 'https://openvibe.compare/arena', 'straight to /arena, not /ai/arena');
             const staff = await t.get('/ai/exchange');
             assert.notStrictEqual(staff.status, 301, 'the staff page is not moved');
         });

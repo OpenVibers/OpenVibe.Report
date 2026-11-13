@@ -73,8 +73,8 @@ never invents a zero and never throws a source error at the reader.
   `/auth/*` routes (the OpenVibe SSO client: `/auth/login`, `/auth/callback`, `/auth/fedcm`, `/auth/logout`,
   `/auth/me`, `/auth/refresh`); the session lives in its cookies and there is no second account system. What a
   person writes is their own and needs that sign-in: `POST /api/v1/me/stats/published` (the publish switches),
-  `POST /api/v1/me/session-reports` (a session report from a harness) and the Arena's `POST /ai/arena` and
-  `POST /ai/arena/:id/vote`; a browser call from another site is refused. `POST /internal/events` is
+  `POST /api/v1/me/session-reports` (a session report from a harness) and a browser call from another site is refused. (The Arena moved to openvibe.compare/arena on 11-13: Report's `/ai/arena`
+  addresses redirect there.) `POST /internal/events` is
   loopback-only and HMAC-verified.
 - **The Shared Frame** — `openvibe-shared` (navbar, footer, theme-loader, static files), served from this site's own
   pinned copy at `/shared/*`.
