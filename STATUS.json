@@ -8,11 +8,11 @@
   "runtime": "node 22, express 4, PostgreSQL (PGlite in development), no sessions",
   "port": "5080",
   "domain": "openvibe.report",
-  "contracts": "openvibe-contracts v0.419.0",
+  "contracts": "openvibe-contracts v0.421.0",
   "sdk": "openvibe-sdk v0.161.0",
   "shared": "openvibe-shared v4.231.0",
   "packages": [
-    "openvibe-contracts v0.419.0",
+    "openvibe-contracts v0.421.0",
     "openvibe-publishing v1.7.0",
     "openvibe-sdk v0.161.0",
     "openvibe-shared v4.231.0",

@@ -143,6 +143,17 @@ HTML page is gated by the signed-in person's staff role (`staff.site.view`) inst
 GET /api/v1/ai/exchange?from=YYYY-MM-DD&to=YYYY-MM-DD   the Exchange aggregates, staff only
 ```
 
+The AI performance rows (`report.ai-performance@1`, plan L40/L41) answer the speed, reliability, tokens and money of
+the calls Report meters. Model, provider and operation are public and show only a group with at least 20 calls; system,
+task, place and harness need a signed-in person with `staff.site.view` or a service token with
+`report.ai_usage.read`, and are never cached. The percentiles come from log-scale histograms and are the upper bound
+of the bucket a call lands in; a task's cost and time are the sums of the calls that share its `task_id`.
+
+```
+GET /api/v1/ai/performance?group=model|provider|operation&days=7|30|90      public, 20-call floor
+GET /api/v1/ai/performance?group=system|task|place|harness&days=7|30|90    staff, filters allowed
+```
+
 ### Internal (loopback only)
 
 ```
@@ -260,7 +271,7 @@ project, money) is never stored. `/internal/` is loopback-only, and `POST /inter
 HMAC. See [SECURITY.md](SECURITY.md).
 
 <!-- versions:start -->
-- openvibe-contracts: v0.419.0
+- openvibe-contracts: v0.421.0
 - openvibe-sdk: v0.161.0
 - openvibe-shared: v4.231.0
 - openvibe-publishing: v1.7.0
