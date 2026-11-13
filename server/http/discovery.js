@@ -46,14 +46,11 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
     });
 
     r.get('/sitemap.xml', async (_req, res) => {
-        const [ai, overview, reports, people] = await Promise.all([
-            bench.kinds(), bench.overview(), sessionReports ? sessionReports.listPublic({ limit: 500 }) : [],
+        // The /ai pages moved to OpenVibe.Compare on 2026-11-13; its sitemap lists them.
+        const [reports, people] = await Promise.all([
+            sessionReports ? sessionReports.listPublic({ limit: 500 }) : [],
             meStats ? meStats.listPublished({ limit: 500 }).catch(() => []) : [],
         ]);
-        const kinds = (ai && Array.isArray(ai.data.kinds)) ? ai.data.kinds : [];
-        const o = overview && overview.data ? overview.data : {};
-        const benches = Array.isArray(o.list) ? o.list : [];
-        const models = Array.isArray(o.model_list) ? o.model_list.map((m) => m.model).filter(Boolean) : [...new Set((Array.isArray(o.recent) ? o.recent : []).map((r) => r && r.model).filter(Boolean))];
         const lastmod = siteUpdated();
         // Only the pages this site owns. /rundown and its topic, episode and speaker pages carry rel=canonical to
         // OpenVibe.Live's Rundown, so listing them here would advertise a duplicate.
@@ -61,12 +58,6 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
             { loc: abs('/'), changefreq: 'daily', priority: 1.0 },
             { loc: abs('/stats'), changefreq: 'daily', priority: 0.9 },
             { loc: abs('/design'), changefreq: 'weekly', priority: 0.6 },
-            { loc: abs('/ai'), changefreq: 'daily', priority: 0.9 },
-            { loc: abs('/ai/leaderboard'), changefreq: 'daily', priority: 0.9 },
-            { loc: abs('/ai/providers'), changefreq: 'daily', priority: 0.7 },
-            { loc: abs('/ai/arena'), changefreq: 'daily', priority: 0.6 },
-            { loc: abs('/ai/method'), changefreq: 'weekly', priority: 0.6 },
-            { loc: abs('/ai/compare'), changefreq: 'weekly', priority: 0.6 },
             ...reports.map((rep) => ({ loc: abs('/s/' + encodeURIComponent(rep.id)), changefreq: 'daily', priority: 0.6 })),
             // A person's public stats page is crawlable only when they published a section; the private default is
             // never in the sitemap. The last modification is the snapshot they last computed.
@@ -74,19 +65,6 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
                 loc: abs(`/u/${encodeURIComponent(p.username)}`), changefreq: 'weekly', priority: 0.5,
                 ...(dayOf(p.generated_at) ? { lastmod: dayOf(p.generated_at) } : {}),
             })),
-            ...kinds.filter((k) => k && bench.isKindId(k.id)).map((k) => ({
-                loc: abs(`/ai/${encodeURIComponent(k.id)}`), changefreq: 'daily', priority: 0.7,
-            })),
-            ...benches.filter((b) => b && bench.isBenchmarkId(b.id)).map((b) => ({
-                loc: abs(`/ai/${encodeURIComponent(b.id)}`), changefreq: 'daily', priority: 0.8,
-                ...(dayOf(b.last_run) ? { lastmod: dayOf(b.last_run) } : {}),
-            })),
-            ...models.filter((m) => bench.isModelName(m)).map((m) => ({
-                loc: abs(`/ai/models/${encodeURIComponent(m)}`), changefreq: 'daily', priority: 0.6,
-            })),
-            ...models.filter((m) => bench.isModelName(m)).slice(0, 200).flatMap((a, i, list) => list.slice(i + 1).map((b) => ({
-                loc: abs(`/ai/compare/${encodeURIComponent(a)}-vs-${encodeURIComponent(b)}`), changefreq: 'weekly', priority: 0.5,
-            }))).slice(0, 200),
         ].map((p) => ({ ...p, ...(lastmod && !p.lastmod ? { lastmod } : {}) }));
         res.type('application/xml').set('Cache-Control', CACHE).send(seo.sitemapXml(pages));
     });
@@ -104,9 +82,8 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
                     { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
                     { title: 'The Rundown', url: 'https://openvibe.live/rundown', note: 'what streamers talked about, topic by topic (OpenVibe.Live is its canonical home)' },
-                    { title: 'AI', url: abs('/ai'), note: 'OpenVibe.Bench results: quality, price and speed for every task kind and benchmark' },
-                    { title: 'How AI results are judged', url: abs('/ai/method'), note: 'scores, verified runs, cost per solved, speed and the frontier' },
-                    { title: 'Compare AI models', url: abs('/ai/compare'), note: 'two or three models on the same benchmarks' },
+                    { title: 'AI model comparison', url: 'https://openvibe.compare/ai', note: 'the leaderboard, ratings, prices and measured speed of every AI model now live on OpenVibe.Compare' },
+                    { title: 'The AI Arena', url: abs('/ai/arena'), note: 'two anonymous answers to one prompt; your vote moves the ratings' },
                 ] },
                 // A JSON API is what an agent came for, not something to skip (AGT-5 review).
                 { title: 'API', links: [
@@ -114,7 +91,7 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
                     { title: 'Design health (JSON)', url: abs('/api/v1/design-health'), note: 'every site; /api/v1/design-health/<site> for one' },
                     { title: 'The Rundown (JSON)', url: abs('/api/v1/rundown') },
                     { title: 'Topics (JSON)', url: abs('/api/v1/rundown/topics') },
-                    { title: 'New AI results (RSS)', url: abs('/ai/feed.xml') },
+                    { title: 'New AI results (RSS)', url: 'https://openvibe.compare/ai/feed.xml' },
                     { title: 'New AI results (JSON)', url: abs('/api/v1/ai/results') },
                 ] },
             ],

@@ -10,7 +10,7 @@
  *   /me, /u/:username                                          a person's stats: private by default, the published
  *                                                              sections at /u (the owner, 2026-11-09)
  *   /auth/*                                                    sign-in with OpenVibe.Network (openvibe-sdk/sso)
- *   /ai, /ai/models/:model, /ai/:kind                         the AI boards, from OpenVibe.Bench (http/pages.js)
+ *   /ai…                                                     301 to OpenVibe.Compare, except /ai/arena (http/arena.js) and /ai/exchange
  *   /api/v1/*                                                  the JSON API (http/api.js)
  *   /robots.txt, /sitemap.xml, /llms.txt                       crawl artifacts (http/discovery.js)
  *   /api/health, /api/ready, /release.json, /release-metrics   the plumbing (loopback scrape for /metrics)
@@ -342,7 +342,7 @@ async function createApp(opts = {}) {
     app.use(createPageRoutes({ ...ctx, publicPages }));
     require('openvibe-shared/agent-layer').mount(app, {
         descriptor: require('./agent-descriptor'),
-        render: require('./agent-pages').createAgentPages({ publicPages, bench }).renderPublicPage,
+        render: require('./agent-pages').createAgentPages({ publicPages }).renderPublicPage,
     });
     app.use((_req, res) => {
         res.status(404).set('Cache-Control', PAGE_CACHE).type('html').send(views.notFound());
