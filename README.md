@@ -69,8 +69,13 @@ never invents a zero and never throws a source error at the reader.
   ledger and computes no price.
 - **The Rundown and the after-show reports** — OpenVibe.Live. Report quotes them, including their counts and text.
 - **The benchmark results** — OpenVibe.Bench. Report renders its rows and never derives a score, cost or time; Bench stayed the authority when its public pages moved here (2026-11-08) and its old HTML pages answer 301 to `/ai` counterparts.
-- **Identity, sessions and writes** — Report has no sign-in, no cookies and no public write route. `POST
-  /internal/events` is loopback-only and HMAC-verified.
+- **Identity, sessions and writes** — OpenVibe.Network owns identity. Report signs a person in through its own
+  `/auth/*` routes (the OpenVibe SSO client: `/auth/login`, `/auth/callback`, `/auth/fedcm`, `/auth/logout`,
+  `/auth/me`, `/auth/refresh`); the session lives in its cookies and there is no second account system. What a
+  person writes is their own and needs that sign-in: `POST /api/v1/me/stats/published` (the publish switches),
+  `POST /api/v1/me/session-reports` (a session report from a harness) and the Arena's `POST /ai/arena` and
+  `POST /ai/arena/:id/vote`; a browser call from another site is refused. `POST /internal/events` is
+  loopback-only and HMAC-verified.
 - **The Shared Frame** — `openvibe-shared` (navbar, footer, theme-loader, static files), served from this site's own
   pinned copy at `/shared/*`.
 
