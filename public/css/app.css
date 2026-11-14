@@ -101,6 +101,7 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 /* The stats table: rows on wide screens, stacked on phones. */
 .rp-table { display: grid; border: 1px solid var(--border, #1f2d47); border-radius: 16px; overflow: hidden; background: var(--bg-card, #0f1729); }
 .rp-tr { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); gap: 12px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--border, #1f2d47); font-variant-numeric: tabular-nums; }
+.rp-table.is-3 .rp-tr { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); }
 .rp-tr:first-child { border-top: 0; }
 .rp-th { font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted, #7386a3); background: color-mix(in srgb, var(--room-accent) 5%, transparent); }
 .rp-site { display: flex; flex-direction: column; min-width: 0; }
