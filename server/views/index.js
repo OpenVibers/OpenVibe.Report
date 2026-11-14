@@ -94,10 +94,10 @@ const judgeWord = (j) => ({ human_pairwise: 'voted on blind, two at a time', rub
 const gamesOf = (rows) => Math.round((rows || []).reduce((sum, r) => sum + (n(r && r.games) || 0), 0) / 2);
 
 const NAV = [
-    { label: 'You', href: '/you', icon: 'fa-user' },
-    { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' },
-    { label: 'The Rundown', href: '/rundown', icon: 'fa-newspaper' },
-    { label: 'API', href: '/developers', icon: 'fa-code', more: true },
+    { label: 'You', href: '/you', icon: 'user' },
+    { label: 'Numbers', href: '/stats', icon: 'chart' },
+    { label: 'The Rundown', href: '/rundown', icon: 'news' },
+    { label: 'API', href: '/developers', icon: 'code', more: true },
 ];
 
 function layout({ title, description, canonical = null, path = null, robots = 'index, follow', body, active = '/', jsonLd = [], agent = false, inlineStyles = [], og = null }) {
@@ -115,7 +115,7 @@ function layout({ title, description, canonical = null, path = null, robots = 'i
         service: 'report',
         apiBase: NETWORK,
         links: NAV.map((l) => ({ ...l, active: l.href === active || (l.href !== '/' && active.startsWith(l.href)) })),
-        appBar: [{ label: 'Home', href: '/', icon: 'fa-house' }, { label: 'Numbers', href: '/stats', icon: 'fa-chart-line' }, { label: 'Rundown', href: '/rundown', icon: 'fa-newspaper' }],
+        appBar: [{ label: 'Home', href: '/', icon: 'home' }, { label: 'Numbers', href: '/stats', icon: 'chart' }, { label: 'Rundown', href: '/rundown', icon: 'news' }],
         history: { type: 'page', title: title || NAME },
         // Sign-in is this site's own (openvibe-sdk/sso at /auth): the navbar's buttons and its silent check use it.
         silentLogin: `${BASE}/auth/login?silent=1&next={url}`,
