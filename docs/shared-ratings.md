@@ -1,7 +1,7 @@
 # Shared ratings
 
 The `/ai` boards, comparison catalogue and model rating reads use Bench's fitted
-ratings. Elo board reads use `openvibe-sdk/bench` `ratings.get(kind)`, cached for a
+ratings. Elo board reads use `openvibe-sdk/compare` `ratings.get(kind)`, cached for a
 minute with the existing stale-source marker during an outage. Rows with fewer
 than twenty eligible games are withheld. Exchange reads the same endpoint.
 Model summaries are fitted by Bench too; Report has no local rating table.

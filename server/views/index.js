@@ -41,7 +41,7 @@ function networkDataset() {
 }
 const NETWORK = 'https://openvibe.network';
 const LIVE = 'https://openvibe.live';
-const BENCH = 'https://bench.openvibe.services';
+const BENCH = 'https://openvibe.compare';
 const ROOM = rooms.get('report');
 const esc = kit.esc;
 let RELEASE = 'dev';

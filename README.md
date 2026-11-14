@@ -208,7 +208,7 @@ Every value comes from the environment (production: `/etc/openvibe/report.env`).
 | `OV_NETWORK_INTERNAL_URL` | `http://127.0.0.1:4000` | Network's loopback origin (its manifest's `internalOrigin`) |
 | `OV_NETWORK_URL` | `https://openvibe.network` | the OAuth token endpoint's origin |
 | `OV_LIVE_INTERNAL_URL` | `http://127.0.0.1:3000` | Live's loopback origin |
-| `OV_BENCH_INTERNAL_URL` | `https://bench.openvibe.services` | Bench's public read origin, optionally an internal origin |
+| `OV_BENCH_INTERNAL_URL` | `https://openvibe.compare` | Bench's public read origin (the API now answers inside Compare), optionally an internal origin |
 | `OV_AI_INTERNAL_URL` | `https://api.openvibe.exchange` | AI's public Exchange catalogue and measured provider offers (`/api/v1/exchange/catalog`; the ai.openvibe.services vhost does not pass it) |
 | `OV_BILLING_INTERNAL_URL` | `http://127.0.0.1:4600` | Billing's loopback origin |
 | `OV_OAUTH_CLIENT_ID` / `OV_OAUTH_CLIENT_SECRET` | `report` / unset | Report's client-credentials token for `openvibe.billing` |
@@ -277,7 +277,7 @@ HMAC. See [SECURITY.md](SECURITY.md).
 
 <!-- versions:start -->
 - openvibe-contracts: v0.421.0
-- openvibe-sdk: v0.167.0
+- openvibe-sdk: v0.168.0
 - openvibe-shared: v4.247.0
 - openvibe-publishing: v1.7.0
 <!-- versions:end -->
