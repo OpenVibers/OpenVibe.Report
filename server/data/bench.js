@@ -20,7 +20,7 @@
  */
 const { trim, requestJson, TIMEOUT_MS } = require('./source');
 const { createClient } = require('openvibe-sdk/core');
-const { createBenchClient: createSdkBench } = require('openvibe-sdk/bench');
+const { createCompareClient: createSdkBench } = require('openvibe-sdk/compare');
 
 const TTL_MS = 60_000;
 const KIND_RE = /^[a-z0-9][a-z0-9._-]{0,79}$/;
