@@ -47,6 +47,17 @@ const views = require('../server/views');
     assert.ok(html.includes('From previews') && html.includes('50%'), 'the Feed share is the number Media gave');
     assert.ok(html.includes('Peak live'));
 
+    // Email (plan §AB.38): Network's open numbers' email part, by kind in words and by day; nothing when nothing was sent.
+    const mailHtml = views.stats({ stats: { totals: {}, window_days: 7, sites: [], email: { sent: 286, failed: 2,
+        by_kind: [{ kind: 'Operator alert', sent: 284, failed: 0 }, { kind: 'Email check <b>x</b>', sent: 2, failed: 2 }],
+        daily: [{ day: '2026-11-13', sent: 40, failed: 0 }, { day: '2026-11-14', sent: 246, failed: 2 }] } }, days: 7 });
+    assert.ok(mailHtml.includes('id="email"') && mailHtml.includes('>Email</h2>'), 'an Email section, linkable as #email');
+    assert.ok(mailHtml.includes('<b>286</b><span>Sent</span>') && mailHtml.includes('<b>2</b><span>Failed</span>') && mailHtml.includes('<b>99.3%</b><span>Sent OK</span>'));
+    assert.ok(mailHtml.includes('Operator alert') && mailHtml.includes('Email check &lt;b&gt;x&lt;/b&gt;'), 'kinds in words, as text');
+    assert.ok(mailHtml.includes('Emails sent a day'), 'a bar a day');
+    assert.ok(!views.stats({ stats: { totals: {}, window_days: 7, sites: [], email: { sent: 0, failed: 0, by_kind: [], daily: [] } }, days: 7 }).includes('id="email"'), 'nothing sent: no section');
+    assert.ok(!views.stats({ stats: { totals: {}, window_days: 7, sites: [] }, days: 7 }).includes('id="email"'), 'no email part: no section');
+
     const channel = views.channel({ username: 'nadia', recaps: { recaps: [] }, views: { scope: 'creator', id: 'nadia', rows: source.rows } });
     assert.ok(channel.includes('Views and engaged viewers'), 'a creator page shows their numbers');
 

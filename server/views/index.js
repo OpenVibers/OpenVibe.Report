@@ -341,6 +341,24 @@ function viewsSection(v) {
 ${viewTable('Top items', items, 'item')}${viewTable('Top creators', creators, 'creator')}${viewTable('By site', sites, 'site')}</section>`;
 }
 
+/**
+ * Email (plan §AB.38; the owner: "email stuff should be on openvibe.report as well"): what the network sent over the
+ * window, sent and failed, a day at a time and by kind in words, from Network's open numbers (email). Counts only.
+ */
+function emailSection(E, days) {
+    if (!E || typeof E !== 'object' || !(n(E.sent) || n(E.failed))) return '';
+    const kinds = (Array.isArray(E.by_kind) ? E.by_kind : []).filter((k) => k && typeof k.kind === 'string').slice(0, 12);
+    const daily = (Array.isArray(E.daily) ? E.daily : []).filter((x) => x && x.day).map((x) => ({ day: x.day, n: Number(x.sent) || 0 }));
+    const rows = kinds.map((k) => `<div class="rp-tr" role="row"><span role="cell">${esc(k.kind)}</span><span role="cell" data-l="Sent">${exact(Number(k.sent) || 0)}</span><span role="cell" data-l="Failed">${exact(Number(k.failed) || 0)}</span></div>`).join('');
+    const total = (Number(E.sent) || 0) + (Number(E.failed) || 0);
+    const rate = total ? Math.round(((Number(E.sent) || 0) / total) * 1000) / 10 : null;
+    return `<section id="email" aria-labelledby="rp-mail-h"><h2 id="rp-mail-h">Email</h2>
+<p class="rp-fine">What the network sent over ${esc(days)} days: account emails (checks, password resets) and the operator's alerts. Counts only, never an address or a subject.</p>
+<div class="rp-minis">${[['Sent', E.sent], ['Failed', E.failed]].filter(([, v]) => n(v) || v === 0).map(([l, v]) => `<div><b>${exact(Number(v) || 0)}</b><span>${esc(l)}</span></div>`).join('')}${rate != null ? `<div><b>${esc(String(rate))}%</b><span>Sent OK</span></div>` : ''}</div>
+${daily.length > 1 ? bars(daily, 'Emails sent a day', { h: 110 }) : ''}
+${rows ? `<div class="rp-table is-3" role="table" aria-label="Email by kind"><div class="rp-tr rp-th" role="row"><span role="columnheader">Kind</span><span role="columnheader">Sent</span><span role="columnheader">Failed</span></div>${rows}</div>` : ''}</section>`;
+}
+
 function stats({ stats: d, days = 30, views: v = null } = {}) {
     const T = d.totals || {}, L = d.live, C = d.coins, A = d.accounts;
     const tabs = [7, 30, 90].map((x) => `<a href="/stats?days=${x}"${Number(days) === x ? ' aria-current="page"' : ''}>${x} days</a>`).join('');
@@ -365,6 +383,7 @@ ${sites ? `<section aria-labelledby="rp-sites-h"><h2 id="rp-sites-h">Every site<
 <div class="rp-table" role="table" aria-label="Every site"><div class="rp-tr rp-th" role="row"><span role="columnheader">Site</span><span role="columnheader">Page views</span><span role="columnheader">Visitors</span><span role="columnheader">Requests, 24 h</span><span role="columnheader">95% answered in</span></div>${sites}</div></section>` : ''}
 ${L ? `<section aria-labelledby="rp-live-h"><h2 id="rp-live-h">OpenVibe.Live</h2><div class="rp-minis">${[['Streamers', L.streamers], ['Streams', L.streams], ['Hours watched', L.hours_watched], ['Chat messages', L.messages], ['Recordings', L.vods], ['Clips', L.clips], ['AI moments', L.ai_moments]].filter(([, v]) => n(v)).map(([l, v]) => `<div><b>${fmt(v)}</b><span>${esc(l)}</span></div>`).join('')}</div></section>` : ''}
 ${A && A.daily && A.daily.length > 1 ? `<section aria-labelledby="rp-acc-h"><h2 id="rp-acc-h">New accounts a day</h2>${bars(A.daily, 'New accounts a day', { h: 110 })}</section>` : ''}
+${emailSection(d.email, d.window_days || days)}
 <section aria-labelledby="rp-how-h"><h2 id="rp-how-h">How these are counted</h2><p class="rp-fine">${esc(d.note || '')} The same numbers: <a href="/api/v1/stats?days=${esc(days)}"><code>/api/v1/stats</code></a>. How closely each site follows the design kit, read from its code: <a href="/design">Design health</a>.</p></section>`;
     return layout({ title: `Every site's numbers, ${days} days`, description: 'Page views, people, streams and how fast each OpenVibe service answers, open to everyone.', body, active: '/stats', path: `/stats${Number(days) === 30 ? '' : `?days=${Number(days)}`}`, agent: true, jsonLd: [networkDataset()] });
 }
