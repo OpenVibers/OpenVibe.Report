@@ -430,3 +430,5 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 520px) { .rp-sites li { grid-template-columns: minmax(70px, 6.5rem) minmax(0, 1fr) auto; column-gap: 10px; } }
 .rp-share-card { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border, rgba(255,255,255,.1)); }
+/* Design rule 201: the intro is one line on a computer, at most two on a phone. */
+@media (max-width: 640px) { .rp-lede, .rp-ai-lead, .rp-lead, .dh-lede { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; } }
