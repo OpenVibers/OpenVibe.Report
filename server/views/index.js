@@ -27,7 +27,7 @@ const NAME = 'OpenVibe.Report';
 // dataset search and AI retrieval can cite Report's tables instead of re-deriving them from prose.
 function networkDataset() {
     return seo.jsonLd.dataset({
-        name: 'OpenVibe network numbers',
+        name: 'Every number on OpenVibe',
         url: 'https://openvibe.report/stats',
         description: 'Page views, visitors, live streams, chat, OpenCoins and service speed across every OpenVibe site, counted by the sites themselves and published as open JSON.',
         creator: 'OpenVibe',
