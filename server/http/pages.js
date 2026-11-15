@@ -125,6 +125,13 @@ function createPageRoutes(ctx) {
         return send(req, res, designViews.designSite(designHealth.all(), site));
     });
 
+    // What people search for across the network (§AD.13 (1)): OpenVibe.Search's trending searches and their counts.
+    r.get('/searches', async (req, res) => {
+        const days = Math.max(1, Math.min(7, Number(req.query.days) || 7));
+        const data = ctx.searchTrends ? await ctx.searchTrends.stats(days) : null;
+        return send(req, res, views.searches({ data, days }));
+    });
+
     r.get('/stats', async (req, res) => {
         const page = await publicPages.stats(normaliseDays(req.query.days));
         if (!page) return notFound(req, res);

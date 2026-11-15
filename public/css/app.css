@@ -431,3 +431,12 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .rp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 520px) { .rp-sites li { grid-template-columns: minmax(70px, 6.5rem) minmax(0, 1fr) auto; column-gap: 10px; } }
 .rp-share-card { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border, rgba(255,255,255,.1)); }
+
+/* What people search for (/searches, §AD.13 (1)): the trending list, numbered, its count and "rising" on the right. */
+.rp-trend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rp-trend li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 6px 14px; border-radius: 12px; background: var(--bg-secondary, #101828); border: 1px solid var(--border, #1f2d47); }
+.rp-trend-n { color: var(--text-secondary, #96a7c2); font-variant-numeric: tabular-nums; font-weight: 700; }
+.rp-trend a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; font-weight: 650; text-decoration: none; }
+.rp-trend a:hover { color: var(--room-fill); text-decoration: underline; }
+.rp-trend-c { color: var(--text-secondary, #96a7c2); font-variant-numeric: tabular-nums; font-size: .9rem; }
+.rp-trend-up { margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; color: var(--room-on); background: var(--room-fill); }

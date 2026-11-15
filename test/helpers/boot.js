@@ -196,6 +196,7 @@ async function boot(opts = {}) {
         ...(opts.aiUsage ? { aiUsage: opts.aiUsage } : {}),
         ...(opts.sessionReports ? { sessionReports: opts.sessionReports } : {}),
         ...(opts.bench ? { bench: opts.bench } : {}),
+        ...(opts.searchTrends ? { searchTrends: opts.searchTrends } : {}),
         ...(opts.aiCatalogue ? { aiCatalogue: opts.aiCatalogue } : {}),
         ...(opts.verifyServiceToken ? { verifyServiceToken: opts.verifyServiceToken } : {}),
         ...(opts.shareNetwork ? { shareNetwork: opts.shareNetwork } : {}),
