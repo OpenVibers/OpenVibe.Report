@@ -63,7 +63,11 @@ function createShadow({ store, network, now = () => Date.now(), log = console })
             const networkRows = metricRowsFromStats(source);
             const stored = await reportRows(store, windowDays, now());
             const reportByKey = new Map(stored.map((r) => [keyOf(r), r]));
-            const netKeys = new Set(networkRows.map(keyOf));
+            // One pass each (11-18: a find and a some over every Network row for every key was quadratic; Report's event
+            // loop stalled up to 1.2 s while a window compared, every few minutes after a restart).
+            const netByKey = new Map(networkRows.map((r) => [keyOf(r), r]));
+            const netKeys = new Set(netByKey.keys());
+            const netMetrics = new Set(networkRows.map((r) => r.metric));
             const keys = new Set([...netKeys, ...stored.map(keyOf)]);
             const diffs = [];
             let checked = 0;
@@ -79,13 +83,13 @@ function createShadow({ store, network, now = () => Date.now(), log = console })
             }
             const today = new Date(now()).toISOString().slice(0, 10);
             for (const key of keys) {
-                const net = networkRows.find((r) => keyOf(r) === key) || null;
+                const net = netByKey.get(key) || null;
                 const rep = reportByKey.get(key) || null;
                 if (!net && !rep) continue;
                 if ((net || rep).kind === 'day' && (net || rep).day === today) continue;   // still counting (see above)
                 // Only compare a stored number whose metric Network actually reports in this window; an unrelated
                 // stored scope is not a shadow difference.
-                if (!net && !netKeys.has(key) && !networkRows.some((r) => r.metric === (rep && rep.metric))) continue;
+                if (!net && !netKeys.has(key) && !netMetrics.has(rep && rep.metric)) continue;
                 checked++;
                 const nv = net ? net.value : null;
                 const rv = rep ? rep.value : null;
