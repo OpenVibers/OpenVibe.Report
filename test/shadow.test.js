@@ -69,6 +69,20 @@ const { stats, NOW } = require('./fixtures/analytics');
             assert.ok(past.diffs.some((d) => d.metric === 'pageviews' && d.day === days[0]), 'a finished day that differs is a difference');
         });
 
+        await check('a big window compares in one pass: 300 sites, equal, well under a second (11-18: it was quadratic)', async () => {
+            const big = JSON.parse(JSON.stringify(stats));
+            const site = big.sites[0];
+            // The two sites already stored stay; 300 more join them.
+            big.sites = big.sites.concat(Array.from({ length: 300 }, (_, i) => ({ ...JSON.parse(JSON.stringify(site)), id: `site${i}`, name: `Site ${i}`, short: `S${i}`, host: `s${i}.example`, url: `https://s${i}.example/` })));
+            await t.ctx.analytics.ingestStats(big);
+            const t0 = Date.now();
+            const run = await t.ctx.shadow.compare({ days: 7, stats: big });
+            const ms = Date.now() - t0;
+            assert.strictEqual(run.status, 'equal', JSON.stringify(run.diffs && run.diffs.slice(0, 3)));
+            assert.ok(run.checked > 2000, `checked ${run.checked}`);
+            assert.ok(ms < 3000, `compared ${run.checked} in ${ms} ms`);
+        });
+
         await check('a Network that does not answer is a run with no differences, never a clean claim', async () => {
             const down = await t.ctx.shadow.compare({ days: 7, stats: null });
             assert.strictEqual(down.status, 'network_unavailable');
