@@ -72,7 +72,8 @@ const { stats, NOW } = require('./fixtures/analytics');
         await check('a big window compares in one pass: 300 sites, equal, well under a second (11-18: it was quadratic)', async () => {
             const big = JSON.parse(JSON.stringify(stats));
             const site = big.sites[0];
-            big.sites = Array.from({ length: 300 }, (_, i) => ({ ...JSON.parse(JSON.stringify(site)), id: `site${i}`, name: `Site ${i}`, short: `S${i}`, host: `s${i}.example`, url: `https://s${i}.example/` }));
+            // The two sites already stored stay; 300 more join them.
+            big.sites = big.sites.concat(Array.from({ length: 300 }, (_, i) => ({ ...JSON.parse(JSON.stringify(site)), id: `site${i}`, name: `Site ${i}`, short: `S${i}`, host: `s${i}.example`, url: `https://s${i}.example/` })));
             await t.ctx.analytics.ingestStats(big);
             const t0 = Date.now();
             const run = await t.ctx.shadow.compare({ days: 7, stats: big });
