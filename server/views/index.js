@@ -27,7 +27,7 @@ const NAME = 'OpenVibe.Report';
 // dataset search and AI retrieval can cite Report's tables instead of re-deriving them from prose.
 function networkDataset() {
     return seo.jsonLd.dataset({
-        name: 'OpenVibe network numbers',
+        name: 'Every number on OpenVibe',
         url: 'https://openvibe.report/stats',
         description: 'Page views, visitors, live streams, chat, OpenCoins and service speed across every OpenVibe site, counted by the sites themselves and published as open JSON.',
         creator: 'OpenVibe',
@@ -96,6 +96,7 @@ const gamesOf = (rows) => Math.round((rows || []).reduce((sum, r) => sum + (n(r 
 const NAV = [
     { label: 'You', href: '/you', icon: 'user' },
     { label: 'Numbers', href: '/stats', icon: 'chart' },
+    { label: 'Searches', href: '/searches', icon: 'search' },
     { label: 'The Rundown', href: '/rundown', icon: 'news' },
     { label: 'API', href: '/developers', icon: 'code', more: true },
 ];
@@ -341,6 +342,24 @@ function viewsSection(v) {
 ${viewTable('Top items', items, 'item')}${viewTable('Top creators', creators, 'creator')}${viewTable('By site', sites, 'site')}</section>`;
 }
 
+/**
+ * Email (plan §AB.38; the owner: "email stuff should be on openvibe.report as well"): what the network sent over the
+ * window, sent and failed, a day at a time and by kind in words, from Network's open numbers (email). Counts only.
+ */
+function emailSection(E, days) {
+    if (!E || typeof E !== 'object' || !(n(E.sent) || n(E.failed))) return '';
+    const kinds = (Array.isArray(E.by_kind) ? E.by_kind : []).filter((k) => k && typeof k.kind === 'string').slice(0, 12);
+    const daily = (Array.isArray(E.daily) ? E.daily : []).filter((x) => x && x.day).map((x) => ({ day: x.day, n: Number(x.sent) || 0 }));
+    const rows = kinds.map((k) => `<div class="rp-tr" role="row"><span role="cell">${esc(k.kind)}</span><span role="cell" data-l="Sent">${exact(Number(k.sent) || 0)}</span><span role="cell" data-l="Failed">${exact(Number(k.failed) || 0)}</span></div>`).join('');
+    const total = (Number(E.sent) || 0) + (Number(E.failed) || 0);
+    const rate = total ? Math.round(((Number(E.sent) || 0) / total) * 1000) / 10 : null;
+    return `<section id="email" aria-labelledby="rp-mail-h"><h2 id="rp-mail-h">Email</h2>
+<p class="rp-fine">What the network sent over ${esc(days)} days: account emails (checks, password resets) and the operator's alerts. Counts only, never an address or a subject.</p>
+<div class="rp-minis">${[['Sent', E.sent], ['Failed', E.failed]].filter(([, v]) => n(v) || v === 0).map(([l, v]) => `<div><b>${exact(Number(v) || 0)}</b><span>${esc(l)}</span></div>`).join('')}${rate != null ? `<div><b>${esc(String(rate))}%</b><span>Sent OK</span></div>` : ''}</div>
+${daily.length > 1 ? bars(daily, 'Emails sent a day', { h: 110 }) : ''}
+${rows ? `<div class="rp-table is-3" role="table" aria-label="Email by kind"><div class="rp-tr rp-th" role="row"><span role="columnheader">Kind</span><span role="columnheader">Sent</span><span role="columnheader">Failed</span></div>${rows}</div>` : ''}</section>`;
+}
+
 function stats({ stats: d, days = 30, views: v = null } = {}) {
     const T = d.totals || {}, L = d.live, C = d.coins, A = d.accounts;
     const tabs = [7, 30, 90].map((x) => `<a href="/stats?days=${x}"${Number(days) === x ? ' aria-current="page"' : ''}>${x} days</a>`).join('');
@@ -365,8 +384,36 @@ ${sites ? `<section aria-labelledby="rp-sites-h"><h2 id="rp-sites-h">Every site<
 <div class="rp-table" role="table" aria-label="Every site"><div class="rp-tr rp-th" role="row"><span role="columnheader">Site</span><span role="columnheader">Page views</span><span role="columnheader">Visitors</span><span role="columnheader">Requests, 24 h</span><span role="columnheader">95% answered in</span></div>${sites}</div></section>` : ''}
 ${L ? `<section aria-labelledby="rp-live-h"><h2 id="rp-live-h">OpenVibe.Live</h2><div class="rp-minis">${[['Streamers', L.streamers], ['Streams', L.streams], ['Hours watched', L.hours_watched], ['Chat messages', L.messages], ['Recordings', L.vods], ['Clips', L.clips], ['AI moments', L.ai_moments]].filter(([, v]) => n(v)).map(([l, v]) => `<div><b>${fmt(v)}</b><span>${esc(l)}</span></div>`).join('')}</div></section>` : ''}
 ${A && A.daily && A.daily.length > 1 ? `<section aria-labelledby="rp-acc-h"><h2 id="rp-acc-h">New accounts a day</h2>${bars(A.daily, 'New accounts a day', { h: 110 })}</section>` : ''}
-<section aria-labelledby="rp-how-h"><h2 id="rp-how-h">How these are counted</h2><p class="rp-fine">${esc(d.note || '')} The same numbers: <a href="/api/v1/stats?days=${esc(days)}"><code>/api/v1/stats</code></a>. How closely each site follows the design kit, read from its code: <a href="/design">Design health</a>.</p></section>`;
+${emailSection(d.email, d.window_days || days)}
+<section aria-labelledby="rp-how-h"><h2 id="rp-how-h">How these are counted</h2><p class="rp-fine">${esc(d.note || '')} This page is the open dataset <strong>Every number on OpenVibe</strong>. The same numbers: <a href="/api/v1/stats?days=${esc(days)}"><code>/api/v1/stats</code></a>. How closely each site follows the design kit, read from its code: <a href="/design">Design health</a>.</p></section>`;
     return layout({ title: `Every site's numbers, ${days} days`, description: 'Page views, people, streams and how fast each OpenVibe service answers, open to everyone.', body, active: '/stats', path: `/stats${Number(days) === 30 ? '' : `?days=${Number(days)}`}`, agent: true, jsonLd: [networkDataset()] });
+}
+
+// What people search for (plan §AD.13 (1)): OpenVibe.Search's counts. Rising searches show once 5 or more people
+// searched them; nothing here is about a person.
+function searches({ data: d = null, days = 7 } = {}) {
+    const tabs = [1, 7].map((x) => `<a href="/searches?days=${x}"${Number(days) === x ? ' aria-current="page"' : ''}>${x === 1 ? 'Today' : `${x} days`}</a>`).join('');
+    const head = `<header class="rp-page-h"><p class="rp-kicker">Open numbers</p><h1>What people search for</h1>
+<p class="rp-lede">Every OpenVibe search box, counted. A search shows here once five or more people looked for it; nothing personal is ever counted.</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></header>`;
+    if (!d) {
+        return layout({ title: 'What people search for', description: 'What people search for across OpenVibe, rising first.', active: '/searches', path: '/searches',
+            body: `${head}<p class="rp-fine">OpenVibe.Search is not answering right now. Try again in a minute.</p>` });
+    }
+    const total = (d.by_day || []).reduce((a, x) => a + (Number(x.searches) || 0), 0);
+    const top = (d.top || []).slice(0, 20);
+    const sites = (d.by_site || []).filter((x) => x && x.site);
+    const rising = top.filter((x) => x.rising).length;
+    const body = `${head}
+<section class="rp-tiles" aria-label="Across the network">
+${tile(`Searches, ${days === 1 ? 'today' : `${days} days`}`, exact(total))}
+${tile('Sites searched', exact(sites.length))}
+${tile('Trending now', exact(top.length), rising ? `${exact(rising)} rising` : '')}
+</section>
+${(d.by_day || []).length > 1 ? `<section aria-labelledby="rp-sd-h"><h2 id="rp-sd-h">Searches a day</h2>${bars((d.by_day || []).map((x) => ({ day: x.day, n: x.searches })), 'Searches a day')}</section>` : ''}
+${top.length ? `<section aria-labelledby="rp-st-h"><h2 id="rp-st-h">Trending now</h2><ol class="rp-trend">${top.map((x, i) => `<li><span class="rp-trend-n">${i + 1}</span><a href="https://search.openvibe.network/?q=${encodeURIComponent(x.query)}">${esc(x.query)}</a><span class="rp-trend-c">${exact(x.searches)}${x.rising ? ' <b class="rp-trend-up">rising</b>' : ''}</span></li>`).join('')}</ol></section>` : '<p class="rp-fine">Nothing has been searched by five or more people yet.</p>'}
+${sites.length ? `<section aria-labelledby="rp-ss-h"><h2 id="rp-ss-h">By site</h2><div class="rp-table" role="table" aria-label="Searches by site"><div class="rp-tr rp-th" role="row"><span role="columnheader">Site</span><span role="columnheader">Searches</span></div>${sites.map((x) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><a href="https://${esc(x.site)}">${esc(x.site)}</a></span><span role="cell" data-l="Searches">${exact(x.searches)}</span></div>`).join('')}</div></section>` : ''}
+<section aria-labelledby="rp-sh-h"><h2 id="rp-sh-h">How these are counted</h2><p class="rp-fine">A search is counted when someone sends it from a search box on an OpenVibe site, never from the API or an agent, and never with Do Not Track or Global Privacy Control on. Nothing that looks personal (an email, a phone number, a long number, a web address) or explicit is counted. A visitor is a code that changes every day and is deleted after two, so nobody can be followed. The same numbers: <a href="https://search.openvibe.network/api/v1/trending/stats?days=${esc(days)}"><code>/api/v1/trending/stats</code></a>.</p></section>`;
+    return layout({ title: 'What people search for', description: 'What people search for across OpenVibe: searches a day, by site, and what is trending now.', body, active: '/searches', path: `/searches${days === 7 ? '' : `?days=${days}`}` });
 }
 
 function rundown({ rundown: R = {}, topics, reports } = {}) {
@@ -1119,4 +1166,4 @@ function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, me, meSignedOut, meError, publicStats, publicStatsPrivate, developers, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { home, stats, searches, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, me, meSignedOut, meError, publicStats, publicStatsPrivate, developers, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };

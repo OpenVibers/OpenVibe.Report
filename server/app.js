@@ -31,6 +31,7 @@ const cache = require('openvibe-shared/cache-policy');
 const configLib = require('./config');
 const { openStore } = require('./db');
 const { createNetworkClient } = require('./data/network');
+const { createSearchTrendsClient } = require('./data/search-trends');
 const { createLiveClient } = require('./data/live');
 const { createBillingClient } = require('./data/billing');
 const { createBenchClient } = require('./data/bench');
@@ -92,6 +93,7 @@ async function createApp(opts = {}) {
     // `store: null` is a deliberate no-database process (most unit tests); undefined opens the configured one.
     const store = opts.store !== undefined ? opts.store : await openStore(config, { now, log });
     const network = opts.network || createNetworkClient({ config, fetchImpl, log, now });
+    const searchTrends = opts.searchTrends || createSearchTrendsClient({ config, fetchImpl, log, now });
     const live = opts.live || createLiveClient({ config, fetchImpl, log, now });
     const billing = opts.billing || createBillingClient({ config, fetchImpl, log, now });
     const bench = opts.bench || createBenchClient({ config, fetchImpl, log, now });
@@ -131,7 +133,7 @@ async function createApp(opts = {}) {
     });
 
     const viewsData = createViewsClient({ config, fetchImpl, log, now });
-    const ctx = { config, log, fetchImpl, now, store, network, live, billing, bench, aiCatalogue, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports, meStats, popularity, viewsData };
+    const ctx = { config, log, fetchImpl, now, store, network, searchTrends, live, billing, bench, aiCatalogue, analytics, shadow, sso, aiUsage, aiExchange, searchIndex, exchangeConfig, sessionReports, meStats, popularity, viewsData };
     const app = express();
     if (exchangeConfig) exchangeConfig.mount(app);
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts

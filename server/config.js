@@ -43,6 +43,8 @@ function load(env = process.env) {
         // openvibe-contracts name the same defaults.
         // networkUrl is the loopback origin the read clients call (the manifest's internalOrigin).
         networkUrl: trim(env.OV_NETWORK_INTERNAL_URL || 'http://127.0.0.1:4000'),
+        // OpenVibe.Search: the trending searches and their counts (/searches; data/search-trends.js).
+        searchUrl: trim(env.OV_SEARCH_INTERNAL_URL || 'http://127.0.0.1:4710'),
         networkPublicUrl,
         networkInternalUrl: trim(env.OV_NETWORK_INTERNAL_URL || 'http://127.0.0.1:4000'),
         liveUrl: trim(env.OV_LIVE_INTERNAL_URL || 'http://127.0.0.1:3000'),
