@@ -32,6 +32,29 @@ const quiet = () => ({ warn() {}, error() {} });
         assert.strictEqual(calls, 2, 'an expired entry must fetch again');
     });
 
+    await check('network stats: an expired answer is served at once while one refresh runs; the next call has the new one', async () => {
+        let now = 1_000_000, n = 0, release;
+        const gate = () => new Promise((r) => { release = r; });
+        let wait = null;
+        const client = createNetworkClient({
+            config: { networkUrl: 'http://network' },
+            fetchImpl: async () => { n++; if (wait) await wait; return jsonResponse({ window_days: 7, totals: { pageviews: n } }); },
+            now: () => now, log: quiet(),
+        });
+        const first = await client.stats(7);
+        now += 5 * 60_000 + 1;
+        wait = gate();
+        const t0 = Date.now();
+        const stale = await client.stats(7);
+        await client.stats(7);
+        assert.strictEqual(stale, first, 'the last numbers, at once');
+        assert.ok(Date.now() - t0 < 200);
+        assert.strictEqual(n, 2, 'one refresh, however many readers');
+        release(); wait = null;
+        await new Promise((r) => setTimeout(r, 10));
+        assert.deepStrictEqual((await client.stats(7)).totals, { pageviews: 2 }, 'then the refreshed numbers');
+    });
+
     await check('network stats: days other than 7, 30 or 90 become 30, in the request and in the cache key', async () => {
         const urls = [];
         const client = createNetworkClient({

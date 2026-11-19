@@ -154,7 +154,21 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
     r.get('/design-health', (req, res) => res.json(designHealth.all()));
 
     const aiEnvelope = (schema, data) => ({ '$schema': schema, generated_at: new Date(now()).toISOString(), ...data });
+    // The leaderboard's rows join Bench's kinds and every board with OpenVibe.AI's whole catalogue: built per request they
+    // took 7.7 s on average (2026-11-19). Kept a minute; past that, served (up to 30 minutes old) while one rebuild runs.
+    let aiRowsKept = null, aiRowsAt = 0, aiRowsBuilding = null;
+    const AI_ROWS_TTL_MS = 60_000, AI_ROWS_STALE_MS = 30 * 60_000;
     const aiRows = async () => {
+        const age = Date.now() - aiRowsAt;
+        if (aiRowsKept && age < AI_ROWS_TTL_MS) return aiRowsKept;
+        if (!aiRowsBuilding) {
+            aiRowsBuilding = buildAiRows().then((rows) => { if (rows) { aiRowsKept = rows; aiRowsAt = Date.now(); } return rows; })
+                .catch(() => null).finally(() => { aiRowsBuilding = null; });
+        }
+        if (aiRowsKept && age < AI_ROWS_STALE_MS) return aiRowsKept;
+        return aiRowsBuilding;
+    };
+    const buildAiRows = async () => {
         const [kindsResult, catalogueResult] = await Promise.all([bench && bench.kinds(), require('../data/ai-market').comparisonCatalogue(aiCatalogue)]);
         if (!kindsResult) return null;
         const kinds = kindsResult.data && kindsResult.data.kinds || [];
@@ -203,7 +217,7 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
     r.get('/ai/leaderboard', async (req, res) => {
         const all = await aiRows();
         if (!all) return problem(req, res, 502, 'report.ai_source_unavailable', 'OpenVibe.Bench did not answer.');
-        let rows = all;
+        let rows = all.slice();   // the rows are shared (kept a minute): sort a copy
         const q = req.query;
         if (q.kind) rows = rows.filter((x) => x.kind === q.kind);
         if (q.maker) rows = rows.filter((x) => String(x.maker || '').toLowerCase() === String(q.maker).toLowerCase());
