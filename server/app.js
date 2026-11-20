@@ -177,6 +177,8 @@ async function createApp(opts = {}) {
                 // Cards show the readings' own pictures: a stream's thumbnail comes from Live and a post's screenshot
                 // from Community (the sources of the Rundown's takes), so both origins are allowed here and nowhere wider.
                 imgSrc: ["'self'", 'data:', 'https://openvibe.network', 'https://openvibe.media', 'https://openvibe.live', 'https://openvibe.community'],
+                // The feed's preview videos (ov-home.js watchPreview, the menu's Feed): without media-src, default-src 'self' refused them (2026-11-20).
+                mediaSrc: ["'self'", 'blob:', 'https:'],
                 connectSrc: ["'self'", 'https://openvibe.network', 'https://openvibe.chat', 'https://cloudflareinsights.com', 'https://openvibe.events'],
                 frameSrc: ["'self'", 'https://openvibe.network'],
                 frameAncestors: ["'none'"],
