@@ -54,7 +54,7 @@ function describe(rows) {
     }
     if (rows.length) {
         lines.push('The first few:');
-        for (const p of rows.slice(0, 10)) lines.push(`  ${p.id}  ${p.from} -> ${p.to}`);
+        for (const p of rows.slice(0, 10)) lines.push(`  ${p.id}  from ${p.from} to ${p.to}`);
         if (rows.length > 10) lines.push(`  ... and ${rows.length - 10} more`);
     }
     return { lines, counts };
