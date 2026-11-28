@@ -7,7 +7,8 @@ const { normaliseDays } = require('./data/source');
 
 // /design and /rundown since 11-03: llms.txt listed them as HTML pages with no twin.
 // The /ai pages moved to OpenVibe.Compare on 2026-11-13 (their twins with them).
-const twinPath = (path) => /^\/(?:|stats|developers|design|rundown)$/.test(String(path || '/'));
+// /traffic since 11-28: llms.txt listed /traffic.md with no twin.
+const twinPath = (path) => /^\/(?:|stats|developers|design|rundown|traffic)$/.test(String(path || '/'));
 
 function createAgentPages({ publicPages }) {
     async function renderPublicPage(path, { query } = {}) {
@@ -16,6 +17,7 @@ function createAgentPages({ publicPages }) {
         else if (path === '/developers') page = publicPages.developers();
         else if (path === '/design') page = publicPages.design();
         else if (path === '/stats') page = await publicPages.stats(normaliseDays(query && query.get('days')));
+        else if (path === '/traffic' && typeof publicPages.traffic === 'function') page = await publicPages.traffic(require('./traffic/query').normaliseDays(query && query.get('days')));
         return page ? { html: page.html } : null;
     }
 
