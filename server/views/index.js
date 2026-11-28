@@ -372,6 +372,8 @@ const GRADE = { lcp: [2500, 4000], inp: [200, 500], cls: [0.1, 0.25] };
 function vitalCell(r, metric) {
     if (!r || r.p75 == null) return '—';
     const v = Number(r.p75);
+    // An INP of 0 at the p75: most of these visits never tapped anything, which says nothing about how fast a tap is.
+    if (metric === 'inp' && v === 0) return '<span class="rp-fine">few taps</span>';
     const [good, poor] = GRADE[metric];
     const grade = v <= good ? ['is-up', 'good'] : v <= poor ? ['is-flat', 'needs work'] : ['is-down', 'slow'];
     const words = metric === 'cls' ? (Math.round(v * 100) / 100).toFixed(2) : metric === 'lcp' ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`;
