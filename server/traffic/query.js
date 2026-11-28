@@ -48,6 +48,42 @@ function whoTotals(rows) {
     return { by_who: out, total, people: out.person, bots: total - out.person };
 }
 
+/** Today in hours (UTC), as [{ day: hour ISO, label: '14:00', person, search, … }]. */
+function byHour(rows) {
+    const start = new Date(); start.setUTCHours(0, 0, 0, 0);
+    const now = Date.now();
+    const out = [];
+    for (let h = 0; h < 24; h++) {
+        const t = start.getTime() + h * 3600000;
+        if (t > now) break;
+        out.push({ day: new Date(t).toISOString(), label: `${String(h).padStart(2, '0')}:00`, ...Object.fromEntries(Object.keys(WHO).map((w) => [w, 0])) });
+    }
+    const at = new Map(out.map((x) => [x.day, x]));
+    for (const r of rows) {
+        const x = at.get(iso(r.hour));
+        if (x && Object.prototype.hasOwnProperty.call(WHO, r.who)) x[r.who] += num(r.requests);
+    }
+    return out;
+}
+
+/** Where people came from, countries and (for today) hours: the v2 parts both the network and a site show. */
+async function extras(store, D, host = null) {
+    const q = (sql, ...args) => store.db.prepare(sql).all(...args);
+    const onHost = host ? ' AND host = ?' : '';
+    const hostArg = host ? [host] : [];
+    const [sources, countries, hours] = await Promise.all([
+        q(`SELECT source, SUM(requests) AS requests FROM report_traffic_sources WHERE ${SINCE}${onHost} GROUP BY source ORDER BY SUM(requests) DESC LIMIT 60`, D, ...hostArg),
+        q(`SELECT country, SUM(CASE WHEN people THEN requests ELSE 0 END) AS people, SUM(CASE WHEN people THEN 0 ELSE requests END) AS bots
+           FROM report_traffic_countries WHERE ${SINCE}${onHost} GROUP BY country ORDER BY SUM(CASE WHEN people THEN requests ELSE 0 END) DESC, SUM(requests) DESC LIMIT 80`, D, ...hostArg),
+        D === 1 ? q(`SELECT hour, who, SUM(requests) AS requests FROM report_traffic_hours WHERE hour >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'${onHost} GROUP BY hour, who`, ...hostArg) : Promise.resolve(null),
+    ]);
+    return {
+        sources: sources.map((x) => ({ source: x.source, requests: num(x.requests) })),
+        countries: countries.map((x) => ({ country: x.country, people: num(x.people), bots: num(x.bots) })),
+        ...(hours ? { hourly: byHour(hours) } : {}),
+    };
+}
+
 async function summary(store, { days = 7 } = {}) {
     const D = normaliseDays(days);
     const q = (sql, ...args) => store.db.prepare(sql).all(...args);
@@ -77,6 +113,7 @@ async function summary(store, { days = 7 } = {}) {
         days: D,
         totals: { ...W, ai: W.by_who.ai_crawler + W.by_who.ai_assistant, bot_share: W.total ? W.bots / W.total : null },
         daily: byDay(daily, D),
+        ...(await extras(store, D)),
         kinds: kinds.map((k) => ({ kind: k.kind, requests: num(k.requests), people: num(k.people) })).sort((a, b) => b.requests - a.requests),
         bots: bots.map((b) => ({ agent: b.agent, who: b.who, sites: num(b.sites), files: num(b.files), verified_yes: num(b.verified_yes), verified_no: num(b.verified_no), ...counts(b) })),
         files: files.map((f) => ({ path: f.path, sites: num(f.sites), people: num(f.people), readers: topReaders.get(f.path) || [], ...counts(f) })),
@@ -111,6 +148,7 @@ async function site(store, host, { days = 7 } = {}) {
         host: h, days: D,
         totals: { ...W, ai: W.by_who.ai_crawler + W.by_who.ai_assistant, bot_share: W.total ? W.bots / W.total : null },
         daily: byDay(daily, D),
+        ...(await extras(store, D, h)),
         bots: bots.map((b) => ({ agent: b.agent, who: b.who, verified_yes: num(b.verified_yes), verified_no: num(b.verified_no), ...counts(b) })),
         files: [...byFile.values()].sort((a, b) => b.requests - a.requests),
         pages: pages.map((p) => ({ path: p.path, people: num(p.people), bots: num(p.bots), missing: num(p.missing) })),
