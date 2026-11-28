@@ -68,5 +68,18 @@ const { check, done, jsonResponse } = require('./helpers/boot');
         assert.strictEqual(requests.length, 1);
     });
 
+    await check('a read that never succeeded is asked once a minute, not on every page (11-28: chat.willing Elo, 31 times in 6 h)', async () => {
+        down = true;
+        const before = calls; const logged = logs.length;
+        assert.strictEqual(await bench.modelSummary('never-there'), null);
+        assert.strictEqual(await bench.modelSummary('never-there'), null);
+        assert.strictEqual(calls - before, 1, 'asked once');
+        assert.strictEqual(logs.length - logged, 1, 'logged once');
+        time += 60_001;
+        assert.strictEqual(await bench.modelSummary('never-there'), null);
+        assert.strictEqual(calls - before, 2, 'asked again after the minute');
+        down = false;
+    });
+
     done();
 })().catch((e) => { console.error(e); process.exit(1); });

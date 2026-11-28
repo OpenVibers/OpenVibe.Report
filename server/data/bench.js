@@ -80,7 +80,7 @@ function createBenchClient({ config = {}, fetchImpl = globalThis.fetch, log = co
         const atMs = clock();
         const hit = store.get(key);
         if (hit && hit.atMs + TTL_MS > atMs) return { data: hit.data, at: hit.at, stale: false };
-        if (hit && hit.retryAtMs > atMs) return { data: hit.data, at: hit.at, stale: true };
+        if (hit && hit.retryAtMs > atMs) return hit.data === null ? null : { data: hit.data, at: hit.at, stale: true };
         let data = null;
         if (loader) {
             try { data = await loader(); }
@@ -88,7 +88,10 @@ function createBenchClient({ config = {}, fetchImpl = globalThis.fetch, log = co
         } else data = await requestJson(`${baseUrl}${path}`, { fetchImpl, log, timeoutMs, label });
         if (data === null) {
             if (hit) hit.retryAtMs = atMs + TTL_MS;
-            return hit ? { data: hit.data, at: hit.at, stale: true } : null;
+            // A miss with nothing kept is kept too, for the same minute (11-28: a board Bench does not have, chat.willing's
+            // Elo, was asked for and logged on every page view, 31 times in six hours).
+            else keep(store, key, { data: null, atMs: 0, at: null, retryAtMs: atMs + TTL_MS }, cap);
+            return hit && hit.data !== null ? { data: hit.data, at: hit.at, stale: true } : null;
         }
         const entry = { data, atMs, at: new Date(atMs).toISOString() };
         keep(store, key, entry, cap);
