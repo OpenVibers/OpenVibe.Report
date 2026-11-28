@@ -97,6 +97,7 @@ const NAV = [
     { label: 'You', href: '/you', icon: 'user' },
     { label: 'Numbers', href: '/stats', icon: 'chart' },
     { label: 'Searches', href: '/searches', icon: 'search' },
+    { label: 'Traffic', href: '/traffic', icon: 'globe' },
     { label: 'The Rundown', href: '/rundown', icon: 'news' },
     { label: 'API', href: '/developers', icon: 'code', more: true },
 ];
@@ -1166,4 +1167,4 @@ function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { home, stats, searches, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, me, meSignedOut, meError, publicStats, publicStatsPrivate, developers, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { tile, exact, fmt, dayTime, home, stats, searches, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, me, meSignedOut, meError, publicStats, publicStatsPrivate, developers, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };

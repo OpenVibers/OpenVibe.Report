@@ -57,6 +57,7 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
         const pages = [
             { loc: abs('/'), changefreq: 'daily', priority: 1.0 },
             { loc: abs('/stats'), changefreq: 'daily', priority: 0.9 },
+            { loc: abs('/traffic'), changefreq: 'daily', priority: 0.8 },
             { loc: abs('/design'), changefreq: 'weekly', priority: 0.6 },
             ...reports.map((rep) => ({ loc: abs('/s/' + encodeURIComponent(rep.id)), changefreq: 'daily', priority: 0.6 })),
             // A person's public stats page is crawlable only when they published a section; the private default is
@@ -80,6 +81,7 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
                 { title: 'Start here', links: [
                     { title: 'OpenVibe.Report', url: abs('/'), note: 'the Report room' },
                     { title: 'Open numbers', url: abs('/stats'), note: 'page views, accounts and traffic for every OpenVibe site' },
+                    { title: 'Who visits OpenVibe', url: abs('/traffic'), note: 'people and bots on every site, and who reads llms.txt, robots.txt and sitemaps' },
                     { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
                     { title: 'The Rundown', url: 'https://openvibe.live/rundown', note: 'what streamers talked about, topic by topic (OpenVibe.Live is its canonical home)' },
                     { title: 'AI model comparison', url: 'https://openvibe.compare/ai', note: 'the leaderboard, ratings, prices and measured speed of every AI model now live on OpenVibe.Compare' },

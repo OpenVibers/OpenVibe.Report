@@ -7,6 +7,7 @@
 const { createApp } = require('./app');
 const { createAnalyticsJobs } = require('./jobs/analytics');
 const { createAiUsageJobs } = require('./jobs/ai-usage');
+const { createTrafficJobs } = require('./jobs/traffic');
 const { gracefulStop } = require('openvibe-sdk/service');
 
 /**
@@ -35,10 +36,13 @@ async function start() {
     const jobs = createAnalyticsJobs({ config, analytics: ctx.analytics, shadow: ctx.shadow, network: ctx.network, log: ctx.log });
     // The AI meter's job (plan L40/L41): the daily roll-ups, off under drill mode.
     const aiUsageJobs = createAiUsageJobs({ config, store: ctx.store, now: ctx.now, log: ctx.log });
-    const allJobs = { ...jobs, stop: async () => { jobs.stop(); aiUsageJobs.stop(); } };
+    // Traffic (plan AD.40): every site's requests from the host's nginx log, people and bots apart.
+    const trafficJobs = createTrafficJobs({ config, store: ctx.store, log: ctx.log });
+    const allJobs = { ...jobs, stop: async () => { jobs.stop(); aiUsageJobs.stop(); trafficJobs.stop(); } };
     ctx.jobs = allJobs;
     jobs.start();
     aiUsageJobs.start();
+    trafficJobs.start();
     // The Rundown topic pages in OpenVibe.Search: a sweep a minute after boot and every hour.
     if (!config.drill && ctx.searchIndex) ctx.searchIndex.start();
 

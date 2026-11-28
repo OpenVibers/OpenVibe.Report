@@ -111,6 +111,11 @@ function load(env = process.env) {
             aiUsageIntervalMs: Math.max(60_000, int(env.REPORT_AI_USAGE_INTERVAL_MS, 60 * 60_000)),
             aiUsageRollupDays: Math.max(1, int(env.REPORT_AI_USAGE_ROLLUP_DAYS, 14)),
             aiUsageRetentionDays: Math.max(1, int(env.REPORT_AI_USAGE_RETENTION_DAYS, 90)),
+            // Traffic (plan AD.40): the host's nginx log of every request (snippets/ov-traffic.conf), read every minute.
+            // No file (a laptop, a test) is no traffic, never an error.
+            trafficLog: env.REPORT_TRAFFIC_LOG === '' ? null : (env.REPORT_TRAFFIC_LOG || '/var/log/nginx/ov-traffic.log'),
+            trafficIntervalMs: Math.max(15_000, int(env.REPORT_TRAFFIC_INTERVAL_MS, 60_000)),
+            trafficRetentionDays: Math.max(30, int(env.REPORT_TRAFFIC_RETENTION_DAYS, 400)),
         },
 
         // One caller may make this many API requests a minute (express-rate-limit, keyed by address).

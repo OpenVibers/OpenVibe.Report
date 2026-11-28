@@ -33,7 +33,7 @@ const sharing = require('../sharing');
 
 const CACHE = 'public, max-age=120';
 
-function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, meStats = null, popularity = null, viewsData = null, config = {}, now = () => Date.now(), log = console }) {
+function createApi({ network, live, bench = null, aiCatalogue = null, analytics = null, aiUsage = null, aiExchange = null, sessionReports = null, meStats = null, popularity = null, viewsData = null, trafficStore = null, config = {}, now = () => Date.now(), log = console }) {
     const r = express.Router();
     const serviceAuth = createServiceAuth({ config, now });
 
@@ -124,6 +124,19 @@ function createApi({ network, live, bench = null, aiCatalogue = null, analytics 
         if (!out) return notFound(req, res, 'report.views_not_found', 'The view store did not answer for this window.');
         return res.json(out);
     });
+
+    // Traffic (plan AD.40): people and bots on every site, counts only. ?days=1|7|30|90 (7 by default).
+    const trafficQuery = require('../traffic/query');
+    const trafficAnswer = (fn) => async (req, res) => {
+        if (!trafficStore) return res.status(503).json({ error: 'traffic.unavailable', detail: 'no database here' });
+        const days = trafficQuery.normaliseDays(req.query.days);
+        const out = await fn(req, days);
+        if (!out) return res.status(404).json({ error: 'traffic.not_found', detail: 'nothing counted for this in the window' });
+        res.set('Cache-Control', 'public, max-age=60').set('Access-Control-Allow-Origin', '*').json(out);
+    };
+    r.get('/traffic', trafficAnswer((req, days) => trafficQuery.summary(trafficStore, { days })));
+    r.get('/traffic/sites/:host', trafficAnswer((req, days) => trafficQuery.site(trafficStore, String(req.params.host || '').toLowerCase(), { days })));
+    r.get('/traffic/bots/:agent', trafficAnswer((req, days) => trafficQuery.bot(trafficStore, String(req.params.agent || '').slice(0, 80), { days })));
 
     r.get('/stats', async (req, res) => {
         const days = normaliseDays(req.query.days);
