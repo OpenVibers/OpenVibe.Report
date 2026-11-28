@@ -54,7 +54,7 @@ function load(env = process.env) {
         // OpenVibe.Bench's public reads (kinds, boards, models, datasets) — the AI boards under /ai. Public HTML
         // boards render here; Bench stays the benchmark authority that owns the numbers.
         benchUrl: trim(env.OV_BENCH_INTERNAL_URL || 'https://openvibe.compare'),
-        aiUrl: trim(env.OV_AI_INTERNAL_URL || 'https://api.openvibe.exchange'),
+        aiUrl: trim(env.OV_AI_INTERNAL_URL || (nodeEnv === 'test' ? 'http://127.0.0.1:9' : 'https://api.openvibe.exchange')),   // tests never reach production (11-28)
 
         // Report's own database (ADR-035). DATABASE_URL serves (PgBouncer), DATABASE_DIRECT_URL migrates (owner
         // role); development without DATABASE_URL uses an embedded PGlite database under REPORT_PGLITE_DIR.
