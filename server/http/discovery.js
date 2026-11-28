@@ -85,7 +85,7 @@ function createDiscoveryRoutes({ config, live, bench, sessionReports = null, meS
                     { title: 'Design health', url: abs('/design'), note: 'how closely each site follows the shared design kit, read from its code; per site at /design/<site>' },
                     { title: 'The Rundown', url: 'https://openvibe.live/rundown', note: 'what streamers talked about, topic by topic (OpenVibe.Live is its canonical home)' },
                     { title: 'AI model comparison', url: 'https://openvibe.compare/ai', note: 'the leaderboard, ratings, prices and measured speed of every AI model now live on OpenVibe.Compare' },
-                    { title: 'The AI Arena', url: abs('/ai/arena'), note: 'two anonymous answers to one prompt; your vote moves the ratings' },
+                    { title: 'The AI Arena', url: 'https://openvibe.compare/arena', note: 'two anonymous answers to one prompt; your vote moves the ratings' },
                 ] },
                 // A JSON API is what an agent came for, not something to skip (AGT-5 review).
                 { title: 'API', links: [

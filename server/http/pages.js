@@ -36,7 +36,7 @@ const CACHE = 'public, max-age=120';
 const COMPARE = 'https://openvibe.compare';
 
 /** The pages the agent layer twins: their data, then the view. Each returns { html } or null (nothing to show). */
-function createPublicPages({ sessionReports, network, live, bench, aiCatalogue = null, analytics = null, viewsData = null }) {
+function createPublicPages({ sessionReports, network, live, bench, aiCatalogue = null, analytics = null, viewsData = null, store = null }) {
     const numbers = (days) => (analytics ? analytics.stats(days) : network.stats(days));
 
     async function home() {
@@ -65,7 +65,13 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
         return { html: views.rundown({ rundown: r, topics, reports }) };
     }
 
-    return { home, stats, developers, design, rundown };
+    // Who visits OpenVibe, for its twin (11-28: llms.txt listed /traffic.md and agents got a 404).
+    async function trafficPage(days) {
+        const data = store ? await traffic.summary(store, { days }).catch(() => null) : null;
+        return { html: trafficViews.overview({ data, days }) };
+    }
+
+    return { home, stats, developers, design, rundown, traffic: trafficPage };
 }
 
 /** The new-results feed: one item per public run, with its own Bench date and no invented number. */

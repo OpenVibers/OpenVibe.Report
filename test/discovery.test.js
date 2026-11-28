@@ -68,6 +68,12 @@ const STATUS_UPDATED = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ST
             }
             const rundownTwin = await t.get('/rundown.md');
             assert.ok(rundownTwin.text.includes('canonical: "https://openvibe.live/rundown"'), 'the twin canonicalises to Live');
+            // Every own-site twin llms.txt lists answers (11-28: /traffic.md and /ai/arena.md were 404s to agents; the
+            // Arena lives on Compare since 11-13 and is linked there).
+            const twins = [...r.text.matchAll(/\]\((https:\/\/openvibe\.report\/[^)\s]*\.md)\)/g)].map((m) => m[1].replace('https://openvibe.report', ''));
+            assert.ok(twins.includes('/traffic.md'), 'the traffic page is listed with its twin');
+            for (const tw of twins) assert.strictEqual((await t.get(tw)).status, 200, `${tw} answers`);
+            assert.ok(r.text.includes('(https://openvibe.compare/arena)'), 'the Arena is linked where it lives');
         });
 
         await check('llms-full.txt (SEO-33): the site in full, every page llms.txt lists with what it holds', async () => {
