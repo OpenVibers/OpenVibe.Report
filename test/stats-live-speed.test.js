@@ -11,6 +11,7 @@ const speed = {
         'home|tablet': { lcp: { p75: 4116, n: 45 }, inp: { p75: 408, n: 51 }, cls: { p75: 0.345, n: 51 } },
         'home|phone': { lcp: { p75: 1388, n: 400 }, inp: { p75: 152, n: 400 }, cls: { p75: 0.06, n: 400 } },
         'channel|desktop<script>': { lcp: { p75: 1, n: 30 } },
+        'content|desktop': { lcp: { p75: 1500, n: 169 }, inp: { p75: 0, n: 169 }, cls: { p75: 0, n: 169 } },
     },
 };
 const html = views.stats({ stats: base, days: 7, speed }).html || views.stats({ stats: base, days: 7, speed });
@@ -19,6 +20,9 @@ assert.ok(page.includes('How fast OpenVibe.Live feels'), 'the section is there')
 assert.match(page, /Home<small>phone<\/small>[\s\S]*1\.4 s <span class="rp-pill is-up">good<\/span>[\s\S]*152 ms <span class="rp-pill is-up">good<\/span>[\s\S]*0\.06 <span class="rp-pill is-up">good<\/span>/);
 assert.match(page, /Home<small>tablet<\/small>[\s\S]*4\.1 s <span class="rp-pill is-down">slow<\/span>[\s\S]*408 ms <span class="rp-pill is-flat">needs work<\/span>[\s\S]*0\.35 <span class="rp-pill is-down">slow<\/span>/);
 assert.ok(page.indexOf('Home<small>phone') < page.indexOf('Home<small>tablet'), 'phone, then tablet, then desktop');
+// A p75 INP of 0 means most visits never tapped: it is not "0 ms, good".
+assert.match(page, /Videos<small>desktop<\/small>[\s\S]*?<span class="rp-fine">few taps<\/span>/);
+assert.ok(!/0 ms <span class="rp-pill/.test(page), 'never "0 ms good"');
 assert.ok(!page.includes('<script>') || !page.includes('channel|desktop<script>'), 'only known pages and devices are drawn');
 assert.ok(!String(views.stats({ stats: base, days: 7 }).html || views.stats({ stats: base, days: 7 })).includes('How fast OpenVibe.Live feels'), 'no summary, no section');
 console.log('stats-live-speed: /stats shows what real visitors felt on Live, graded, per page and device');
