@@ -25,7 +25,7 @@ function tabs(base, days) {
 
 /** People and each kind of bot a day, stacked; a legend with each total. */
 function stacked(daily, totals) {
-    const cols = (daily || []).map((d) => ({ day: d.day, parts: ORDER.map((w) => [w, Number(d[w]) || 0]), sum: ORDER.reduce((a, w) => a + (Number(d[w]) || 0), 0) }));
+    const cols = (daily || []).map((d) => ({ day: d.day, label: d.label || shortDay(d.day), parts: ORDER.map((w) => [w, Number(d[w]) || 0]), sum: ORDER.reduce((a, w) => a + (Number(d[w]) || 0), 0) }));
     const max = Math.max(1, ...cols.map((c) => c.sum));
     const H = 150;
     const w = 100 / Math.max(1, cols.length);
@@ -34,13 +34,13 @@ function stacked(daily, totals) {
         return c.parts.filter(([, v]) => v > 0).map(([who, v]) => {
             const h = Math.max(0.8, (v / max) * (H - 10));
             y -= h;
-            return `<rect class="tf-w-${who}" x="${(i * w + w * 0.15).toFixed(2)}" y="${y.toFixed(1)}" width="${(w * 0.7).toFixed(2)}" height="${h.toFixed(1)}"><title>${esc(shortDay(c.day))}: ${esc(WHO[who])} ${exact(v)}</title></rect>`;
+            return `<rect class="tf-w-${who}" x="${(i * w + w * 0.15).toFixed(2)}" y="${y.toFixed(1)}" width="${(w * 0.7).toFixed(2)}" height="${h.toFixed(1)}"><title>${esc(c.label)}: ${esc(WHO[who])} ${exact(v)}</title></rect>`;
         }).join('');
     }).join('');
-    const label = cols.map((c) => `${shortDay(c.day)} ${exact(c.sum)}`).join(', ');
+    const label = cols.map((c) => `${c.label} ${exact(c.sum)}`).join(', ');
     const legend = ORDER.filter((who) => (totals.by_who || {})[who]).map((who) => `<li title="${esc(WHO_LINE[who])}"><span class="tf-sw tf-w-${who}"></span>${esc(WHO[who])}<b>${fmt(totals.by_who[who])}</b></li>`).join('');
     return `<figure class="tf-chart"><svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(`Requests a day: ${label}`)}">${rects}</svg>`
-        + (cols.length > 1 ? `<figcaption><span>${esc(shortDay(cols[0].day))}</span><span>${esc(shortDay(cols[cols.length - 1].day))}</span></figcaption>` : '')
+        + (cols.length > 1 ? `<figcaption><span>${esc(cols[0].label)}</span><span>${esc(cols[cols.length - 1].label)}</span></figcaption>` : '')
         + `</figure><ul class="tf-legend">${legend}</ul>`;
 }
 
@@ -57,6 +57,24 @@ ${extra}</section>`;
 function fold(rows, n = 12) {
     if (rows.length <= n) return rows.join('');
     return rows.slice(0, n).join('') + `<details class="tf-more"><summary>Show all ${rows.length}</summary>${rows.slice(n).join('')}</details>`;
+}
+
+const REGION = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return null; } })();
+const countryName = (cc) => (cc === 'T1' ? 'Tor' : (REGION && REGION.of(cc)) || cc);
+
+/** A list with a bar per row (the largest is full width), folded after 10. */
+function barList(items, label, value, extra = () => '') {
+    if (!items.length) return '';
+    const max = Math.max(1, ...items.map(value));
+    const total = items.reduce((a, x) => a + value(x), 0);
+    return `<div class="tf-bars" role="list">${fold(items.map((x) => `<div class="tf-brow" role="listitem"><span class="tf-bar" style="--w:${((value(x) / max) * 100).toFixed(1)}%"></span><span class="tf-bl">${label(x)}</span><span class="tf-bv">${exact(value(x))} <span class="tf-muted">${share(value(x), total)}</span>${extra(x)}</span></div>`), 10)}</div>`;
+}
+function arrivals(d) {
+    const sources = (d.sources || []).filter((x) => x.requests > 0);
+    const countries = (d.countries || []).filter((x) => x.people + x.bots > 0);
+    const where = sources.length ? `<section aria-labelledby="tf-src-h"><h2 id="tf-src-h">${glyph('link')}Where people come from</h2><p class="rp-fine">People opening a page, by the site that sent them; "Direct" had none (a typed address, an app, a bookmark). Only the site is kept, never its page.</p>${barList(sources, (x) => esc(x.source), (x) => x.requests)}</section>` : '';
+    const from = countries.length ? `<section aria-labelledby="tf-cc-h"><h2 id="tf-cc-h">${glyph('globe')}Countries</h2><p class="rp-fine">People's requests by country, with the bots from there beside them.</p>${barList(countries.filter((x) => x.people > 0), (x) => esc(countryName(x.country)), (x) => x.people, (x) => (x.bots ? ` <span class="tf-muted">· ${fmt(x.bots)} bots</span>` : ''))}</section>` : '';
+    return where + from;
 }
 
 const whoChip = (who) => `<span class="tf-who tf-c-${esc(who)}">${esc(WHO[who] || who)}</span>`;
@@ -103,7 +121,8 @@ function overview({ data: d = null, days = 7 } = {}) {
     const kinds = d.kinds.map((k) => `<li><b>${esc(KIND[k.kind] || k.kind)}</b> ${exact(k.requests)} <span class="tf-muted">(${share(k.people, k.requests)} people)</span></li>`).join('');
     const body = `${head}
 ${tilesOf(t, `${tile('Bots seen', exact(d.bots.length))}${tile('Files for machines', fmt(d.files.reduce((a, f) => a + f.requests, 0)), 'llms.txt, robots.txt, sitemaps …')}`)}
-<section aria-labelledby="tf-day-h"><h2 id="tf-day-h">${glyph('chart')}People and bots a day</h2>${stacked(d.daily, t)}</section>
+<section aria-labelledby="tf-day-h"><h2 id="tf-day-h">${glyph('chart')}People and bots ${d.hourly ? 'by the hour (UTC)' : 'a day'}</h2>${stacked(d.hourly || d.daily, t)}</section>
+${arrivals(d)}
 <section aria-labelledby="tf-bots-h"><h2 id="tf-bots-h">${glyph('robot')}Bots</h2><p class="rp-fine">Every bot and program that asked for something, most requests first. Search engines that publish how to check are checked: "not really" counts requests that use a crawler's name from somewhere else.</p>${botsTable(d.bots)}</section>
 <section aria-labelledby="tf-files-h"><h2 id="tf-files-h">${glyph('file')}Files for machines</h2><p class="rp-fine">What sites publish for search engines and AI: llms.txt and llms-full.txt, robots.txt, sitemaps, agent cards, the OpenAPI documents and each page's Markdown twin.</p>${files}</section>
 <section aria-labelledby="tf-sites-h"><h2 id="tf-sites-h">${glyph('globe')}Every site</h2>${sites}</section>
@@ -121,8 +140,9 @@ function siteView({ data: d, days = 7 }) {
     const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/traffic">Who visits OpenVibe</a></p><h1>${esc(d.host)}</h1>
 <p class="rp-lede">People and bots on <a href="https://${esc(d.host)}">${esc(d.host)}</a>, and who reads its files for machines.</p>${tabs(base, days)}</header>
 ${tilesOf(d.totals)}
-<section aria-labelledby="tf-day-h"><h2 id="tf-day-h">${glyph('chart')}People and bots a day</h2>${stacked(d.daily, d.totals)}</section>
+<section aria-labelledby="tf-day-h"><h2 id="tf-day-h">${glyph('chart')}People and bots ${d.hourly ? 'by the hour (UTC)' : 'a day'}</h2>${stacked(d.hourly || d.daily, d.totals)}</section>
 <section aria-labelledby="tf-files-h"><h2 id="tf-files-h">${glyph('file')}Files for machines</h2>${files}</section>
+${arrivals(d)}
 <section aria-labelledby="tf-bots-h"><h2 id="tf-bots-h">${glyph('robot')}Bots on this site</h2>${botsTable(d.bots.map((b) => ({ ...b, files: null })), { sites: false })}</section>
 ${pages ? `<section aria-labelledby="tf-pages-h"><h2 id="tf-pages-h">${glyph('list')}Pages by section</h2>${pages}</section>` : ''}
 <p class="rp-fine">The same numbers: <a href="/api/v1/traffic/sites/${esc(encodeURIComponent(d.host))}?days=${esc(days)}"><code>/api/v1/traffic/sites/${esc(d.host)}</code></a>.</p>`;

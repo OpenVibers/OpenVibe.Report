@@ -15,10 +15,11 @@ const { classify } = require('../server/traffic/agents');
 const { kindOf } = require('../server/traffic/paths');
 const { createTrafficCollector } = require('../server/traffic/collect');
 const { createVerifier } = require('../server/traffic/verify');
+const { sourceOf, countryOf } = require('../server/traffic/sources');
 
 const today = new Date().toISOString().slice(0, 10);
 const at = (sec) => `${today}T00:00:${String(sec % 60).padStart(2, '0')}+00:00`;
-const line = (o) => JSON.stringify({ t: at(o.sec || 1), h: o.h || 'openvibe.codes', m: o.m || 'GET', u: o.u || '/', s: o.s || 200, b: o.b || 100, rt: 0.012, ua: o.ua || '', ref: '', cc: 'US', a: o.a || '198.51.100.7' }) + '\n';
+const line = (o) => JSON.stringify({ t: at(o.sec || 1), h: o.h || 'openvibe.codes', m: o.m || 'GET', u: o.u || '/', s: o.s || 200, b: o.b || 100, rt: 0.012, ua: o.ua || '', ref: o.ref || '', cc: o.cc || 'US', a: o.a || '198.51.100.7' }) + '\n';
 const UA = {
     person: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36',
     google: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
@@ -52,6 +53,17 @@ const UA = {
         assert.deepStrictEqual(kindOf('GET', '/api/v1/me/spare'), { kind: 'api', path: '' });
         assert.deepStrictEqual(kindOf('GET', '/css/c4.css'), { kind: 'asset', path: '' });
         assert.deepStrictEqual(kindOf('POST', '/inbox'), { kind: 'other', path: '' });
+    });
+
+    await check('where a person came from: the referring site as people say it, never a path; a click inside the site is not an arrival', async () => {
+        assert.strictEqual(sourceOf('https://www.google.com/search?q=openvibe', 'openvibe.live'), 'Google');
+        assert.strictEqual(sourceOf('https://chatgpt.com/c/abc', 'openvibe.live'), 'ChatGPT');
+        assert.strictEqual(sourceOf('https://t.co/xyz', 'openvibe.live'), 'X');
+        assert.strictEqual(sourceOf('https://openvibe.network/feed', 'openvibe.live'), 'openvibe.network');
+        assert.strictEqual(sourceOf('https://www.example.org/some/private/path?token=1', 'openvibe.live'), 'example.org');
+        assert.strictEqual(sourceOf('', 'openvibe.live'), 'Direct');
+        assert.strictEqual(sourceOf('https://openvibe.live/c/alice', 'openvibe.live'), null);
+        assert.deepStrictEqual([countryOf('us'), countryOf('XX'), countryOf('T1'), countryOf('')], ['US', '', 'T1', '']);
     });
 
     await check('the reverse-DNS check: the name must be the engine\'s and resolve back to the same address', async () => {
@@ -121,6 +133,25 @@ const UA = {
             assert.strictEqual(createTrafficJobs({ config: { jobs: { trafficLog: null } }, store: t.ctx.store }).start(), null, 'no log configured, no timer');
         });
 
+        await check('v2: where people came from, countries and today by the hour', async () => {
+            fs.appendFileSync(file, line({ h: 'openvibe.tv', u: '/', ua: UA.person, ref: 'https://www.google.com/search?q=x', cc: 'DE', sec: 11 })
+                + line({ h: 'openvibe.tv', u: '/watch', ua: UA.person, ref: 'https://www.google.de/', cc: 'DE', sec: 12 })
+                + line({ h: 'openvibe.tv', u: '/about', ua: UA.person, ref: 'https://openvibe.tv/', cc: 'FR', sec: 13 })
+                + line({ h: 'openvibe.tv', u: '/', ua: UA.person, cc: 'FR', sec: 14 })
+                + line({ h: 'openvibe.tv', u: '/', ua: UA.gpt, ref: 'https://www.google.com/', cc: 'US', sec: 15 }));
+            await collector.runOnce();
+            const j = (await t.get('/api/v1/traffic/sites/openvibe.tv?days=1')).json();
+            assert.deepStrictEqual(j.sources, [{ source: 'Google', requests: 2 }, { source: 'Direct', requests: 1 }], 'a bot\'s referrer and a click inside the site are not arrivals');
+            assert.deepStrictEqual(j.countries.map((x) => [x.country, x.people, x.bots]), [['DE', 2, 0], ['FR', 2, 0], ['US', 0, 1]]);
+            assert.ok(Array.isArray(j.hourly) && j.hourly.length >= 1, 'today comes by the hour');
+            assert.strictEqual(j.hourly[0].person, 4);
+            assert.strictEqual((await t.get('/api/v1/traffic/sites/openvibe.tv?days=7')).json().hourly, undefined, 'a week comes by the day');
+            const page = await t.get('/traffic/sites/openvibe.tv?days=1');
+            assert.match(page.text, /Where people come from/);
+            assert.match(page.text, /by the hour \(UTC\)/);
+            assert.match(page.text, />Germany</);
+        });
+
         await check('the pages: the network, a site and a bot, people and bots apart; the API answers the same', async () => {
             const page = await t.get('/traffic');
             assert.strictEqual(page.status, 200, page.text.slice(0, 200));
@@ -145,7 +176,7 @@ const UA = {
             assert.ok(j.totals.people > 0 && j.totals.bots > 0);
             assert.ok(j.bots.find((b) => b.agent === 'GPTBot' && b.who === 'ai_crawler'));
             assert.ok(j.files.find((f) => f.path === '/llms.txt' && f.readers.some((x) => x.agent === 'GPTBot')));
-            assert.strictEqual((await t.get('/api/v1/traffic/bots/GPTBot')).json().totals.requests, 3);
+            assert.strictEqual((await t.get('/api/v1/traffic/bots/GPTBot')).json().totals.requests, 4, 'three on openvibe.codes, one on openvibe.tv');
         });
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });

@@ -15,9 +15,12 @@
 const fs = require('fs');
 const { classify } = require('./agents');
 const { kindOf } = require('./paths');
+const { sourceOf, countryOf } = require('./sources');
 
 const SOURCE = 'nginx';
 const MAX_PAGE_PATHS = 150;           // page sections kept per site and day; the rest are counted as '/…'
+const MAX_SOURCES = 100;             // referring sites kept per site and day; the rest are '(other)'
+const HOURS_KEPT_DAYS = 15;
 const HOST = /^[a-z0-9][a-z0-9.-]{0,252}$/i;
 
 function readRange(file, start, end) {
@@ -54,6 +57,17 @@ function statusBucket(s) {
 function createTrafficCollector({ store, file, verify = async () => '', log = console, maxBytes = 32 * 1024 * 1024 } = {}) {
     let running = false;
     const pagePaths = new Map();   // `${day}|${host}` → Set of page paths already kept
+    const sourceNames = new Map(); // `${day}|${host}` → Set of sources already kept
+
+    async function knownSources(day, host) {
+        const key = `${day}|${host}`;
+        if (!sourceNames.has(key)) {
+            const rows = await store.db.prepare('SELECT source FROM report_traffic_sources WHERE day = ?::date AND host = ?').all(day, host);
+            sourceNames.set(key, new Set(rows.map((r) => r.source)));
+            if (sourceNames.size > 4000) sourceNames.delete(sourceNames.keys().next().value);
+        }
+        return sourceNames.get(key);
+    }
 
     async function knownPages(day, host) {
         const key = `${day}|${host}`;
@@ -79,7 +93,8 @@ function createTrafficCollector({ store, file, verify = async () => '', log = co
             const who = classify(d.ua);
             const what = kindOf(d.m, d.u);
             const row = { t, day: new Date(t).toISOString().slice(0, 10), host, who: who.who, agent: who.agent, kind: what.kind, path: what.path,
-                status: Number(d.s) || 0, bytes: Number(d.b) || 0, ms: Math.round((Number(d.rt) || 0) * 1000), address: who.verify ? String(d.a || '') : '', verify: who.verify };
+                status: Number(d.s) || 0, bytes: Number(d.b) || 0, ms: Math.round((Number(d.rt) || 0) * 1000), address: who.verify ? String(d.a || '') : '', verify: who.verify,
+                ref: d.ref, cc: countryOf(d.cc) };
             if (row.verify && row.address) checks.set(`${row.address}|${row.agent}`, row.verify);
             parsed.push(row);
         }
@@ -114,7 +129,27 @@ function createTrafficCollector({ store, file, verify = async () => '', log = co
             if (r.t < a.first) a.first = r.t;
             if (r.t > a.last) a.last = r.t;
         }
-        return [...rows.values()];
+        // v2: where people came from (a person opening a page), countries (people and bots apart), hours.
+        const sources = new Map(), countries = new Map(), hours = new Map();
+        const bump = (map, key, base) => { const x = map.get(key) || { ...base, requests: 0 }; x.requests += 1; map.set(key, x); };
+        for (const r of parsed) {
+            if (r.who === 'person' && r.kind === 'page' && r.status < 400) {
+                let source = sourceOf(r.ref, r.host);
+                if (source) {
+                    const kept = await knownSources(r.day, r.host);
+                    if (!kept.has(source)) { if (kept.size >= MAX_SOURCES) source = '(other)'; else kept.add(source); }
+                    bump(sources, `${r.day}|${r.host}|${source}`, { day: r.day, host: r.host, source });
+                }
+            }
+            if (r.cc) bump(countries, `${r.day}|${r.host}|${r.who === 'person'}|${r.cc}`, { day: r.day, host: r.host, people: r.who === 'person', country: r.cc });
+            const hour = new Date(Math.floor(r.t / 3600000) * 3600000).toISOString();
+            bump(hours, `${hour}|${r.host}|${r.who}`, { hour, host: r.host, who: r.who });
+        }
+        const out = [...rows.values()];
+        out.sources = [...sources.values()];
+        out.countries = [...countries.values()];
+        out.hours = [...hours.values()];
+        return out;
     }
 
     async function save(rows, place) {
@@ -130,6 +165,18 @@ function createTrafficCollector({ store, file, verify = async () => '', log = co
                         first_at = LEAST(report_traffic_days.first_at, EXCLUDED.first_at), last_at = GREATEST(report_traffic_days.last_at, EXCLUDED.last_at)`)
                     .run(a.day, a.host, a.who, a.agent, a.verified, a.kind, a.path, a.requests, a.ok, a.redirects, a.missing, a.refused, a.errors, a.bytes, a.ms,
                         new Date(a.first).toISOString(), new Date(a.last).toISOString());
+            }
+            for (const x of rows.sources || []) {
+                await store.db.prepare(`INSERT INTO report_traffic_sources (day, host, source, requests) VALUES (?::date, ?, ?, ?)
+                    ON CONFLICT (day, host, source) DO UPDATE SET requests = report_traffic_sources.requests + EXCLUDED.requests`).run(x.day, x.host, x.source, x.requests);
+            }
+            for (const x of rows.countries || []) {
+                await store.db.prepare(`INSERT INTO report_traffic_countries (day, host, people, country, requests) VALUES (?::date, ?, ?, ?, ?)
+                    ON CONFLICT (day, host, people, country) DO UPDATE SET requests = report_traffic_countries.requests + EXCLUDED.requests`).run(x.day, x.host, x.people, x.country, x.requests);
+            }
+            for (const x of rows.hours || []) {
+                await store.db.prepare(`INSERT INTO report_traffic_hours (hour, host, who, requests) VALUES (?::timestamptz, ?, ?, ?)
+                    ON CONFLICT (hour, host, who) DO UPDATE SET requests = report_traffic_hours.requests + EXCLUDED.requests`).run(x.hour, x.host, x.who, x.requests);
             }
             await store.db.prepare(`INSERT INTO report_traffic_cursor (source, inode, position, lines, updated_at) VALUES (?, ?, ?, ?, now())
                 ON CONFLICT (source) DO UPDATE SET inode = EXCLUDED.inode, position = EXCLUDED.position, lines = report_traffic_cursor.lines + EXCLUDED.lines, updated_at = now()`)
@@ -180,7 +227,11 @@ function createTrafficCollector({ store, file, verify = async () => '', log = co
 
     /** Daily counts older than `days` go (the totals by day are what the pages read). */
     async function prune(days = 400) {
-        const r = await store.db.prepare("DELETE FROM report_traffic_days WHERE day < (CURRENT_DATE - ?::int)").run(Math.max(30, days));
+        const keep = Math.max(30, days);
+        const r = await store.db.prepare("DELETE FROM report_traffic_days WHERE day < (CURRENT_DATE - ?::int)").run(keep);
+        await store.db.prepare("DELETE FROM report_traffic_sources WHERE day < (CURRENT_DATE - ?::int)").run(keep);
+        await store.db.prepare("DELETE FROM report_traffic_countries WHERE day < (CURRENT_DATE - ?::int)").run(keep);
+        await store.db.prepare("DELETE FROM report_traffic_hours WHERE hour < now() - (?::int * interval '1 day')").run(HOURS_KEPT_DAYS);
         return { pruned: r && r.changes != null ? r.changes : null };
     }
 

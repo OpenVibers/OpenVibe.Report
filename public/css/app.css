@@ -481,3 +481,12 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .tf-more > summary { cursor: pointer; padding: 12px 16px; min-height: 44px; display: flex; align-items: center; border-top: 1px solid var(--border, #1f2d47); font-weight: 700; color: var(--room-strong); list-style: none; }
 .tf-more > summary::-webkit-details-marker { display: none; }
 .tf-more[open] > summary { color: var(--text-secondary, #96a7c2); }
+.tf-bars { display: grid; gap: 6px; }
+.tf-brow { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 8px 12px; border-radius: 10px; overflow: hidden; min-width: 0; }
+.tf-bar { position: absolute; inset: 0 auto 0 0; width: var(--w); background: color-mix(in srgb, var(--room-accent) 16%, transparent); border-radius: inherit; }
+html:not([data-ov-motion="off"]) .tf-bar { transition: width .5s cubic-bezier(.2,.8,.2,1); }
+.tf-bl, .tf-bv { position: relative; }
+.tf-bl { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tf-bv { flex: none; font-variant-numeric: tabular-nums; }
+.tf-bars .tf-more > summary { border-top: 0; padding: 8px 12px; }
+.tf-bars .tf-more { display: grid; gap: 6px; }
