@@ -57,6 +57,9 @@ const exact = (v) => { const x = n(v); return x == null ? '—' : x.toLocaleStri
 const ts = (s) => { const str = String(s || ''); const t = Date.parse(/[TZ]/.test(str) || !str.includes(' ') ? str : `${str.replace(' ', 'T')}Z`); return Number.isFinite(t) ? t : null; };
 const day = (s) => { const t = ts(s); return t == null ? '' : new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); };
 const dayTime = (s) => { const t = ts(s); return t == null ? '' : `${new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}, ${new Date(t).toISOString().slice(11, 16)} UTC`; };
+// A moment in the reader's own zone and clock: Shared's theme loader rewrites <time data-ov-time> (Today 8:50 PM); the
+// UTC words stay for crawlers and no-script (plan item 13: /stats, /traffic and the Rundown said every time in UTC).
+const whenTag = (s) => { const t = ts(s); return t == null ? '' : `<time datetime="${new Date(t).toISOString()}" data-ov-time="day">${esc(dayTime(s))}</time>`; };
 const mins = (sec) => { const s = n(sec); if (s == null) return ''; const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
 const pct = (v) => { const x = n(v); if (x == null) return ''; return `<span class="rp-pill ${x > 0 ? 'is-up' : x < 0 ? 'is-down' : 'is-flat'}">${x > 0 ? '▲' : x < 0 ? '▼' : '•'} ${Math.abs(x)}%</span>`; };
 const who = (u) => (u ? u.display_name || u.username || '' : '');
@@ -206,7 +209,7 @@ function curve(points) {
     const view = pts.map((p, i) => `${i ? 'L' : 'M'}${X(ts(p[0])).toFixed(1)} ${(H - 8 - ((Number(p[1]) || 0) / maxV) * (H - 24)).toFixed(1)}`).join(' ');
     const chat = pts.map((p) => { const c = Number(p[2]) || 0; if (!c) return ''; const bh = (c / maxC) * 36; return `<rect x="${(X(ts(p[0])) - 1.5).toFixed(1)}" y="${(H - bh).toFixed(1)}" width="3" height="${bh.toFixed(1)}" rx="1"/>`; }).join('');
     return `<figure class="rp-curve"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(`Viewers over the stream, peak ${exact(maxV)}; chat messages as bars`)}"><g class="rp-curve-chat">${chat}</g><path class="rp-curve-area" d="${view} L${W} ${H} L0 ${H}Z"/><path class="rp-curve-line" d="${view}"/></svg>`
-        + `<figcaption><span>${esc(dayTime(pts[0][0]))}</span><span class="rp-legend"><i class="is-v"></i>viewers <i class="is-c"></i>chat</span><span>${esc(new Date(t1).toISOString().slice(11, 16))} UTC</span></figcaption></figure>`;
+        + `<figcaption><span>${whenTag(pts[0][0])}</span><span class="rp-legend"><i class="is-v"></i>viewers <i class="is-c"></i>chat</span><span>${esc(new Date(t1).toISOString().slice(11, 16))} UTC</span></figcaption></figure>`;
 }
 
 const tile = (label, value, sub = '', extra = '') => (value == null || value === '' ? '' : `<div class="rp-tile"><span class="rp-tile-l">${esc(label)}</span><b class="rp-tile-v">${value}</b>${sub ? `<span class="rp-tile-s">${sub}</span>` : ''}${extra}</div>`);
@@ -218,7 +221,7 @@ function takeRow(t) {
     const sid = t.stream_id || (t.stream && t.stream.id);
     const by = who(t.user || (t.stream && t.stream.user));
     return `<li class="rp-take"><h3>${sid ? `<a href="/rundown/e/${encodeURIComponent(sid)}">${esc(t.title)}</a>` : esc(t.title)}</h3>${t.what ? `<p>${esc(t.what)}</p>` : ''}`
-        + `<p class="rp-meta">${by ? `<a href="/rundown/s/${encodeURIComponent((t.user || (t.stream && t.stream.user) || {}).username || '')}">${esc(by)}</a>` : ''}${t.at || t.started_at ? `<time>${esc(dayTime(t.at || t.started_at))}</time>` : ''}</p></li>`;
+        + `<p class="rp-meta">${by ? `<a href="/rundown/s/${encodeURIComponent((t.user || (t.stream && t.stream.user) || {}).username || '')}">${esc(by)}</a>` : ''}${t.at || t.started_at ? `${whenTag(t.at || t.started_at)}` : ''}</p></li>`;
 }
 function topicCard(t, i) {
     if (!t || !t.slug) return '';
@@ -370,7 +373,7 @@ function stats({ stats: d, days = 30, views: v = null } = {}) {
         + `<span role="cell" data-l="Requests, 24 h">${s.traffic_24h && s.traffic_24h.requests != null ? fmt(s.traffic_24h.requests) : '—'}</span>`
         + `<span role="cell" data-l="95% answered in">${s.traffic_24h && s.traffic_24h.p95_ms != null ? `${exact(s.traffic_24h.p95_ms)} ms` : '—'}</span></div>`).join('');
     const body = `<header class="rp-page-h"><p class="rp-kicker">Open numbers</p><h1>Every OpenVibe site's numbers</h1>
-<p class="rp-lede">Public for everyone, counts only, never about a person.${d.generated_at ? ` Read ${esc(dayTime(d.generated_at))}.` : ''}</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></header>
+<p class="rp-lede">Public for everyone, counts only, never about a person.${d.generated_at ? ` Read ${whenTag(d.generated_at)}.` : ''}</p><nav class="rp-tabs" aria-label="Time range">${tabs}</nav></header>
 <section class="rp-tiles" aria-label="Across the network">
 ${tile(`Page views, ${d.window_days || days} days`, exact(T.pageviews), pct(T.change_pct), spark(d.pageviews_daily))}
 ${A ? tile('Accounts', exact(A.total), A.new != null ? `+${exact(A.new)} in ${d.window_days || days} days` : '') : ''}
@@ -609,7 +612,7 @@ function episode({ episode: d, citations = [] } = {}) {
         return `<li>${href ? `<a href="${esc(href)}">${stamp} ${esc(c.title)}</a>` : `${stamp} ${esc(c.title)}`}</li>`;
     }).join('')}</ol></section>` : '';
     const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/rundown">The Rundown</a> · episode</p><h1>${esc(e.title || s.title || 'Episode')}</h1>${e.logline ? `<p class="rp-lede">${esc(e.logline)}</p>` : ''}
-<p class="rp-meta">${AI}${who(s.user) ? ` · <a href="/rundown/s/${encodeURIComponent(s.user.username)}">${esc(who(s.user))}</a>` : ''}${s.started_at ? ` · ${esc(dayTime(s.started_at))}` : ''}${s.id ? ` · <a href="/after-show/${encodeURIComponent(s.id)}">After-show report</a>` : ''}</p></header>
+<p class="rp-meta">${AI}${who(s.user) ? ` · <a href="/rundown/s/${encodeURIComponent(s.user.username)}">${esc(who(s.user))}</a>` : ''}${s.started_at ? ` · ${whenTag(s.started_at)}` : ''}${s.id ? ` · <a href="/after-show/${encodeURIComponent(s.id)}">After-show report</a>` : ''}</p></header>
 ${chaptersHTML}
 ${segs.length ? `<section aria-labelledby="rp-sg-h"><h2 id="rp-sg-h">What happened</h2><ol class="rp-takes rp-timeline">${segs.map(takeRow).join('')}</ol></section>` : ''}
 ${(d.more || []).length ? `<section aria-labelledby="rp-mo-h"><h2 id="rp-mo-h">More from ${esc(who(s.user) || 'this streamer')}</h2><ul class="rp-chips">${d.more.slice(0, 8).map((m) => `<li><a href="/rundown/e/${encodeURIComponent(m.stream_id)}">${esc(m.title)}</a></li>`).join('')}</ul></section>` : ''}`;
@@ -633,10 +636,10 @@ function recap({ recap: d } = {}) {
     const at = (sec) => (vod && (vod.id || vod.watch_id) && n(sec) != null ? videoHref(vod.id, sec, vod.watch_id) : null);
     const watching = vod ? videoHref(vod.id, null, vod.watch_id) : null;
     const body = `<header class="rp-page-h rp-recap-h"><p class="rp-kicker">After-show report</p><h1>${esc(w.headline || s.title || 'Stream')}</h1>
-<p class="rp-meta">${kit.mark({ name: who(u), src: u.avatar_url, size: 28 })} <a href="https://openvibe.live/@${encodeURIComponent(u.username || '')}">@${esc(u.username || '')}</a>${s.title && w.headline ? ` · ${esc(s.title)}` : ''}${s.started_at ? ` · ${esc(dayTime(s.started_at))}` : ''}${n(s.duration_seconds) ? ` · ${esc(mins(s.duration_seconds))}` : ''}</p>
+<p class="rp-meta">${kit.mark({ name: who(u), src: u.avatar_url, size: 28 })} <a href="https://openvibe.live/@${encodeURIComponent(u.username || '')}">@${esc(u.username || '')}</a>${s.title && w.headline ? ` · ${esc(s.title)}` : ''}${s.started_at ? ` · ${whenTag(s.started_at)}` : ''}${n(s.duration_seconds) ? ` · ${esc(mins(s.duration_seconds))}` : ''}</p>
 ${w.summary ? `<p class="rp-summary">${esc(w.summary)}</p><p class="rp-meta">${AI}</p>` : ''}</header>
 <section class="rp-tiles" aria-label="The stream in numbers">
-${tile('Peak viewers', n(s.peak_viewers) != null ? exact(s.peak_viewers) : null, v.peak_at ? esc(dayTime(v.peak_at)) : '')}
+${tile('Peak viewers', n(s.peak_viewers) != null ? exact(s.peak_viewers) : null, v.peak_at ? whenTag(v.peak_at) : '')}
 ${tile('Average viewers', n(v.avg) != null ? exact(v.avg) : null)}
 ${tile('Chat messages', n(c.messages) ? exact(c.messages) : null, n(c.chatters) ? `${exact(c.chatters)} chatting` : '')}
 ${tile('New followers', n(love.follows) ? exact(love.follows) : null, n(love.followers_now) ? `${exact(love.followers_now)} now` : '')}
@@ -781,7 +784,7 @@ function developers() {
 function benchState(...reads) {
     const stale = reads.filter((r) => r && r.stale).sort((a, b) => String(a.at).localeCompare(String(b.at)));
     if (!stale.length) return '';
-    return `<p class="rp-fine" role="status">Bench is unavailable. Showing the last good copy, read ${esc(dayTime(stale[0].at))}.</p>`;
+    return `<p class="rp-fine" role="status">Bench is unavailable. Showing the last good copy, read ${whenTag(stale[0].at)}.</p>`;
 }
 
 /** The answer inside a Bench read ({ data, at, stale }), or null. */
@@ -1101,7 +1104,7 @@ ${s.made ? kit.section({ title: 'Things you made', note: STAT_SECTIONS[2][2], bo
 ${s.ai ? kit.section({ title: 'Your AI', note: STAT_SECTIONS[3][2], body: statAi(s.ai), id: 'rp-me-ai' }) : ''}
 ${s.money ? kit.section({ title: 'Vibes', note: STAT_SECTIONS[4][2], body: statMoney(s.money), id: 'rp-me-money' }) : ''}
 ${publishPanel({ doc, username })}
-<p class="rp-fine">Counted ${esc(dayTime(doc.generated_at))}. <a href="/you">Your streams, money, AI and The Rundown</a> · <a href="/api/v1/me/stats?days=${esc(days)}">Your numbers as JSON</a>.</p>`;
+<p class="rp-fine">Counted ${whenTag(doc.generated_at)}. <a href="/you">Your streams, money, AI and The Rundown</a> · <a href="/api/v1/me/stats?days=${esc(days)}">Your numbers as JSON</a>.</p>`;
     return layout({ title: 'Your stats', description: 'Your own numbers across OpenVibe: the sites you used, your activity, what you made, your AI and your Vibes.', body, active: '/me', robots: 'noindex, nofollow' });
 }
 
@@ -1131,7 +1134,7 @@ ${s.activity ? kit.section({ title: 'Activity', note: STAT_PUBLIC_NOTE.activity,
 ${s.made ? kit.section({ title: 'Things made', note: STAT_PUBLIC_NOTE.made, body: statMade(s.made, { publicView: true }), id: 'rp-u-made' }) : ''}
 ${s.ai ? kit.section({ title: 'AI', note: STAT_PUBLIC_NOTE.ai, body: statAi(s.ai, { publicView: true }), id: 'rp-u-ai' }) : ''}
 ${s.money ? kit.section({ title: 'Vibes', note: STAT_PUBLIC_NOTE.money, body: statMoney(s.money), id: 'rp-u-money' }) : ''}
-<p class="rp-fine">Published ${esc(dayTime(doc.generated_at))} · ${any ? 'only the sections above' : 'no sections'} · <a href="/stats">the network’s open numbers</a>.</p>`;
+<p class="rp-fine">Published ${whenTag(doc.generated_at)} · ${any ? 'only the sections above' : 'no sections'} · <a href="/stats">the network’s open numbers</a>.</p>`;
     return layout({
         title: `${name}: OpenVibe stats`,
         description: `${name}’s OpenVibe numbers: the sites they used, their activity and what they made. Only the sections they made public.`,
@@ -1167,4 +1170,4 @@ function notFound() {
     return layout({ title: 'Not found', robots: 'noindex, follow', body: `<header class="rp-page-h"><h1>Nothing here</h1><p class="rp-lede">That page does not exist, or its source has nothing for it. <a href="/">Back to Report</a>.</p></header>` });
 }
 
-module.exports = { tile, exact, fmt, dayTime, home, stats, searches, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, me, meSignedOut, meError, publicStats, publicStatsPrivate, developers, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
+module.exports = { tile, exact, fmt, dayTime, whenTag, home, stats, searches, rundown, sessionReport, sharingChip, topic, episode, speaker, recap, channel, you, youSignedOut, me, meSignedOut, meError, publicStats, publicStatsPrivate, developers, aiExchange, staffOnly, usdNano, paretoRows, paretoChart, notFound, layout, setRelease, configure };
