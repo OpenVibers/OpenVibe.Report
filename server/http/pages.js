@@ -46,8 +46,9 @@ function createPublicPages({ sessionReports, network, live, bench, aiCatalogue =
     }
 
     async function stats(days) {
-        const [data, viewData] = await Promise.all([numbers(days), viewsData ? viewsData.top(days) : null]);
-        return data ? { html: views.stats({ stats: data, days, views: viewData }) } : null;
+        const [data, viewData, speed] = await Promise.all([numbers(days), viewsData ? viewsData.top(days) : null,
+            live && typeof live.speed === 'function' ? Promise.resolve(live.speed()).catch(() => null) : null]);
+        return data ? { html: views.stats({ stats: data, days, views: viewData, speed }) } : null;
     }
 
     function developers() {

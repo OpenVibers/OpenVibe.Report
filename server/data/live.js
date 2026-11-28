@@ -21,6 +21,7 @@ const SERVE_STALE_MS = 30 * 60_000;
 
 const TTL = {
     rundown: 2 * 60_000,
+    speed: 5 * 60_000,
     topics: 5 * 60_000,
     topic: 5 * 60_000,
     episode: 5 * 60_000,
@@ -64,6 +65,11 @@ function createLiveClient({ config = {}, fetchImpl = globalThis.fetch, log = con
 
     function topics() {
         return cached('rundown:topics', '/api/rundown/topics', TTL.topics, 'live topics');
+    }
+
+    /** What real visitors felt on Live (GET /api/rum/summary): p75s per page kind and device, numbers only. */
+    function speed() {
+        return cached('rum:summary', '/api/rum/summary', TTL.speed, 'live speed');
     }
 
     function topic(slug) {
@@ -119,7 +125,7 @@ function createLiveClient({ config = {}, fetchImpl = globalThis.fetch, log = con
         return sharedRecap(`recaps:channel:${key}`, `/api/recap/channel/${encodeURIComponent(username)}`, TTL.channelRecaps, 'live channel recaps');
     }
 
-    return { rundown, topics, topic, episode, speaker, recap, channelRecaps, cache, baseUrl, ttlMs: TTL, settled: () => Promise.all([...refreshing.values()]) };
+    return { rundown, topics, speed, topic, episode, speaker, recap, channelRecaps, cache, baseUrl, ttlMs: TTL, settled: () => Promise.all([...refreshing.values()]) };
 }
 
 module.exports = { createLiveClient, TTL };

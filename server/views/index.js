@@ -364,7 +364,33 @@ ${daily.length > 1 ? bars(daily, 'Emails sent a day', { h: 110 }) : ''}
 ${rows ? `<div class="rp-table is-3" role="table" aria-label="Email by kind"><div class="rp-tr rp-th" role="row"><span role="columnheader">Kind</span><span role="columnheader">Sent</span><span role="columnheader">Failed</span></div>${rows}</div>` : ''}</section>`;
 }
 
-function stats({ stats: d, days = 30, views: v = null } = {}) {
+// What real visitors felt on OpenVibe.Live (its GET /api/rum/summary, plan AD.37 Reflect): the p75 per page and device,
+// graded the way Core Web Vitals are (LCP 2.5 s / 4 s, INP 200 / 500 ms, CLS 0.1 / 0.25). Numbers only.
+const SPEED_PAGES = { home: 'Home', channel: 'A channel', chat: 'Chat', vod: 'A recording', clip: 'A clip', broadcast: 'Go live', content: 'Videos', dashboard: 'Dashboard', moments: 'Moments', other: 'Other pages' };
+const SPEED_DEVICES = ['phone', 'tablet', 'desktop'];
+const GRADE = { lcp: [2500, 4000], inp: [200, 500], cls: [0.1, 0.25] };
+function vitalCell(r, metric) {
+    if (!r || r.p75 == null) return '—';
+    const v = Number(r.p75);
+    const [good, poor] = GRADE[metric];
+    const grade = v <= good ? ['is-up', 'good'] : v <= poor ? ['is-flat', 'needs work'] : ['is-down', 'slow'];
+    const words = metric === 'cls' ? (Math.round(v * 100) / 100).toFixed(2) : metric === 'lcp' ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`;
+    return `${esc(words)} <span class="rp-pill ${grade[0]}">${grade[1]}</span>`;
+}
+function speedSection(s) {
+    const pages = s && s.pages && typeof s.pages === 'object' ? s.pages : null;
+    if (!pages) return '';
+    const rows = Object.keys(SPEED_PAGES).flatMap((page) => SPEED_DEVICES.map((device) => [page, device, pages[`${page}|${device}`]]))
+        .filter(([, , r]) => r && (r.lcp || r.inp || r.cls))
+        .map(([page, device, r]) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site">${esc(SPEED_PAGES[page])}<small>${esc(device)}</small></span>`
+            + `<span role="cell" data-l="Loads in">${vitalCell(r.lcp, 'lcp')}</span><span role="cell" data-l="Answers a tap in">${vitalCell(r.inp, 'inp')}</span>`
+            + `<span role="cell" data-l="Moves while loading">${vitalCell(r.cls, 'cls')}</span><span role="cell" data-l="Visits">${exact(Math.max((r.lcp || {}).n || 0, (r.inp || {}).n || 0, (r.cls || {}).n || 0))}</span></div>`).join('');
+    if (!rows) return '';
+    return `<section aria-labelledby="rp-speed-h"><h2 id="rp-speed-h">How fast OpenVibe.Live feels</h2><p class="rp-fine">What real visitors felt, the slowest quarter excluded (p75 of the newest visits, 20 or more per row)${s.generated_at ? `, read ${whenTag(s.generated_at)}` : ''}: when the biggest part showed, how long a tap took to answer, and how much the page moved while loading. Graded like Core Web Vitals. <a href="https://openvibe.live/api/rum/summary">The numbers as JSON</a>.</p>
+<div class="rp-table" role="table" aria-label="How fast OpenVibe.Live feels"><div class="rp-tr rp-th" role="row"><span role="columnheader">Page</span><span role="columnheader">Loads in</span><span role="columnheader">Answers a tap in</span><span role="columnheader">Moves while loading</span><span role="columnheader">Visits</span></div>${rows}</div></section>`;
+}
+
+function stats({ stats: d, days = 30, views: v = null, speed = null } = {}) {
     const T = d.totals || {}, L = d.live, C = d.coins, A = d.accounts;
     const tabs = [7, 30, 90].map((x) => `<a href="/stats?days=${x}"${Number(days) === x ? ' aria-current="page"' : ''}>${x} days</a>`).join('');
     const sites = (d.sites || []).filter((s) => s && s.name).map((s) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><a href="${esc(s.url || '#')}">${esc(s.name || s.short)}</a><small>${esc(s.host || '')}</small></span>`
@@ -387,6 +413,7 @@ ${d.pageviews_daily && d.pageviews_daily.length > 1 ? `<section aria-labelledby=
 ${sites ? `<section aria-labelledby="rp-sites-h"><h2 id="rp-sites-h">Every site</h2><p class="rp-fine">Most visited first over ${esc(d.window_days || days)} days; requests and speed (95% of answers were at least this fast) over the last 24 hours.</p>
 <div class="rp-table" role="table" aria-label="Every site"><div class="rp-tr rp-th" role="row"><span role="columnheader">Site</span><span role="columnheader">Page views</span><span role="columnheader">Visitors</span><span role="columnheader">Requests, 24 h</span><span role="columnheader">95% answered in</span></div>${sites}</div></section>` : ''}
 ${L ? `<section aria-labelledby="rp-live-h"><h2 id="rp-live-h">OpenVibe.Live</h2><div class="rp-minis">${[['Streamers', L.streamers], ['Streams', L.streams], ['Hours watched', L.hours_watched], ['Chat messages', L.messages], ['Recordings', L.vods], ['Clips', L.clips], ['AI moments', L.ai_moments]].filter(([, v]) => n(v)).map(([l, v]) => `<div><b>${fmt(v)}</b><span>${esc(l)}</span></div>`).join('')}</div></section>` : ''}
+${speedSection(speed)}
 ${A && A.daily && A.daily.length > 1 ? `<section aria-labelledby="rp-acc-h"><h2 id="rp-acc-h">New accounts a day</h2>${bars(A.daily, 'New accounts a day', { h: 110 })}</section>` : ''}
 ${emailSection(d.email, d.window_days || days)}
 <section aria-labelledby="rp-how-h"><h2 id="rp-how-h">How these are counted</h2><p class="rp-fine">${esc(d.note || '')} This page is the open dataset <strong>Every number on OpenVibe</strong>. The same numbers: <a href="/api/v1/stats?days=${esc(days)}"><code>/api/v1/stats</code></a>. How closely each site follows the design kit, read from its code: <a href="/design">Design health</a>.</p></section>`;
