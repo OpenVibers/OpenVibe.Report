@@ -23,6 +23,8 @@
 const express = require('express');
 const contracts = require('openvibe-contracts');
 const views = require('../views');
+const trafficViews = require('../views/traffic');
+const traffic = require('../traffic/query');
 const { normaliseDays, isSlug, isStreamId, isUsername, streamIdOf } = require('../data/source');
 const { twinPath } = require('../agent-pages');
 const designViews = require('../views/design');
@@ -130,6 +132,28 @@ function createPageRoutes(ctx) {
         const days = Math.max(1, Math.min(7, Number(req.query.days) || 7));
         const data = ctx.searchTrends ? await ctx.searchTrends.stats(days) : null;
         return send(req, res, views.searches({ data, days }));
+    });
+
+    // Who visits OpenVibe (plan AD.40): people and bots on every site, from the host's request log (server/traffic/).
+    r.get('/traffic', async (req, res) => {
+        const days = traffic.normaliseDays(req.query.days);
+        const data = ctx.store ? await traffic.summary(ctx.store, { days }).catch(() => null) : null;
+        return send(req, res, trafficViews.overview({ data, days }));
+    });
+    r.get('/traffic/sites/:host', async (req, res) => {
+        const host = String(req.params.host || '').toLowerCase();
+        if (!/^[a-z0-9][a-z0-9.-]{0,252}$/.test(host)) return notFound(req, res);
+        const days = traffic.normaliseDays(req.query.days);
+        const data = ctx.store ? await traffic.site(ctx.store, host, { days }).catch(() => null) : null;
+        if (!data) return notFound(req, res);
+        return send(req, res, trafficViews.siteView({ data, days }));
+    });
+    r.get('/traffic/bots/:agent', async (req, res) => {
+        const agent = String(req.params.agent || '').slice(0, 80);
+        const days = traffic.normaliseDays(req.query.days);
+        const data = ctx.store && agent ? await traffic.bot(ctx.store, agent, { days }).catch(() => null) : null;
+        if (!data) return notFound(req, res);
+        return send(req, res, trafficViews.botView({ data, days }));
     });
 
     r.get('/stats', async (req, res) => {
