@@ -6,7 +6,7 @@
  * that never run a page's script are here; never an address, never a person.
  */
 const kit = require('openvibe-shared/kit');
-const { layout, tile, exact, fmt, dayTime } = require('./index');
+const { layout, tile, exact, fmt, dayTime, whenTag } = require('./index');
 const { WHO, WHO_LINE } = require('../traffic/agents');
 const { KIND } = require('../traffic/paths');
 
@@ -112,7 +112,7 @@ function overview({ data: d = null, days = 7 } = {}) {
         + fold(d.files.map((f) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><code>${esc(f.path)}</code><small>on ${exact(f.sites)} ${f.sites === 1 ? 'site' : 'sites'}</small></span>`
             + `<span role="cell" data-l="Requests">${exact(f.requests)} ${problems(f)}</span><span role="cell" data-l="People">${exact(f.people)}</span>`
             + `<span role="cell" data-l="Read most by" class="tf-chips">${readerChips(f.readers) || '<span class="tf-muted">—</span>'}</span>`
-            + `<span role="cell" data-l="Last read">${esc(f.last_at ? dayTime(f.last_at) : '—')}</span></div>`)) + '</div>'
+            + `<span role="cell" data-l="Last read">${f.last_at ? whenTag(f.last_at) : '—'}</span></div>`)) + '</div>'
         : '<p class="rp-fine">No file for machines was asked for in this window.</p>';
     const sites = `<div class="rp-table" role="table" aria-label="Sites"><div class="rp-tr rp-th" role="row"><span role="columnheader">Site</span><span role="columnheader">Requests</span><span role="columnheader">People</span><span role="columnheader">Bots</span><span role="columnheader">AI</span></div>`
         + fold(d.sites.map((s) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><a href="${esc(siteHref(s.host))}">${esc(s.host)}</a><small>${exact(s.people_pages)} pages opened by people</small></span>`
@@ -132,7 +132,7 @@ ${arrivals(d)}
 
 function siteView({ data: d, days = 7 }) {
     const base = siteHref(d.host);
-    const files = d.files.length ? `<ul class="tf-files">${d.files.map((f) => `<li><div class="tf-fh"><code>${esc(f.path)}</code><span>${exact(f.requests)} requests${f.people ? ` · ${exact(f.people)} people` : ''}${f.missing ? ` · <span class="tf-flag is-bad">${exact(f.missing)} not found</span>` : ''}${f.last_at ? ` · last ${esc(dayTime(f.last_at))}` : ''}</span></div>`
+    const files = d.files.length ? `<ul class="tf-files">${d.files.map((f) => `<li><div class="tf-fh"><code>${esc(f.path)}</code><span>${exact(f.requests)} requests${f.people ? ` · ${exact(f.people)} people` : ''}${f.missing ? ` · <span class="tf-flag is-bad">${exact(f.missing)} not found</span>` : ''}${f.last_at ? ` · last ${whenTag(f.last_at)}` : ''}</span></div>`
         + `<div class="tf-chips">${f.readers.slice(0, 8).map((r) => `<a class="tf-chip" href="${esc(botHref(r.agent))}" title="${esc(r.last_at ? `last ${dayTime(r.last_at)}` : '')}">${esc(r.agent || 'Unnamed')} <b>${fmt(r.requests)}</b></a>`).join('') || '<span class="tf-muted">Only people</span>'}</div></li>`).join('')}</ul>`
         : '<p class="rp-fine">No file for machines was asked for on this site in this window.</p>';
     const pages = d.pages.length ? `<div class="rp-table" role="table" aria-label="Pages"><div class="rp-tr rp-th" role="row"><span role="columnheader">Section</span><span role="columnheader">People</span><span role="columnheader">Bots</span><span role="columnheader">Bot share</span><span role="columnheader">Not found</span></div>`
@@ -153,9 +153,9 @@ function botView({ data: d, days = 7 }) {
     const base = botHref(d.agent);
     const t = d.totals;
     const sites = `<div class="rp-table" role="table" aria-label="Sites"><div class="rp-tr rp-th" role="row"><span role="columnheader">Site</span><span role="columnheader">Requests</span><span role="columnheader">Answered</span><span role="columnheader">Not found</span><span role="columnheader">Last</span></div>`
-        + fold(d.sites.map((s) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><a href="${esc(siteHref(s.host))}">${esc(s.host)}</a></span><span role="cell" data-l="Requests">${exact(s.requests)}</span><span role="cell" data-l="Answered">${share(s.ok, s.requests)}</span><span role="cell" data-l="Not found">${exact(s.missing)}</span><span role="cell" data-l="Last">${esc(s.last_at ? dayTime(s.last_at) : '—')}</span></div>`)) + '</div>';
+        + fold(d.sites.map((s) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><a href="${esc(siteHref(s.host))}">${esc(s.host)}</a></span><span role="cell" data-l="Requests">${exact(s.requests)}</span><span role="cell" data-l="Answered">${share(s.ok, s.requests)}</span><span role="cell" data-l="Not found">${exact(s.missing)}</span><span role="cell" data-l="Last">${s.last_at ? whenTag(s.last_at) : '—'}</span></div>`)) + '</div>';
     const reads = d.reads.length ? `<div class="rp-table" role="table" aria-label="What it reads"><div class="rp-tr rp-th" role="row"><span role="columnheader">What</span><span role="columnheader">Requests</span><span role="columnheader">Kind</span><span role="columnheader">Answered</span><span role="columnheader">Last</span></div>`
-        + d.reads.map((r) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><code>${esc(r.path || '—')}</code></span><span role="cell" data-l="Requests">${exact(r.requests)}</span><span role="cell" data-l="Kind">${esc(KIND[r.kind] || r.kind)}</span><span role="cell" data-l="Answered">${share(r.ok, r.requests)}</span><span role="cell" data-l="Last">${esc(r.last_at ? dayTime(r.last_at) : '—')}</span></div>`).join('') + '</div>' : '';
+        + d.reads.map((r) => `<div class="rp-tr" role="row"><span role="cell" class="rp-site"><code>${esc(r.path || '—')}</code></span><span role="cell" data-l="Requests">${exact(r.requests)}</span><span role="cell" data-l="Kind">${esc(KIND[r.kind] || r.kind)}</span><span role="cell" data-l="Answered">${share(r.ok, r.requests)}</span><span role="cell" data-l="Last">${r.last_at ? whenTag(r.last_at) : '—'}</span></div>`).join('') + '</div>' : '';
     const verified = t.verified_no ? `${tile('Not really', exact(t.verified_no), `requests using the name from elsewhere`)}` : t.verified_yes ? tile('Checked', exact(t.verified_yes), 'from its own machines') : '';
     const body = `<header class="rp-page-h"><p class="rp-kicker"><a href="/traffic">Who visits OpenVibe</a></p><h1>${esc(d.agent)}</h1>
 <p class="rp-lede">${whoChip(d.who)} ${esc(WHO_LINE[d.who] || '')}.</p>${tabs(base, days)}</header>
